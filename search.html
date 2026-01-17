@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TWSV 搜索</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #f6f6f6;
+        --ink: #0f1419;
+        --muted: #536471;
+        --card: #ffffff;
+        --border: #e6e6e6;
+        --shadow: 0 12px 30px rgba(15, 20, 25, 0.08);
+        --radius: 20px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Noto Sans SC", "Manrope", "Segoe UI", sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+        min-height: 100vh;
+        padding: 0;
+      }
+
+      .app-shell {
+        max-width: 480px;
+        margin: 0 auto;
+        background: var(--card);
+      }
+
+      .phone-frame {
+        width: 100%;
+        min-height: 100vh;
+        background: var(--card);
+        border-radius: 0;
+        box-shadow: none;
+        padding: 72px 20px 96px;
+        position: relative;
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 10px;
+        padding: 12px 16px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        max-width: 480px;
+        margin: 0 auto;
+        background: var(--card);
+        border-bottom: 1px solid var(--border);
+        z-index: 5;
+      }
+
+      .nav-search {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 6px 10px;
+        background: #fff;
+      }
+
+      .nav-btn {
+        border: 1px solid var(--border);
+        background: #fff;
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        color: var(--ink);
+      }
+
+      .nav-search input {
+        border: 0;
+        outline: none;
+        width: 100%;
+        font-size: 14px;
+        font-family: inherit;
+      }
+
+      .search-panel {
+        display: grid;
+        gap: 10px;
+        margin-top: 6px;
+      }
+
+      .clear-btn {
+        border: 1px solid var(--border);
+        background: #f7f7f7;
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        justify-self: flex-start;
+      }
+
+      .section-title {
+        margin: 16px 0 8px;
+        font-size: 12px;
+        color: var(--muted);
+        letter-spacing: 0.06em;
+      }
+
+      .list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .list-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: #fff;
+        font-size: 14px;
+      }
+
+      .list-item span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .empty {
+        padding: 14px;
+        border: 1px dashed var(--border);
+        border-radius: 16px;
+        color: var(--muted);
+        font-size: 13px;
+        text-align: center;
+      }
+
+      .feed {
+        margin-top: 12px;
+        display: grid;
+        gap: 16px;
+      }
+
+      .thread {
+        display: grid;
+        grid-template-columns: 16px 1fr;
+        gap: 12px;
+        align-items: start;
+      }
+
+      .thread-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #111;
+        margin-top: 6px;
+      }
+
+      .thread-card {
+        background: #fff;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        padding: 12px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .thread-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-weight: 600;
+      }
+
+      .thread-meta {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .tag {
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        background: #f3f4f6;
+        color: #111;
+      }
+
+      .direction {
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        background: #111;
+        color: #fff;
+      }
+
+      .tabbar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        width: 100%;
+        max-width: 480px;
+        margin: 0 auto;
+        bottom: 0;
+        margin-top: 0;
+        min-height: 48px;
+        padding: 12px 6px;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 6px;
+        background: #fff;
+        border-top: 1px solid var(--border);
+        z-index: 5;
+      }
+
+      .tab-item {
+        text-align: center;
+        font-size: 12px;
+        color: var(--muted);
+        text-decoration: none;
+        display: block;
+        width: 100%;
+      }
+
+      .tab-item.active {
+        color: var(--ink);
+        font-weight: 600;
+      }
+
+      @media (max-width: 480px) {
+        .phone-frame {
+          padding: 68px 16px 88px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app" class="app-shell">
+      <div class="phone-frame">
+        <nav class="nav">
+          <a class="nav-btn" href="feed.html">返回</a>
+          <div class="nav-search">
+            <input
+              type="text"
+              v-model="query"
+              @input="handleInput"
+              @keyup.enter="handleSearch"
+              placeholder="输入股票代码或 #话题"
+            />
+          </div>
+        </nav>
+
+        <section class="search-panel">
+          <button v-if="query" class="clear-btn" @click="clearSearch">清除</button>
+        </section>
+
+        <section v-if="!query">
+          <div class="section-title">热门股票</div>
+          <div class="list">
+            <div v-for="item in trendingStocks" :key="item" class="list-item">
+              <strong>{{ item }}</strong>
+              <span>讨论热度 ↑</span>
+            </div>
+          </div>
+
+          <div class="section-title">热门话题</div>
+          <div class="list">
+            <div v-for="item in trendingTags" :key="item" class="list-item">
+              <strong>{{ item }}</strong>
+              <span>观点数增长</span>
+            </div>
+          </div>
+        </section>
+
+        <section v-else-if="query && !submittedQuery">
+          <div class="section-title">匹配结果</div>
+          <div class="list" v-if="matchedSuggestions.length">
+            <div
+              v-for="item in matchedSuggestions"
+              :key="item.label"
+              class="list-item"
+            >
+              <strong>{{ item.label }}</strong>
+              <span>{{ item.type }}</span>
+            </div>
+          </div>
+          <div class="empty" v-else>没有匹配结果</div>
+        </section>
+
+        <section v-else>
+          <div class="section-title">搜索结果</div>
+          <div v-if="filteredViews.length" class="feed">
+            <div v-for="view in filteredViews" :key="view.id" class="thread">
+              <div class="thread-dot" aria-hidden="true"></div>
+              <div class="thread-card">
+                <div class="thread-header">
+                  <span>{{ view.asset }}</span>
+                  <span class="tag">{{ view.horizon }}</span>
+                </div>
+                <div class="thread-meta">
+                  <span class="direction">{{ view.direction }}</span>
+                  <span>作者 {{ view.author }}</span>
+                  <span>{{ view.date }}</span>
+                </div>
+                <div>{{ view.content }}</div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="empty">暂无相关观点</div>
+        </section>
+
+        <nav class="tabbar">
+          <a class="tab-item" href="feed.html">广场</a>
+          <a class="tab-item active" href="search.html">搜索</a>
+          <a class="tab-item" href="feed.html#publish">发布</a>
+          <a class="tab-item" href="notifications.html">通知</a>
+          <a class="tab-item" href="profile.html">我的</a>
+        </nav>
+      </div>
+    </div>
+
+    <script type="module">
+      import { createApp } from "https://unpkg.com/vue@3/dist/vue.esm-browser.js";
+
+      createApp({
+        data() {
+          return {
+            query: "",
+            submittedQuery: "",
+            trendingStocks: ["2330 台积电", "2454 联发科", "2382 广达"],
+            trendingTags: ["#AI概念股", "#台积电法说", "#降息预期"],
+            suggestions: [
+              { label: "2330 台积电", type: "股票" },
+              { label: "2454 联发科", type: "股票" },
+              { label: "2603 长荣", type: "股票" },
+              { label: "#AI概念股", type: "话题" },
+              { label: "#台积电法说", type: "话题" },
+              { label: "#降息预期", type: "话题" },
+            ],
+            views: [
+              {
+                id: 1,
+                asset: "2330 台积电",
+                direction: "看多",
+                horizon: "10 个交易日",
+                author: "林可心",
+                date: "刚刚",
+                content: "法说会后动能持续，关注外资回补与量能变化。",
+                keywords: ["2330", "台积电", "AI"],
+              },
+              {
+                id: 2,
+                asset: "2454 联发科",
+                direction: "中性",
+                horizon: "5 个交易日",
+                author: "陈映帆",
+                date: "10 分钟前",
+                content: "区间震荡为主，等待新一轮催化确定方向。",
+                keywords: ["2454", "联发科"],
+              },
+              {
+                id: 3,
+                asset: "2603 长荣",
+                direction: "看空",
+                horizon: "20 个交易日",
+                author: "张以安",
+                date: "1 小时前",
+                content: "运价回落压力增大，短期风险偏高。",
+                keywords: ["2603", "长荣"],
+              },
+            ],
+          };
+        },
+        computed: {
+          matchedSuggestions() {
+            const q = this.query.trim().toLowerCase();
+            if (!q) return [];
+            return this.suggestions.filter((item) =>
+              item.label.toLowerCase().includes(q)
+            );
+          },
+          filteredViews() {
+            const q = this.submittedQuery.trim().toLowerCase();
+            if (!q) return [];
+            return this.views.filter((view) => {
+              const text = `${view.asset} ${view.content}`.toLowerCase();
+              return (
+                text.includes(q) ||
+                view.keywords.some((keyword) => keyword.toLowerCase().includes(q))
+              );
+            });
+          },
+        },
+        methods: {
+          handleInput() {
+            if (!this.query.trim()) {
+              this.submittedQuery = "";
+            } else if (this.submittedQuery) {
+              this.submittedQuery = "";
+            }
+          },
+          handleSearch() {
+            const q = this.query.trim();
+            if (!q) return;
+            this.submittedQuery = q;
+          },
+          clearSearch() {
+            this.query = "";
+            this.submittedQuery = "";
+          },
+        },
+      }).mount("#app");
+    </script>
+  </body>
+</html>
