@@ -13,14 +13,14 @@ TWSV是一个台股投资观点记录与回溯平台，用户可以发布结构�
 
 ## 技术栈
 
-- **前端**：原生 HTML/CSS/JavaScript + Vue.js
-- **后端**：待实现
-- **数据库**：待实现
+- **前端**：Vue 3 + Vite + Vue Router
+- **后端**：Node.js（server/）
+- **数据库**：PostgreSQL（后端规划）
 - **认证**：Google OAuth 2.0
 
 ## 快速开始
 
-### 本地开发
+### 本地开发（前端）
 
 1. 克隆仓库
 ```bash
@@ -28,44 +28,40 @@ git clone <repository-url>
 cd TWSV
 ```
 
-2. 启动本地服务器
+2. 安装依赖并启动
 ```bash
-python3 -m http.server 8080
+npm install
+npm run dev
 ```
 
 3. 在浏览器中访问
 ```
-http://localhost:8080/login.html
+http://localhost:5173
 ```
 
 ## 项目结构
 
 ```
 TWSV/
+├── server/              # 后端服务
+├── src/                 # 前端源码（Vue）
+├── index.html           # Vite 入口
 ├── REQUIREMENTS.md      # 登录与注册需求说明
 ├── Requirement.md       # 完整产品需求文档
-├── STYLE.md             # 设计规范
-├── feed.html            # 广场页（主页面）
-├── login.html           # 登录页
-├── notifications.html   # 通知页
-├── profile.html         # 个人页
-├── search.html          # 搜索页
-└── settings.html        # 设置页
+└── STYLE.md             # 设计规范
 ```
 
 ## 开发指南
 
 ### 前端开发
 
-- 使用 Vue.js 进行组件化开发
+- 使用 Vue 组件化开发 + Vue Router
 - 遵循 STYLE.md 中的设计规范
 - 确保所有页面在移动设备上有良好的显示效果
 
 ### 后端集成
 
-- 待实现：API 接口开发
-- 待实现：数据库集成
-- 待实现：Google OAuth 回调处理
+- 见 `server/README.md`
 
 ## 部署说明
 

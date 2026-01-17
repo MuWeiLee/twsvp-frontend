@@ -1,0 +1,26 @@
+:root {
+  --bg: #f6f6f6;
+  --ink: #0f1419;
+  --muted: #536471;
+  --card: #ffffff;
+  --border: #e6e6e6;
+  --shadow: 0 12px 30px rgba(15, 20, 25, 0.08);
+  --radius: 20px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Noto Sans SC", "Manrope", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  min-height: 100vh;
+  padding: 0;
+}
+
+a {
+  color: inherit;
+}
