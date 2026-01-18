@@ -28,11 +28,15 @@ const router = createRouter({
   },
 });
 
-let authChecked = false;
+const AUTH_CACHE_MS = 60000;
+let authCheckedAt = 0;
 let authed = false;
 
 async function ensureAuth() {
-  if (authChecked) return authed;
+  const now = Date.now();
+  if (authCheckedAt && now - authCheckedAt < AUTH_CACHE_MS) {
+    return authed;
+  }
 
   try {
     const response = await fetch("https://api.twsvp.com/me", {
@@ -48,7 +52,7 @@ async function ensureAuth() {
     authed = false;
   }
 
-  authChecked = true;
+  authCheckedAt = now;
   return authed;
 }
 
