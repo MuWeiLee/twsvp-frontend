@@ -69,12 +69,30 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 
+const router = useRouter();
 const mode = ref("login");
 
+onMounted(async () => {
+  try {
+    const response = await fetch("https://api.twsvp.com/me", {
+      credentials: "include",
+    });
+
+    if (!response.ok) return;
+    const data = await response.json();
+    if (data && data.ok) {
+      router.replace("/feed");
+    }
+  } catch (error) {
+    // Ignore auth check errors and stay on login.
+  }
+});
+
 const handleGoogle = () => {
-  alert("Google OAuth 示例：此处接入真实跳转。");
+  window.location.href = "https://api.twsvp.com/auth/google/start";
 };
 </script>
 

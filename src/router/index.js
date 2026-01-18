@@ -28,4 +28,38 @@ const router = createRouter({
   },
 });
 
+let authChecked = false;
+let authed = false;
+
+async function ensureAuth() {
+  if (authChecked) return authed;
+
+  try {
+    const response = await fetch("https://api.twsvp.com/me", {
+      credentials: "include",
+    });
+    if (!response.ok) {
+      authed = false;
+    } else {
+      const data = await response.json();
+      authed = Boolean(data && data.ok);
+    }
+  } catch (error) {
+    authed = false;
+  }
+
+  authChecked = true;
+  return authed;
+}
+
+router.beforeEach(async (to) => {
+  if (to.path === "/login") {
+    const ok = await ensureAuth();
+    return ok ? "/feed" : true;
+  }
+
+  const ok = await ensureAuth();
+  return ok ? true : "/login";
+});
+
 export default router;
