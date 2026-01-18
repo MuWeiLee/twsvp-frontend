@@ -5,6 +5,7 @@ import NotificationsView from "../views/NotificationsView.vue";
 import ProfileView from "../views/ProfileView.vue";
 import SearchView from "../views/SearchView.vue";
 import SettingsView from "../views/SettingsView.vue";
+import { getMe } from "../services/auth.js";
 
 const routes = [
   { path: "/", component: LoginView },
@@ -28,42 +29,15 @@ const router = createRouter({
   },
 });
 
-const AUTH_CACHE_MS = 60000;
-let authCheckedAt = 0;
-let authed = false;
-
-async function ensureAuth() {
-  const now = Date.now();
-  if (authCheckedAt && now - authCheckedAt < AUTH_CACHE_MS) {
-    return authed;
-  }
-
-  try {
-    const response = await fetch("https://api.twsvp.com/me", {
-      credentials: "include",
-    });
-    if (!response.ok) {
-      authed = false;
-    } else {
-      const data = await response.json();
-      authed = Boolean(data && data.ok);
-    }
-  } catch (error) {
-    authed = false;
-  }
-
-  authCheckedAt = now;
-  return authed;
-}
-
 router.beforeEach(async (to) => {
-  if (to.path === "/login") {
-    const ok = await ensureAuth();
-    return ok ? "/feed" : true;
+  const isLoginRoute = to.path === "/" || to.path === "/login";
+  const user = await getMe();
+
+  if (isLoginRoute) {
+    return user ? "/feed" : true;
   }
 
-  const ok = await ensureAuth();
-  return ok ? true : "/login";
+  return user ? true : "/login";
 });
 
 export default router;

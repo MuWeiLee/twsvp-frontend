@@ -71,23 +71,15 @@
 <script setup>
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { getMe } from "../services/auth.js";
 
 const router = useRouter();
 const mode = ref("login");
 
 onMounted(async () => {
-  try {
-    const response = await fetch("https://api.twsvp.com/me", {
-      credentials: "include",
-    });
-
-    if (!response.ok) return;
-    const data = await response.json();
-    if (data && data.ok) {
-      router.replace("/feed");
-    }
-  } catch (error) {
-    // Ignore auth check errors and stay on login.
+  const user = await getMe();
+  if (user) {
+    router.replace("/feed");
   }
 });
 
