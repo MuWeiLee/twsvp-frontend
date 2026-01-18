@@ -7,7 +7,7 @@ import SearchView from "../views/SearchView.vue";
 import SettingsView from "../views/SettingsView.vue";
 
 const routes = [
-  { path: "/", redirect: "/login" },
+  { path: "/", component: LoginView },
   { path: "/login", component: LoginView },
   { path: "/feed", component: FeedView },
   { path: "/search", component: SearchView },
