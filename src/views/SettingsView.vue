@@ -11,7 +11,7 @@
         <div class="brand">
           <div class="logo">T</div>
           <div>
-            <div>TWSV</div>
+            <div>TWSVP</div>
             <div style="font-size: 12px; color: var(--muted)">设置</div>
           </div>
         </div>
@@ -91,7 +91,7 @@
           <button class="btn-danger" @click="handleLogout">退出</button>
         </div>
 
-        <p class="legal">TWSV 不提供投资建议，所有观点仅用于记录与回溯。</p>
+        <p class="legal">TWSVP 不提供投资建议，所有观点仅用于记录与回溯。</p>
       </section>
 
       <nav class="tabbar">

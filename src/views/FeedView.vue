@@ -2,7 +2,7 @@
   <div class="app-shell">
     <div class="phone-frame fade-in">
       <nav class="nav slide-in">
-        <router-link class="nav-logo" to="/feed" aria-label="TWSV">T</router-link>
+        <router-link class="nav-logo" to="/feed" aria-label="TWSVP">T</router-link>
         <div class="nav-title">广场</div>
         <router-link class="nav-btn" to="/search">搜索</router-link>
       </nav>

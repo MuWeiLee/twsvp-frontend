@@ -4,13 +4,13 @@
       <div class="brand">
         <div class="logo">T</div>
         <div>
-          <div>TWSV</div>
+          <div>TWSVP</div>
           <div style="font-size: 12px; color: var(--muted)">Google 登录</div>
         </div>
       </div>
       <h1 class="title">欢迎回来</h1>
       <p class="subtitle">
-        继续使用 TWSV，请通过 Google 账号完成登录或注册。
+        继续使用 TWSVP，请通过 Google 账号完成登录或注册。
       </p>
     </header>
 
