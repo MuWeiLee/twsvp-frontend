@@ -1,5 +1,6 @@
 <template>
-  <div class="phone-frame fade-in">
+  <div class="app-shell">
+    <div class="phone-frame fade-in">
     <header class="slide-in">
       <div class="brand">
         <div class="logo">T</div>
@@ -65,6 +66,7 @@
         继续即表示你同意《服务条款》，并确认已阅读《隐私政策》。
       </p>
     </section>
+    </div>
   </div>
 </template>
 
@@ -89,6 +91,12 @@ const handleGoogle = () => {
 </script>
 
 <style scoped>
+.app-shell {
+  max-width: 600px;
+  margin: 0 auto;
+  background: var(--card);
+}
+
 .phone-frame {
   width: 100%;
   min-height: 100vh;

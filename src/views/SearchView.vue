@@ -167,7 +167,7 @@ const clearSearch = () => {
 
 <style scoped>
 .app-shell {
-  max-width: 480px;
+  max-width: 600px;
   margin: 0 auto;
   background: var(--card);
 }
@@ -193,7 +193,7 @@ const clearSearch = () => {
   left: 0;
   right: 0;
   width: 100%;
-  max-width: 480px;
+  max-width: 600px;
   margin: 0 auto;
   background: var(--card);
   border-bottom: 1px solid var(--border);
@@ -384,7 +384,7 @@ const clearSearch = () => {
   left: 0;
   right: 0;
   width: 100%;
-  max-width: 480px;
+  max-width: 600px;
   margin: 0 auto;
   bottom: 0;
   margin-top: 0;
@@ -412,7 +412,7 @@ const clearSearch = () => {
   font-weight: 600;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 600px) {
   .phone-frame {
     padding: 68px 16px 88px;
   }
