@@ -330,6 +330,8 @@ graph LR
 | 字段名 | 数据类型 | 说明 | 约束 |
 |--------|----------|------|------|
 | `user_id` | VARCHAR(36) | 用户唯一 ID | PRIMARY KEY |
+| `oauth_provider` | VARCHAR(30) | OAuth 提供方（如 google） | NOT NULL |
+| `oauth_sub` | VARCHAR(100) | OAuth 用户唯一标识（sub） | NOT NULL |
 | `username` | VARCHAR(50) | 用户名 | UNIQUE |
 | `email` | VARCHAR(100) | 邮箱 | UNIQUE |
 | `avatar_url` | VARCHAR(255) | 头像链接 | NULL |
@@ -358,6 +360,61 @@ graph LR
 | 👤 **用户索引** | user_id | 用户查询 |
 
 ---
+
+## 7.5 API 设计（MVP）
+
+> 🎯 **目标**：围绕 OAuth 登录、用户信息校验、观点发布与信息流读取建立最小可用接口。
+
+### 7.5.1 认证与用户
+| 方法 | 路径 | 说明 | 认证 |
+|------|------|------|------|
+| `POST` | `/auth/google` | OAuth code 换取 JWT 与用户信息 | 否 |
+| `GET` | `/me` | 查询当前登录用户信息 | ✅ Bearer |
+
+**`POST /auth/google` 请求体**
+```json
+{ "code": "google_oauth_code" }
+```
+
+**`POST /auth/google` 响应**
+```json
+{
+  "token": "jwt",
+  "user": {
+    "user_id": "uuid",
+    "username": "display_name",
+    "email": "user@example.com",
+    "avatar_url": "https://..."
+  }
+}
+```
+
+### 7.5.2 观点（Feed）
+| 方法 | 路径 | 说明 | 认证 |
+|------|------|------|------|
+| `GET` | `/views` | 获取观点信息流（支持分页/筛选） | 否 |
+| `GET` | `/views?user_id=...` | 获取某用户观点列表 | 否 |
+| `POST` | `/views` | 发布观点 | ✅ Bearer |
+
+**`POST /views` 请求体（简化版）**
+```json
+{
+  "asset_code": "2330",
+  "direction": "long",
+  "time_horizon": 10,
+  "content": "短期看多台积电",
+  "hashtags": ["#AI概念股"]
+}
+```
+
+**`POST /views` 响应**
+```json
+{
+  "view_id": "uuid",
+  "status": "active",
+  "created_at": "2024-01-01T00:00:00Z"
+}
+```
 
 ## 8. 项目实施计划
 
