@@ -4,13 +4,13 @@
       <div class="brand">
         <div class="logo">T</div>
         <div>
-          <div>TWSV</div>
+          <div>TWSVP</div>
           <div style="font-size: 12px; color: var(--muted)">Google 登录</div>
         </div>
       </div>
       <h1 class="title">欢迎回来</h1>
       <p class="subtitle">
-        继续使用 TWSV，请通过 Google 账号完成登录或注册。
+        继续使用 TWSVP，请通过 Google 账号完成登录或注册。
       </p>
     </header>
 
@@ -33,12 +33,22 @@
       </div>
 
       <p class="subtitle" style="margin: 0 0 14px">
-        {{
+        {{ 
           mode === "login"
             ? "使用 Google 账号快速登录。"
             : "首次使用请通过 Google 完成注册。"
         }}
       </p>
+      
+      <!-- Supabase 切换开关 -->
+      <div class="toggle-container" style="margin: 0 0 14px; display: flex; align-items: center; justify-content: space-between;">
+        <label style="font-size: 14px; color: var(--muted);">使用 Supabase 认证</label>
+        <label class="switch">
+          <input type="checkbox" v-model="useSupabase" />
+          <span class="slider"></span>
+        </label>
+      </div>
+      
       <button class="btn btn-google" @click="handleGoogle">
         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
           <path
@@ -58,7 +68,7 @@
             d="M20.6 12.5c0-.4-.1-.9-.2-1.3H12v3.9h5.5c-.3 1.2-1.2 2.3-2.5 3.1l2.7 2.1c1.6-1.5 2.9-3.8 2.9-7.8z"
           />
         </svg>
-        {{ mode === "login" ? "使用 Google 登录" : "使用 Google 注册" }}
+        {{ mode === "login" ? "使用 Google 登录" : "使用 Google 注册" }} ({{ useSupabase ? 'Supabase' : '传统' }})
       </button>
 
       <p class="legal">
@@ -71,20 +81,40 @@
 <script setup>
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { getMe } from "../services/auth.js";
+import { getMe, signInWithGoogleSupabase, getCurrentUserSupabase } from "../services/auth.js";
 
 const router = useRouter();
 const mode = ref("login");
+const useSupabase = ref(false);
 
 onMounted(async () => {
+  // 检查是否已有用户登录（支持传统认证和Supabase认证）
   const user = await getMe();
+  if (!user) {
+    // 检查Supabase用户
+    await getCurrentUserSupabase();
+  }
+  
   if (user) {
     router.replace("/feed");
   }
 });
 
 const handleGoogle = () => {
-  window.location.href = "https://api.twsvp.com/auth/google/start";
+  if (useSupabase.value) {
+    handleGoogleSupabase();
+  } else {
+    window.location.href = "https://api.twsvp.com/auth/google/start";
+  }
+};
+
+const handleGoogleSupabase = async () => {
+  try {
+    await signInWithGoogleSupabase();
+    console.log('Supabase Google登录请求已发送');
+  } catch (error) {
+    console.error('Supabase登录失败:', error);
+  }
 };
 </script>
 
@@ -227,6 +257,56 @@ const handleGoogle = () => {
   to {
     opacity: 1;
   }
+}
+
+/* 切换开关样式 */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #4285F4;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #4285F4;
+}
+
+input:checked + .slider:before {
+  transform: translateX(20px);
 }
 
 @media (max-width: 420px) {

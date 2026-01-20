@@ -2,7 +2,7 @@
   <div class="app-shell">
     <div class="phone-frame">
       <nav class="nav">
-        <router-link class="nav-logo" to="/feed" aria-label="TWSV">T</router-link>
+        <router-link class="nav-logo" to="/feed" aria-label="TWSVP">T</router-link>
         <div class="nav-title">搜索</div>
         <router-link class="nav-btn" to="/notifications">通知</router-link>
       </nav>

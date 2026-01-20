@@ -11,7 +11,7 @@
         <div class="brand">
           <div class="logo">T</div>
           <div>
-            <div>TWSV</div>
+            <div>TWSVP</div>
             <div style="font-size: 12px; color: var(--muted)">设置</div>
           </div>
         </div>
@@ -91,7 +91,7 @@
           <button class="btn-danger" @click="handleLogout">退出</button>
         </div>
 
-        <p class="legal">TWSV 不提供投资建议，所有观点仅用于记录与回溯。</p>
+        <p class="legal">TWSVP 不提供投资建议，所有观点仅用于记录与回溯。</p>
       </section>
 
       <nav class="tabbar">
@@ -109,6 +109,10 @@
 
 <script setup>
 import { computed, reactive } from "vue";
+import { useRouter } from "vue-router";
+import { signOutSupabase } from "../services/auth.js";
+
+const router = useRouter();
 
 const account = reactive({
   email: "twsv.user@gmail.com",
@@ -143,8 +147,19 @@ const handleBlocked = () => {
   alert("屏蔽词管理示例：打开关键词编辑弹窗。");
 };
 
-const handleLogout = () => {
-  alert("退出示例：清除会话并返回登录页。");
+const handleLogout = async () => {
+  const confirmed = window.confirm("确定要退出登录吗？");
+  if (!confirmed) {
+    return;
+  }
+
+  const success = await signOutSupabase();
+  if (success) {
+    await router.replace("/login");
+    return;
+  }
+
+  alert("退出失败，请稍后重试。");
 };
 </script>
 

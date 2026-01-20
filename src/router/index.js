@@ -5,11 +5,13 @@ import NotificationsView from "../views/NotificationsView.vue";
 import ProfileView from "../views/ProfileView.vue";
 import SearchView from "../views/SearchView.vue";
 import SettingsView from "../views/SettingsView.vue";
+import AuthCallbackView from "../views/AuthCallbackView.vue";
 import { getMe } from "../services/auth.js";
 
 const routes = [
   { path: "/", component: LoginView },
   { path: "/login", component: LoginView },
+  { path: "/auth/callback", component: AuthCallbackView },
   { path: "/feed", component: FeedView },
   { path: "/search", component: SearchView },
   { path: "/notifications", component: NotificationsView },
@@ -30,7 +32,8 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to) => {
-  const isLoginRoute = to.path === "/" || to.path === "/login";
+  const isLoginRoute =
+    to.path === "/" || to.path === "/login" || to.path === "/auth/callback";
   const user = await getMe();
 
   if (isLoginRoute) {
