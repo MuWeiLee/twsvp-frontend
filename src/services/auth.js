@@ -36,7 +36,16 @@ export async function getMe(options = {}) {
   }
 
   if (!token) {
-    cachedUser = null;
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        cachedUser = null;
+      } else {
+        cachedUser = session?.user ?? null;
+      }
+    } catch (error) {
+      cachedUser = null;
+    }
     checkedAt = now;
     return cachedUser;
   }
@@ -49,13 +58,19 @@ export async function getMe(options = {}) {
     });
 
     if (!response.ok) {
-      cachedUser = null;
+      const { data: { session }, error } = await supabase.auth.getSession();
+      cachedUser = !error && session?.user ? session.user : null;
     } else {
       const data = await response.json();
       cachedUser = data && data.user ? data.user : null;
     }
   } catch (error) {
-    cachedUser = null;
+    try {
+      const { data: { session }, error: supabaseError } = await supabase.auth.getSession();
+      cachedUser = !supabaseError && session?.user ? session.user : null;
+    } catch (supabaseError) {
+      cachedUser = null;
+    }
   }
 
   checkedAt = now;
@@ -97,7 +112,7 @@ export async function signInWithGoogleSupabase() {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
 

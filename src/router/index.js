@@ -36,6 +36,10 @@ router.beforeEach(async (to) => {
     to.path === "/" || to.path === "/login" || to.path === "/auth/callback";
   const user = await getMe();
 
+  if (to.path === "/") {
+    return user ? "/feed" : "/login";
+  }
+
   if (isLoginRoute) {
     return user ? "/feed" : true;
   }
