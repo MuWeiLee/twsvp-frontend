@@ -131,20 +131,31 @@ export async function getCurrentUserSupabase() {
   }
 }
 
+export async function getSessionUser(options = {}) {
+  const user = await getMe(options);
+  if (user) {
+    return user;
+  }
+
+  return await getCurrentUserSupabase();
+}
+
 // 使用Supabase登出
 export async function signOutSupabase() {
+  let signOutError = null;
   try {
     const { error } = await supabase.auth.signOut();
     
     if (error) {
-      throw error;
+      signOutError = error;
     }
     
-    setAuthToken(null);
-    clearAuthCache();
-    return true;
   } catch (error) {
     console.error('登出失败:', error);
-    return false;
+    signOutError = error;
   }
+
+  setAuthToken(null);
+  clearAuthCache();
+  return !signOutError;
 }

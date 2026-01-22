@@ -6,7 +6,7 @@ import ProfileView from "../views/ProfileView.vue";
 import SearchView from "../views/SearchView.vue";
 import SettingsView from "../views/SettingsView.vue";
 import AuthCallbackView from "../views/AuthCallbackView.vue";
-import { getMe } from "../services/auth.js";
+import { getSessionUser } from "../services/auth.js";
 
 const routes = [
   { path: "/", component: LoginView },
@@ -34,7 +34,7 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const isLoginRoute =
     to.path === "/" || to.path === "/login" || to.path === "/auth/callback";
-  const user = await getMe();
+  const user = await getSessionUser();
 
   if (isLoginRoute) {
     return user ? "/feed" : true;
