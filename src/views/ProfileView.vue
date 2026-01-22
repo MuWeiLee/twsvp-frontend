@@ -53,7 +53,9 @@
                 <span class="tag">{{ view.horizon }}</span>
               </div>
               <div class="view-meta">
-                <span class="direction">{{ view.direction }}</span>
+                <span class="direction" :class="directionClass(view.direction)">
+                  {{ view.direction }}
+                </span>
                 <span>发布于 {{ view.date }}</span>
                 <span>状态：{{ view.statusLabel }}</span>
               </div>
@@ -142,6 +144,12 @@ const filteredViews = computed(() =>
   views.value.filter((view) => view.status === mode.value)
 );
 
+const directionClass = (direction) => {
+  if (direction.includes("看多")) return "bullish";
+  if (direction.includes("看空")) return "bearish";
+  return "neutral";
+};
+
 const goSettings = () => {
   router.push("/settings");
 };
@@ -183,7 +191,7 @@ const goSettings = () => {
 }
 
 .nav-title {
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
+  font-family: "Inter", "Source Han Serif", "Noto Serif SC", sans-serif;
   font-weight: 700;
   font-size: 16px;
   position: absolute;
@@ -193,7 +201,7 @@ const goSettings = () => {
 
 .nav-btn {
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--section);
   border-radius: 999px;
   padding: 6px 12px;
   font-size: 12px;
@@ -207,10 +215,10 @@ const goSettings = () => {
   width: 32px;
   height: 32px;
   border-radius: 12px;
-  background: #111;
+  background: var(--ink);
   display: grid;
   place-items: center;
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
+  font-family: "Inter", "Source Han Serif", "Noto Serif SC", sans-serif;
   font-weight: 700;
   color: #fff;
   border: 0;
@@ -226,7 +234,7 @@ const goSettings = () => {
   display: flex;
   gap: 12px;
   align-items: center;
-  background: #fff;
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 14px;
@@ -236,7 +244,7 @@ const goSettings = () => {
   width: 48px;
   height: 48px;
   border-radius: 16px;
-  background: #f3f4f6;
+  background: var(--section);
   display: grid;
   place-items: center;
   font-weight: 600;
@@ -258,7 +266,7 @@ const goSettings = () => {
 }
 
 .stats > div {
-  background: #fff;
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px;
@@ -279,7 +287,7 @@ const goSettings = () => {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 6px;
-  background: #f3f4f6;
+  background: var(--section);
   padding: 4px;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -298,9 +306,9 @@ const goSettings = () => {
 }
 
 .tab-btn.active {
-  background: #fff;
+  background: var(--card);
   color: var(--ink);
-  box-shadow: 0 6px 16px rgba(15, 20, 25, 0.12);
+  box-shadow: var(--shadow);
 }
 
 .view-list {
@@ -318,13 +326,13 @@ const goSettings = () => {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #111;
+  background: var(--ink);
   margin-top: 8px;
 }
 
 .thread-body {
-  background: #fff;
-  border-radius: 16px;
+  background: var(--card);
+  border-radius: var(--radius);
   border: 1px solid var(--border);
   padding: 12px;
   display: grid;
@@ -351,16 +359,31 @@ const goSettings = () => {
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 12px;
-  background: #f3f4f6;
-  color: #111;
+  background: var(--tag-neutral-bg);
+  color: var(--tag-neutral-text);
 }
 
 .direction {
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 12px;
-  background: #111;
-  color: #fff;
+  background: var(--tag-neutral-bg);
+  color: var(--tag-neutral-text);
+}
+
+.direction.bullish {
+  background: var(--tag-bullish-bg);
+  color: var(--tag-bullish-text);
+}
+
+.direction.bearish {
+  background: var(--tag-bearish-bg);
+  color: var(--tag-bearish-text);
+}
+
+.direction.neutral {
+  background: var(--tag-neutral-bg);
+  color: var(--tag-neutral-text);
 }
 
 .legal {
@@ -384,7 +407,7 @@ const goSettings = () => {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 6px;
-  background: #fff;
+  background: var(--card);
   border-top: 1px solid var(--border);
   z-index: 5;
 }

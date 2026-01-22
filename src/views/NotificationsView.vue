@@ -71,7 +71,7 @@
 }
 
 .nav-title {
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
+  font-family: "Inter", "Source Han Serif", "Noto Serif SC", sans-serif;
   font-weight: 700;
   font-size: 16px;
   position: absolute;
@@ -81,7 +81,7 @@
 
 .nav-btn {
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--section);
   border-radius: 999px;
   padding: 6px 12px;
   font-size: 12px;
@@ -95,10 +95,10 @@
   width: 32px;
   height: 32px;
   border-radius: 12px;
-  background: #111;
+  background: var(--ink);
   display: grid;
   place-items: center;
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
+  font-family: "Inter", "Source Han Serif", "Noto Serif SC", sans-serif;
   font-weight: 700;
   color: #fff;
   border: 0;
@@ -112,11 +112,11 @@
 
 .item {
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius);
   padding: 12px 14px;
   display: grid;
   gap: 4px;
-  background: #fff;
+  background: var(--card);
 }
 
 .item span {
@@ -138,7 +138,7 @@
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 6px;
-  background: #fff;
+  background: var(--card);
   border-top: 1px solid var(--border);
   z-index: 5;
 }

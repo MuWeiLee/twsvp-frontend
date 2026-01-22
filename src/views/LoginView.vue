@@ -139,16 +139,16 @@ const handleGoogleSupabase = async () => {
   width: 40px;
   height: 40px;
   border-radius: 14px;
-  background: #111;
+  background: var(--ink);
   display: grid;
   place-items: center;
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
+  font-family: "Inter", "Source Han Serif", "Noto Serif SC", sans-serif;
   font-weight: 700;
   color: #fff;
 }
 
 .title {
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
+  font-family: "Inter", "Source Han Serif", "Noto Serif SC", sans-serif;
   font-size: 24px;
   margin: 18px 0 6px;
 }
@@ -160,7 +160,7 @@ const handleGoogleSupabase = async () => {
 }
 
 .login-card {
-  background: #fff;
+  background: var(--card);
   border-radius: var(--radius);
   padding: 20px;
   border: 1px solid var(--border);
@@ -173,7 +173,7 @@ const handleGoogleSupabase = async () => {
   grid-template-columns: repeat(2, 1fr);
   gap: 6px;
   margin-bottom: 16px;
-  background: #f3f4f6;
+  background: var(--section);
   padding: 4px;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -192,9 +192,9 @@ const handleGoogleSupabase = async () => {
 }
 
 .tab-btn.active {
-  background: #fff;
+  background: var(--card);
   color: var(--ink);
-  box-shadow: 0 6px 16px rgba(15, 20, 25, 0.12);
+  box-shadow: var(--shadow);
 }
 
 .btn {
@@ -206,7 +206,7 @@ const handleGoogleSupabase = async () => {
   font-weight: 600;
   cursor: pointer;
   transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
-  background: #fff;
+  background: var(--card);
 }
 
 .btn-google {
@@ -221,7 +221,8 @@ const handleGoogleSupabase = async () => {
 
 .btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(15, 20, 25, 0.12);
+  box-shadow: var(--shadow);
+  background: var(--section);
 }
 
 .legal {
@@ -280,8 +281,8 @@ const handleGoogleSupabase = async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ccc;
-  transition: .4s;
+  background-color: var(--divider);
+  transition: 0.4s;
   border-radius: 24px;
 }
 
@@ -292,17 +293,17 @@ const handleGoogleSupabase = async () => {
   width: 16px;
   left: 4px;
   bottom: 4px;
-  background-color: white;
-  transition: .4s;
+  background-color: var(--card);
+  transition: 0.4s;
   border-radius: 50%;
 }
 
 input:checked + .slider {
-  background-color: #4285F4;
+  background-color: var(--ink);
 }
 
 input:focus + .slider {
-  box-shadow: 0 0 1px #4285F4;
+  box-shadow: var(--shadow);
 }
 
 input:checked + .slider:before {

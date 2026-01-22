@@ -199,14 +199,14 @@ const handleLogout = async () => {
 }
 
 .nav-title {
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
+  font-family: "Inter", "Source Han Serif", "Noto Serif SC", sans-serif;
   font-weight: 700;
   font-size: 16px;
 }
 
 .nav-btn {
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--section);
   border-radius: 999px;
   padding: 6px 12px;
   font-size: 12px;
@@ -230,16 +230,16 @@ const handleLogout = async () => {
   width: 40px;
   height: 40px;
   border-radius: 14px;
-  background: #111;
+  background: var(--ink);
   display: grid;
   place-items: center;
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
+  font-family: "Inter", "Source Han Serif", "Noto Serif SC", sans-serif;
   font-weight: 700;
   color: #fff;
 }
 
 .title {
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
+  font-family: "Inter", "Source Han Serif", "Noto Serif SC", sans-serif;
   font-size: 24px;
   margin: 18px 0 6px;
 }
@@ -251,7 +251,7 @@ const handleLogout = async () => {
 }
 
 .card {
-  background: #fff;
+  background: var(--card);
   border-radius: var(--radius);
   padding: 18px;
   border: 1px solid var(--border);
@@ -263,6 +263,7 @@ const handleLogout = async () => {
   font-size: 14px;
   font-weight: 600;
   margin-top: 8px;
+  color: var(--text-secondary);
 }
 
 .setting-item {
@@ -288,15 +289,15 @@ const handleLogout = async () => {
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 12px;
-  background: #f3f4f6;
-  color: #111;
+  background: var(--tag-neutral-bg);
+  color: var(--tag-neutral-text);
 }
 
 .switch {
   width: 42px;
   height: 24px;
   border-radius: 999px;
-  background: #e6e6e6;
+  background: var(--divider);
   position: relative;
   transition: background 150ms ease;
   cursor: pointer;
@@ -308,14 +309,14 @@ const handleLogout = async () => {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--card);
   top: 3px;
   left: 3px;
   transition: transform 150ms ease;
 }
 
 .switch.active {
-  background: #111;
+  background: var(--ink);
 }
 
 .switch.active::after {
@@ -324,8 +325,8 @@ const handleLogout = async () => {
 
 .btn-outline {
   border: 1px solid var(--border);
-  background: #f7f7f7;
-  border-radius: 14px;
+  background: var(--section);
+  border-radius: var(--radius);
   padding: 10px 14px;
   font-size: 13px;
   font-weight: 600;
@@ -334,9 +335,9 @@ const handleLogout = async () => {
 
 .btn-danger {
   border: 0;
-  background: #111;
+  background: var(--ink);
   color: #fff;
-  border-radius: 14px;
+  border-radius: var(--radius);
   padding: 10px 14px;
   font-size: 13px;
   font-weight: 600;
@@ -364,7 +365,7 @@ const handleLogout = async () => {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 6px;
-  background: #fff;
+  background: var(--card);
   border-top: 1px solid var(--border);
   z-index: 5;
 }

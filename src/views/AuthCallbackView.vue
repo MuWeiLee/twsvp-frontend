@@ -67,8 +67,8 @@ onMounted(async () => {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
+  font-family: "Inter", "Source Han Serif", "Noto Serif SC", sans-serif;
   color: var(--ink);
-  background: var(--card);
+  background: var(--bg);
 }
 </style>

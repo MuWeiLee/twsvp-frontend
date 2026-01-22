@@ -52,7 +52,9 @@
                   <span class="tag">{{ view.horizon }}</span>
                 </div>
                 <div class="thread-meta">
-                  <span class="direction">{{ view.direction }}</span>
+                  <span class="direction" :class="directionClass(view.direction)">
+                    {{ view.direction }}
+                  </span>
                   <span>作者 {{ view.author }}</span>
                   <span>{{ view.date }}</span>
                 </div>
@@ -145,6 +147,12 @@ const filteredViews = computed(() => {
   });
 });
 
+const directionClass = (direction) => {
+  if (direction.includes("看多")) return "bullish";
+  if (direction.includes("看空")) return "bearish";
+  return "neutral";
+};
+
 const handleInput = () => {
   if (!query.value.trim()) {
     submittedQuery.value = "";
@@ -201,7 +209,7 @@ const clearSearch = () => {
 }
 
 .nav-title {
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
+  font-family: "Inter", "Source Han Serif", "Noto Serif SC", sans-serif;
   font-weight: 700;
   font-size: 16px;
   position: absolute;
@@ -211,7 +219,7 @@ const clearSearch = () => {
 
 .nav-btn {
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--section);
   border-radius: 999px;
   padding: 6px 12px;
   font-size: 12px;
@@ -225,10 +233,10 @@ const clearSearch = () => {
   width: 32px;
   height: 32px;
   border-radius: 12px;
-  background: #111;
+  background: var(--ink);
   display: grid;
   place-items: center;
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
+  font-family: "Inter", "Source Han Serif", "Noto Serif SC", sans-serif;
   font-weight: 700;
   color: #fff;
   border: 0;
@@ -246,12 +254,12 @@ const clearSearch = () => {
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: #fff;
+  background: var(--card);
 }
 
 .search-input {
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   padding: 10px 12px;
   font-family: inherit;
   font-size: 14px;
@@ -261,6 +269,7 @@ const clearSearch = () => {
   font-size: 14px;
   font-weight: 600;
   margin-top: 6px;
+  color: var(--text-secondary);
 }
 
 .pill-group {
@@ -272,8 +281,9 @@ const clearSearch = () => {
 .pill {
   padding: 6px 12px;
   border-radius: 999px;
-  background: #f3f4f6;
+  background: var(--section);
   font-size: 12px;
+  color: var(--text-secondary);
 }
 
 .list {
@@ -282,8 +292,8 @@ const clearSearch = () => {
 }
 
 .list-item {
-  background: #fff;
-  border-radius: 12px;
+  background: var(--card);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   padding: 10px 12px;
   display: flex;
@@ -313,13 +323,13 @@ const clearSearch = () => {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #111;
+  background: var(--ink);
   margin-top: 6px;
 }
 
 .thread-card {
-  background: #fff;
-  border-radius: 16px;
+  background: var(--card);
+  border-radius: var(--radius);
   border: 1px solid var(--border);
   padding: 12px;
   display: grid;
@@ -346,21 +356,36 @@ const clearSearch = () => {
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 12px;
-  background: #f3f4f6;
-  color: #111;
+  background: var(--tag-neutral-bg);
+  color: var(--tag-neutral-text);
 }
 
 .direction {
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 12px;
-  background: #111;
-  color: #fff;
+  background: var(--tag-neutral-bg);
+  color: var(--tag-neutral-text);
+}
+
+.direction.bullish {
+  background: var(--tag-bullish-bg);
+  color: var(--tag-bullish-text);
+}
+
+.direction.bearish {
+  background: var(--tag-bearish-bg);
+  color: var(--tag-bearish-text);
+}
+
+.direction.neutral {
+  background: var(--tag-neutral-bg);
+  color: var(--tag-neutral-text);
 }
 
 .btn-primary {
   border: 0;
-  background: #111;
+  background: var(--ink);
   color: #fff;
   font-size: 14px;
   font-weight: 600;
@@ -371,8 +396,8 @@ const clearSearch = () => {
 
 .btn-ghost {
   border: 1px solid var(--border);
-  background: transparent;
-  color: var(--muted);
+  background: var(--section);
+  color: var(--text-secondary);
   font-size: 12px;
   padding: 8px 12px;
   border-radius: 999px;
@@ -393,7 +418,7 @@ const clearSearch = () => {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 6px;
-  background: #fff;
+  background: var(--card);
   border-top: 1px solid var(--border);
   z-index: 5;
 }
