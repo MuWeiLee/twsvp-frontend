@@ -113,6 +113,7 @@ TWSVP 旨在建立一个**「投资观点记录与回溯平台」**，实现以�
 - 🔑 **单一登录方式**：Google OAuth 登录
 - 🧩 **认证承载**：使用 Supabase 完成认证，前端不展示 Supabase 相关信息
 - 🚦 **访问保护**：未登录访问 twsvp.com 时，自动引导至登录页
+- 🔁 **回调路径**：OAuth 回调统一使用 `/auth/callback`
 
 #### 登录流程
 ```mermaid

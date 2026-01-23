@@ -12,6 +12,7 @@
 - 注册模式：展示“使用 Google 注册”按钮
 - 文案统一为中文，符合 TWSVP 产品调性
 - 登录成功后默认进入 Feed 页面
+- OAuth 回调统一落在 /auth/callback
 
 ## 需要接入的能力
 - Google OAuth 跳转与回调处理
