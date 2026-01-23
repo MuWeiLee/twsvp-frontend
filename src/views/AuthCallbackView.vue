@@ -18,7 +18,21 @@ const router = useRouter();
 
 onMounted(async () => {
   const code = route.query.code;
+  const redirectToFeed = async () => {
+    const user = await getCurrentUserSupabase();
+    if (user) {
+      router.replace("/feed");
+      return true;
+    }
+    return false;
+  };
+
   if (!code || Array.isArray(code)) {
+    const { data: fallbackSession } = await supabase.auth.getSession();
+    if (fallbackSession?.session && (await redirectToFeed())) {
+      return;
+    }
+
     router.replace("/login");
     return;
   }
@@ -33,9 +47,14 @@ onMounted(async () => {
     }
 
     if (supabaseSession?.session) {
-      const user = await getCurrentUserSupabase();
-      if (user) {
-        router.replace("/feed");
+      if (await redirectToFeed()) {
+        return;
+      }
+    }
+
+    const { data: fallbackSession } = await supabase.auth.getSession();
+    if (fallbackSession?.session) {
+      if (await redirectToFeed()) {
         return;
       }
     }
