@@ -94,6 +94,7 @@ const handleGoogleSupabase = async () => {
     console.log('Google登录请求已发送');
   } catch (error) {
     console.error('Supabase登录失败:', error);
+    window.location.href = "https://api.twsvp.com/auth/google/start";
   }
 };
 </script>
