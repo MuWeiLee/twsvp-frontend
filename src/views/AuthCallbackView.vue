@@ -5,11 +5,13 @@
 <script setup>
 import { onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { 
-  clearAuthCache, 
-  exchangeGoogleCode, 
-  setAuthToken, 
-  getCurrentUserSupabase 
+import {
+  clearAuthCache,
+  ensureProfileSupabase,
+  exchangeGoogleCode,
+  getCurrentUserSupabase,
+  getProfileCompletionSupabase,
+  setAuthToken,
 } from "../services/auth.js";
 import { supabase } from "../services/supabase.js";
 
@@ -45,7 +47,9 @@ onMounted(async () => {
       const user = await getCurrentUserSupabase();
       if (user) {
         console.log('获取 Supabase 用户成功:', user);
-        router.replace("/feed");
+        await ensureProfileSupabase(user);
+        const completed = await getProfileCompletionSupabase(user.id);
+        router.replace(completed ? "/feed" : "/personal-setting");
         return;
       }
     }
@@ -69,6 +73,6 @@ onMounted(async () => {
   place-items: center;
   font-family: "Manrope", "Noto Sans SC", sans-serif;
   color: var(--ink);
-  background: var(--card);
+  background: var(--bg);
 }
 </style>

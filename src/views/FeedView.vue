@@ -3,7 +3,7 @@
     <div class="phone-frame fade-in">
       <nav class="nav slide-in">
         <router-link class="nav-logo" to="/feed" aria-label="TWSVP">T</router-link>
-        <div class="nav-title">广场</div>
+        <div class="nav-title">观点流</div>
         <router-link class="nav-btn" to="/search">搜索</router-link>
       </nav>
 
@@ -15,28 +15,48 @@
         <div class="tabs">
           <button
             class="tab-btn"
-            :class="{ active: mode === 'latest' }"
-            @click="mode = 'latest'"
+            :class="{ active: statusFilter === 'all' }"
+            @click="statusFilter = 'all'"
           >
-            最新
+            全部
           </button>
           <button
             class="tab-btn"
-            :class="{ active: mode === 'trending' }"
-            @click="mode = 'trending'"
+            :class="{ active: statusFilter === 'active' }"
+            @click="statusFilter = 'active'"
           >
-            推荐
+            未结束
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: statusFilter === 'expired' }"
+            @click="statusFilter = 'expired'"
+          >
+            已结束
+          </button>
+        </div>
+
+        <div class="tabs tabs-compact">
+          <button
+            class="tab-btn"
+            :class="{ active: sortKey === 'time' }"
+            @click="sortKey = 'time'"
+          >
+            时间
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: sortKey === 'hot' }"
+            @click="sortKey = 'hot'"
+          >
+            热度
           </button>
         </div>
 
         <div id="publish" class="composer">
           <div class="composer-top">
             <div class="avatar">{{ user.initials }}</div>
-            <textarea
-              class="composer-input"
-              placeholder="写下你的观点（标的、方向、时效）"
-              v-model="draft"
-            ></textarea>
+            <div class="composer-text">写下你的观点（标的、方向、时效）</div>
           </div>
           <div class="composer-meta">
             <div>
@@ -44,7 +64,7 @@
               <span class="chip">方向：{{ composer.direction }}</span>
               <span class="chip">时效：{{ composer.horizon }}</span>
             </div>
-            <button class="btn-primary" @click="handlePublish">发布</button>
+            <router-link class="btn-primary" to="/create-feed">发布观点</router-link>
           </div>
         </div>
       </header>
@@ -54,18 +74,21 @@
           <div class="thread-dot" aria-hidden="true"></div>
           <div class="thread-card">
             <div class="thread-header">
-              <span>{{ view.asset }}</span>
-              <span class="tag">{{ view.horizon }}</span>
+              <div class="stock">
+                <strong>{{ view.symbol }}</strong>
+                <span>{{ view.name }}</span>
+              </div>
+              <span class="status">{{ view.statusLabel }}</span>
             </div>
             <div class="thread-meta">
               <span class="direction">{{ view.direction }}</span>
+              <span>{{ view.horizon }}</span>
               <span>作者 {{ view.author }}</span>
-              <span>{{ view.date }}</span>
             </div>
-            <div>{{ view.content }}</div>
+            <div class="summary">{{ view.summary }}</div>
             <div class="thread-footer">
-              <span>讨论 {{ view.comments }}</span>
-              <span>收藏 {{ view.saves }}</span>
+              <span>赞 {{ view.likes }}</span>
+              <span>{{ view.createdAt }}</span>
             </div>
           </div>
         </div>
@@ -76,13 +99,11 @@
       </p>
 
       <nav class="tabbar">
-        <router-link class="tab-item" active-class="active" to="/feed">广场</router-link>
+        <router-link class="tab-item" active-class="active" to="/feed">观点流</router-link>
         <router-link class="tab-item" active-class="active" to="/search">搜索</router-link>
-        <router-link class="tab-item" :to="{ path: '/feed', hash: '#publish' }">
-          发布
-        </router-link>
+        <router-link class="tab-item" active-class="active" to="/create-feed">发布</router-link>
         <router-link class="tab-item" active-class="active" to="/notifications">通知</router-link>
-        <router-link class="tab-item" active-class="active" to="/profile">我的</router-link>
+        <router-link class="tab-item" active-class="active" to="/profile">个人中心</router-link>
       </nav>
     </div>
   </div>
@@ -91,8 +112,8 @@
 <script setup>
 import { computed, ref } from "vue";
 
-const mode = ref("latest");
-const draft = ref("");
+const statusFilter = ref("all");
+const sortKey = ref("time");
 const user = ref({
   initials: "林",
 });
@@ -104,86 +125,103 @@ const composer = ref({
 const views = ref([
   {
     id: 1,
-    asset: "2330 台积电",
+    symbol: "2330",
+    name: "台积电",
     direction: "看多",
     horizon: "10 个交易日",
     author: "林可心",
-    date: "刚刚",
-    comments: 12,
-    saves: 8,
-    content: "法说会后动能持续，关注外资回补与量能变化。",
-    mode: "latest",
+    createdAt: "刚刚",
+    likes: 18,
+    summary: "法说会后动能持续，关注外资回补与量能变化。",
+    status: "active",
+    hotScore: 42,
   },
   {
     id: 2,
-    asset: "2454 联发科",
+    symbol: "2454",
+    name: "联发科",
     direction: "中性",
     horizon: "5 个交易日",
     author: "陈映帆",
-    date: "10 分钟前",
-    comments: 6,
-    saves: 3,
-    content: "区间震荡为主，等待新一轮催化确定方向。",
-    mode: "latest",
+    createdAt: "10 分钟前",
+    likes: 6,
+    summary: "区间震荡为主，等待新一轮催化确定方向。",
+    status: "active",
+    hotScore: 28,
   },
   {
     id: 3,
-    asset: "2603 长荣",
+    symbol: "2603",
+    name: "长荣",
     direction: "看空",
     horizon: "20 个交易日",
     author: "张以安",
-    date: "1 小时前",
-    comments: 21,
-    saves: 14,
-    content: "运价回落压力增大，短期风险偏高。",
-    mode: "latest",
+    createdAt: "1 小时前",
+    likes: 21,
+    summary: "运价回落压力增大，短期风险偏高。",
+    status: "expired",
+    hotScore: 19,
   },
   {
     id: 4,
-    asset: "2382 广达",
+    symbol: "2382",
+    name: "广达",
     direction: "看多",
     horizon: "10 个交易日",
     author: "周知晓",
-    date: "3 小时前",
-    comments: 28,
-    saves: 19,
-    content: "订单能见度提升，关注财报后的估值修复。",
-    mode: "trending",
+    createdAt: "3 小时前",
+    likes: 28,
+    summary: "订单能见度提升，关注财报后的估值修复。",
+    status: "active",
+    hotScore: 66,
   },
   {
     id: 5,
-    asset: "2308 台达电",
+    symbol: "2308",
+    name: "台达电",
     direction: "中性",
     horizon: "10 个交易日",
     author: "何雨静",
-    date: "今天",
-    comments: 9,
-    saves: 6,
-    content: "短线波动大，等待量价关系进一步明确。",
-    mode: "trending",
+    createdAt: "今天",
+    likes: 9,
+    summary: "短线波动大，等待量价关系进一步明确。",
+    status: "expired",
+    hotScore: 12,
   },
 ]);
 
-const filteredViews = computed(() =>
-  views.value.filter((view) => view.mode === mode.value)
-);
+const filteredViews = computed(() => {
+  const filtered = views.value.filter((view) => {
+    if (statusFilter.value === "all") {
+      return true;
+    }
+    return view.status === statusFilter.value;
+  });
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortKey.value === "hot") {
+      return b.hotScore - a.hotScore;
+    }
+    return b.id - a.id;
+  });
+  return sorted.map((view) => ({
+    ...view,
+    statusLabel: view.status === "active" ? "未结束" : "已结束",
+  }));
+});
 
-const handlePublish = () => {
-  alert("发布示例：打开结构化发文弹窗。");
-};
 </script>
 
 <style scoped>
 .app-shell {
   max-width: 480px;
   margin: 0 auto;
-  background: var(--card);
+  background: transparent;
 }
 
 .phone-frame {
   width: 100%;
   min-height: 100vh;
-  background: var(--card);
+  background: var(--bg);
   border-radius: 0;
   box-shadow: none;
   padding: 72px 20px 96px;
@@ -203,7 +241,7 @@ const handlePublish = () => {
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  background: var(--card);
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
   z-index: 5;
 }
@@ -219,9 +257,9 @@ const handlePublish = () => {
 
 .nav-btn {
   border: 1px solid var(--border);
-  background: #fff;
-  border-radius: 999px;
-  padding: 6px 12px;
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 6px 10px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -232,26 +270,22 @@ const handlePublish = () => {
 .nav-logo {
   width: 32px;
   height: 32px;
-  border-radius: 12px;
-  background: #111;
+  border-radius: 8px;
+  background: var(--ink);
   display: grid;
   place-items: center;
   font-family: "Manrope", "Noto Sans SC", sans-serif;
   font-weight: 700;
   color: #fff;
-  border: 0;
+  border: 1px solid var(--border);
   text-decoration: none;
 }
 
 .tabs {
   margin-top: 14px;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6px;
-  background: #f3f4f6;
-  padding: 4px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
+  display: flex;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
 }
 
 .tab-btn {
@@ -261,25 +295,29 @@ const handlePublish = () => {
   font-size: 14px;
   font-weight: 600;
   padding: 10px 0;
-  border-radius: 999px;
+  border-bottom: 2px solid transparent;
   cursor: pointer;
   color: var(--muted);
 }
 
 .tab-btn.active {
-  background: #fff;
   color: var(--ink);
-  box-shadow: 0 6px 16px rgba(15, 20, 25, 0.12);
+  border-color: var(--ink);
+}
+
+.tabs-compact {
+  margin-top: 8px;
+  gap: 12px;
 }
 
 .composer {
   margin-top: 14px;
   padding: 14px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card);
   display: grid;
   gap: 12px;
-  background: #fff;
+  background: var(--surface);
 }
 
 .composer-top {
@@ -291,21 +329,17 @@ const handlePublish = () => {
 .avatar {
   width: 42px;
   height: 42px;
-  border-radius: 16px;
-  background: #f3f4f6;
+  border-radius: 12px;
+  background: var(--panel);
   display: grid;
   place-items: center;
   font-weight: 600;
 }
 
-.composer-input {
+.composer-text {
   flex: 1;
-  min-height: 84px;
-  border: 0;
-  resize: none;
-  font-family: inherit;
   font-size: 14px;
-  outline: none;
+  color: var(--muted);
 }
 
 .composer-meta {
@@ -322,19 +356,23 @@ const handlePublish = () => {
   font-size: 12px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: #f3f4f6;
+  background: var(--panel);
+  border: 1px solid var(--border);
   margin-right: 6px;
 }
 
 .btn-primary {
   border: 0;
-  background: #111;
+  background: var(--ink);
   color: #fff;
   font-size: 14px;
   font-weight: 600;
   padding: 10px 16px;
-  border-radius: 999px;
+  border-radius: 10px;
   cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
 }
 
 .feed {
@@ -354,13 +392,13 @@ const handlePublish = () => {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #111;
+  background: var(--ink);
   margin-top: 6px;
 }
 
 .thread-card {
-  background: #fff;
-  border-radius: 16px;
+  background: var(--surface);
+  border-radius: var(--radius-card);
   border: 1px solid var(--border);
   padding: 12px;
   display: grid;
@@ -383,20 +421,12 @@ const handlePublish = () => {
   color: var(--muted);
 }
 
-.tag {
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  background: #f3f4f6;
-  color: #111;
-}
-
 .direction {
-  padding: 4px 10px;
+  padding: 2px 8px;
   border-radius: 999px;
   font-size: 12px;
-  background: #111;
-  color: #fff;
+  border: 1px solid var(--border);
+  color: var(--ink);
 }
 
 .thread-footer {
@@ -404,6 +434,30 @@ const handlePublish = () => {
   gap: 16px;
   font-size: 12px;
   color: var(--muted);
+}
+
+.stock {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.status {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.summary {
+  color: var(--ink);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .legal {
@@ -422,12 +476,12 @@ const handlePublish = () => {
   margin: 0 auto;
   bottom: 0;
   margin-top: 0;
-  min-height: 48px;
-  padding: 12px 6px;
+  min-height: 56px;
+  padding: 10px 6px;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 6px;
-  background: #fff;
+  background: var(--surface);
   border-top: 1px solid var(--border);
   z-index: 5;
 }

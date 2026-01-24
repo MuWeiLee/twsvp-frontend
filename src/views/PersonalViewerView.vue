@@ -2,9 +2,9 @@
   <div class="app-shell">
     <div class="phone-frame">
       <nav class="nav">
-        <router-link class="nav-logo" to="/feed" aria-label="TWSVP">T</router-link>
-        <div class="nav-title">个人中心</div>
-        <button class="nav-btn" @click="goSettings">设置</button>
+        <router-link class="nav-btn" to="/feed">返回</router-link>
+        <div class="nav-title">个人主页</div>
+        <span class="nav-space" aria-hidden="true"></span>
       </nav>
 
       <section class="profile">
@@ -23,15 +23,15 @@
         <div class="stats">
           <div>
             <div class="stat-label">观点总数</div>
-            <div class="stat-value">{{ performance.totalViews }}</div>
+            <div class="stat-value">{{ stats.totalViews }}</div>
           </div>
           <div>
             <div class="stat-label">已结束</div>
-            <div class="stat-value">{{ performance.closedViews }}</div>
+            <div class="stat-value">{{ stats.closedViews }}</div>
           </div>
           <div>
             <div class="stat-label">胜率</div>
-            <div class="stat-value">{{ performance.winRate }}</div>
+            <div class="stat-value">{{ stats.winRate }}</div>
           </div>
         </div>
 
@@ -76,39 +76,25 @@
             </div>
           </div>
         </div>
-
-        <p class="legal">
-          仅记录观点与回溯结果，不展示预测价格，也不作为投资建议。
-        </p>
       </section>
-
-      <nav class="tabbar">
-        <router-link class="tab-item" active-class="active" to="/feed">观点流</router-link>
-        <router-link class="tab-item" active-class="active" to="/search">搜索</router-link>
-        <router-link class="tab-item" active-class="active" to="/create-feed">发布</router-link>
-        <router-link class="tab-item" active-class="active" to="/notifications">通知</router-link>
-        <router-link class="tab-item" active-class="active" to="/profile">个人中心</router-link>
-      </nav>
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed, ref } from "vue";
-import { useRouter } from "vue-router";
 
-const router = useRouter();
 const mode = ref("all");
 const user = ref({
   initials: "林",
   name: "林可心",
   bio: "专注台股半导体与供应链，偏中短期策略。",
   tags: ["半导体", "AI 供应链", "ETF"],
-  joined: "2024/08/12",
+  joined: "2023/06/18",
 });
-const performance = ref({
-  totalViews: 24,
-  closedViews: 8,
+const stats = ref({
+  totalViews: 32,
+  closedViews: 12,
   winRate: "待结算",
 });
 const views = ref([
@@ -119,7 +105,7 @@ const views = ref([
     horizon: "10 个交易日",
     date: "2024/11/06",
     status: "active",
-    statusLabel: "进行中",
+    statusLabel: "未结束",
     content: "法说会后估值修复，关注量能与外资动向。",
   },
   {
@@ -129,7 +115,7 @@ const views = ref([
     horizon: "5 个交易日",
     date: "2024/11/02",
     status: "active",
-    statusLabel: "进行中",
+    statusLabel: "未结束",
     content: "区间震荡，等待下个催化剂确认方向。",
   },
   {
@@ -139,28 +125,14 @@ const views = ref([
     horizon: "20 个交易日",
     date: "2024/10/15",
     status: "closed",
-    statusLabel: "已结算",
+    statusLabel: "已结束",
     content: "运价回落压力增大，留意航运指数变化。",
-  },
-  {
-    id: 4,
-    asset: "3037 欣兴",
-    direction: "看多",
-    horizon: "10 个交易日",
-    date: "2024/10/01",
-    status: "closed",
-    statusLabel: "已结算",
-    content: "AI 需求带动订单，短期均线趋势向上。",
   },
 ]);
 
 const filteredViews = computed(() =>
   views.value.filter((view) => (mode.value === "all" ? true : view.status === mode.value))
 );
-
-const goSettings = () => {
-  router.push("/settings");
-};
 </script>
 
 <style scoped>
@@ -176,7 +148,7 @@ const goSettings = () => {
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: 72px 20px 96px;
+  padding: 72px 20px 40px;
   position: relative;
 }
 
@@ -202,9 +174,6 @@ const goSettings = () => {
   font-family: "Manrope", "Noto Sans SC", sans-serif;
   font-weight: 700;
   font-size: 16px;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
 }
 
 .nav-btn {
@@ -219,18 +188,8 @@ const goSettings = () => {
   color: var(--ink);
 }
 
-.nav-logo {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--ink);
-  display: grid;
-  place-items: center;
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
-  font-weight: 700;
-  color: #fff;
-  border: 1px solid var(--border);
-  text-decoration: none;
+.nav-space {
+  width: 46px;
 }
 
 .profile {
@@ -392,57 +351,11 @@ const goSettings = () => {
   overflow: hidden;
 }
 
-.legal {
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--muted);
-  line-height: 1.5;
-}
-
-.tabbar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  width: 100%;
-  max-width: 480px;
-  margin: 0 auto;
-  bottom: 0;
-  margin-top: 0;
-  min-height: 56px;
-  padding: 10px 6px;
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-  z-index: 5;
-}
-
 .tags {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   margin: 6px 0;
-}
-
-.tab-item {
-  text-align: center;
-  font-size: 12px;
-  color: var(--muted);
-  text-decoration: none;
-  display: block;
-  width: 100%;
-}
-
-.tab-item.active {
-  color: var(--ink);
-  font-weight: 600;
-}
-
-@media (max-width: 480px) {
-  .phone-frame {
-    padding: 68px 16px 88px;
-  }
 }
 
 @media (max-width: 360px) {

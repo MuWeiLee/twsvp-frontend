@@ -94,15 +94,6 @@
         <p class="legal">TWSVP 不提供投资建议，所有观点仅用于记录与回溯。</p>
       </section>
 
-      <nav class="tabbar">
-        <router-link class="tab-item" active-class="active" to="/feed">广场</router-link>
-        <router-link class="tab-item" active-class="active" to="/search">搜索</router-link>
-        <router-link class="tab-item" :to="{ path: '/feed', hash: '#publish' }">
-          发布
-        </router-link>
-        <router-link class="tab-item" active-class="active" to="/notifications">通知</router-link>
-        <router-link class="tab-item" active-class="active" to="/profile">我的</router-link>
-      </nav>
     </div>
   </div>
 </template>
@@ -167,13 +158,13 @@ const handleLogout = async () => {
 .app-shell {
   max-width: 480px;
   margin: 0 auto;
-  background: var(--card);
+  background: transparent;
 }
 
 .phone-frame {
   width: 100%;
   min-height: 100vh;
-  background: var(--card);
+  background: var(--bg);
   border-radius: 0;
   box-shadow: none;
   padding: 72px 20px 96px;
@@ -193,7 +184,7 @@ const handleLogout = async () => {
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  background: var(--card);
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
   z-index: 5;
 }
@@ -206,9 +197,9 @@ const handleLogout = async () => {
 
 .nav-btn {
   border: 1px solid var(--border);
-  background: #fff;
-  border-radius: 999px;
-  padding: 6px 12px;
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 6px 10px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -229,7 +220,7 @@ const handleLogout = async () => {
 .logo {
   width: 40px;
   height: 40px;
-  border-radius: 14px;
+  border-radius: 10px;
   background: #111;
   display: grid;
   place-items: center;
@@ -251,8 +242,8 @@ const handleLogout = async () => {
 }
 
 .card {
-  background: #fff;
-  border-radius: var(--radius);
+  background: var(--surface);
+  border-radius: var(--radius-card);
   padding: 18px;
   border: 1px solid var(--border);
   display: grid;
@@ -285,18 +276,19 @@ const handleLogout = async () => {
 }
 
 .tag {
-  padding: 4px 10px;
+  padding: 2px 8px;
   border-radius: 999px;
   font-size: 12px;
-  background: #f3f4f6;
-  color: #111;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--border);
 }
 
 .switch {
   width: 42px;
   height: 24px;
   border-radius: 999px;
-  background: #e6e6e6;
+  background: var(--panel);
   position: relative;
   transition: background 150ms ease;
   cursor: pointer;
@@ -308,14 +300,14 @@ const handleLogout = async () => {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--surface);
   top: 3px;
   left: 3px;
   transition: transform 150ms ease;
 }
 
 .switch.active {
-  background: #111;
+  background: var(--ink);
 }
 
 .switch.active::after {
@@ -324,8 +316,8 @@ const handleLogout = async () => {
 
 .btn-outline {
   border: 1px solid var(--border);
-  background: #f7f7f7;
-  border-radius: 14px;
+  background: var(--surface);
+  border-radius: 10px;
   padding: 10px 14px;
   font-size: 13px;
   font-weight: 600;
@@ -334,9 +326,9 @@ const handleLogout = async () => {
 
 .btn-danger {
   border: 0;
-  background: #111;
+  background: var(--ink);
   color: #fff;
-  border-radius: 14px;
+  border-radius: 10px;
   padding: 10px 14px;
   font-size: 13px;
   font-weight: 600;
@@ -348,39 +340,6 @@ const handleLogout = async () => {
   font-size: 12px;
   color: var(--muted);
   line-height: 1.5;
-}
-
-.tabbar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  width: 100%;
-  max-width: 480px;
-  margin: 0 auto;
-  bottom: 0;
-  margin-top: 0;
-  min-height: 48px;
-  padding: 12px 6px;
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
-  background: #fff;
-  border-top: 1px solid var(--border);
-  z-index: 5;
-}
-
-.tab-item {
-  text-align: center;
-  font-size: 12px;
-  color: var(--muted);
-  text-decoration: none;
-  display: block;
-  width: 100%;
-}
-
-.tab-item.active {
-  color: var(--ink);
-  font-weight: 600;
 }
 
 .slide-in {

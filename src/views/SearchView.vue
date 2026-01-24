@@ -4,7 +4,7 @@
       <nav class="nav">
         <router-link class="nav-logo" to="/feed" aria-label="TWSVP">T</router-link>
         <div class="nav-title">搜索</div>
-        <router-link class="nav-btn" to="/notifications">通知</router-link>
+        <span class="nav-space" aria-hidden="true"></span>
       </nav>
 
       <section class="search">
@@ -18,6 +18,37 @@
           />
           <button class="btn-primary" @click="handleSearch">搜索</button>
           <button class="btn-ghost" @click="clearSearch">清除</button>
+        </div>
+
+        <div class="tabs">
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'feed' }"
+            @click="activeTab = 'feed'"
+          >
+            观点
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'stock' }"
+            @click="activeTab = 'stock'"
+          >
+            个股
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'sector' }"
+            @click="activeTab = 'sector'"
+          >
+            话题
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'user' }"
+            @click="activeTab = 'user'"
+          >
+            用户
+          </button>
         </div>
 
         <div class="section-title">热门标的</div>
@@ -43,35 +74,62 @@
 
         <section v-else>
           <div class="section-title">搜索结果</div>
-          <div v-if="filteredViews.length" class="feed">
-            <div v-for="view in filteredViews" :key="view.id" class="thread">
-              <div class="thread-dot" aria-hidden="true"></div>
-              <div class="thread-card">
-                <div class="thread-header">
-                  <span>{{ view.asset }}</span>
-                  <span class="tag">{{ view.horizon }}</span>
+          <div v-if="activeTab === 'feed'">
+            <div v-if="filteredViews.length" class="feed">
+              <div v-for="view in filteredViews" :key="view.id" class="thread">
+                <div class="thread-dot" aria-hidden="true"></div>
+                <div class="thread-card">
+                  <div class="thread-header">
+                    <span>{{ view.asset }}</span>
+                    <span class="tag">{{ view.horizon }}</span>
+                  </div>
+                  <div class="thread-meta">
+                    <span class="direction">{{ view.direction }}</span>
+                    <span>作者 {{ view.author }}</span>
+                    <span>{{ view.date }}</span>
+                  </div>
+                  <div class="summary">{{ view.content }}</div>
                 </div>
-                <div class="thread-meta">
-                  <span class="direction">{{ view.direction }}</span>
-                  <span>作者 {{ view.author }}</span>
-                  <span>{{ view.date }}</span>
-                </div>
-                <div>{{ view.content }}</div>
               </div>
             </div>
+            <div v-else class="empty">暂无相关观点</div>
           </div>
-          <div v-else class="empty">暂无相关观点</div>
+          <div v-else-if="activeTab === 'stock'">
+            <div v-if="filteredStocks.length" class="list">
+              <div v-for="item in filteredStocks" :key="item.symbol" class="list-item">
+                <strong>{{ item.symbol }} {{ item.name }}</strong>
+                <span>个股</span>
+              </div>
+            </div>
+            <div v-else class="empty">暂无相关个股</div>
+          </div>
+          <div v-else-if="activeTab === 'sector'">
+            <div v-if="filteredSectors.length" class="list">
+              <div v-for="item in filteredSectors" :key="item.name" class="list-item">
+                <strong>{{ item.name }}</strong>
+                <span>话题</span>
+              </div>
+            </div>
+            <div v-else class="empty">暂无相关话题</div>
+          </div>
+          <div v-else>
+            <div v-if="filteredUsers.length" class="list">
+              <div v-for="item in filteredUsers" :key="item.name" class="list-item">
+                <strong>{{ item.name }}</strong>
+                <span>{{ item.stats }}</span>
+              </div>
+            </div>
+            <div v-else class="empty">暂无相关用户</div>
+          </div>
         </section>
       </section>
 
       <nav class="tabbar">
-        <router-link class="tab-item" active-class="active" to="/feed">广场</router-link>
+        <router-link class="tab-item" active-class="active" to="/feed">观点流</router-link>
         <router-link class="tab-item" active-class="active" to="/search">搜索</router-link>
-        <router-link class="tab-item" :to="{ path: '/feed', hash: '#publish' }">
-          发布
-        </router-link>
+        <router-link class="tab-item" active-class="active" to="/create-feed">发布</router-link>
         <router-link class="tab-item" active-class="active" to="/notifications">通知</router-link>
-        <router-link class="tab-item" active-class="active" to="/profile">我的</router-link>
+        <router-link class="tab-item" active-class="active" to="/profile">个人中心</router-link>
       </nav>
     </div>
   </div>
@@ -82,6 +140,7 @@ import { computed, ref } from "vue";
 
 const query = ref("");
 const submittedQuery = ref("");
+const activeTab = ref("feed");
 const trendingStocks = ref(["2330 台积电", "2454 联发科", "2382 广达"]);
 const trendingTags = ref(["#AI概念股", "#台积电法说", "#降息预期"]);
 const suggestions = ref([
@@ -124,6 +183,20 @@ const views = ref([
     keywords: ["2603", "长荣"],
   },
 ]);
+const stocks = ref([
+  { symbol: "2330", name: "台积电" },
+  { symbol: "2454", name: "联发科" },
+  { symbol: "2603", name: "长荣" },
+]);
+const sectors = ref([
+  { name: "AI 供应链" },
+  { name: "半导体" },
+  { name: "航运" },
+]);
+const users = ref([
+  { name: "林可心", stats: "观点 24 · 胜率 待结算" },
+  { name: "张以安", stats: "观点 18 · 胜率 待结算" },
+]);
 
 const matchedSuggestions = computed(() => {
   const q = query.value.trim().toLowerCase();
@@ -143,6 +216,27 @@ const filteredViews = computed(() => {
       view.keywords.some((keyword) => keyword.toLowerCase().includes(q))
     );
   });
+});
+
+const filteredStocks = computed(() => {
+  const q = submittedQuery.value.trim().toLowerCase();
+  if (!q) return [];
+  return stocks.value.filter((item) => {
+    const text = `${item.symbol} ${item.name}`.toLowerCase();
+    return text.includes(q);
+  });
+});
+
+const filteredSectors = computed(() => {
+  const q = submittedQuery.value.trim().toLowerCase();
+  if (!q) return [];
+  return sectors.value.filter((item) => item.name.toLowerCase().includes(q));
+});
+
+const filteredUsers = computed(() => {
+  const q = submittedQuery.value.trim().toLowerCase();
+  if (!q) return [];
+  return users.value.filter((item) => item.name.toLowerCase().includes(q));
 });
 
 const handleInput = () => {
@@ -169,13 +263,13 @@ const clearSearch = () => {
 .app-shell {
   max-width: 480px;
   margin: 0 auto;
-  background: var(--card);
+  background: transparent;
 }
 
 .phone-frame {
   width: 100%;
   min-height: 100vh;
-  background: var(--card);
+  background: var(--bg);
   border-radius: 0;
   box-shadow: none;
   padding: 72px 20px 96px;
@@ -195,7 +289,7 @@ const clearSearch = () => {
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  background: var(--card);
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
   z-index: 5;
 }
@@ -211,9 +305,9 @@ const clearSearch = () => {
 
 .nav-btn {
   border: 1px solid var(--border);
-  background: #fff;
-  border-radius: 999px;
-  padding: 6px 12px;
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 6px 10px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -224,15 +318,19 @@ const clearSearch = () => {
 .nav-logo {
   width: 32px;
   height: 32px;
-  border-radius: 12px;
-  background: #111;
+  border-radius: 8px;
+  background: var(--ink);
   display: grid;
   place-items: center;
   font-family: "Manrope", "Noto Sans SC", sans-serif;
   font-weight: 700;
   color: #fff;
-  border: 0;
+  border: 1px solid var(--border);
   text-decoration: none;
+}
+
+.nav-space {
+  width: 46px;
 }
 
 .search {
@@ -245,16 +343,41 @@ const clearSearch = () => {
   gap: 10px;
   padding: 14px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: #fff;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.tabs {
+  display: flex;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+  margin-top: 8px;
+}
+
+.tab-btn {
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.tab-btn.active {
+  color: var(--ink);
+  border-color: var(--ink);
 }
 
 .search-input {
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 10px 12px;
   font-family: inherit;
   font-size: 14px;
+  background: var(--panel);
 }
 
 .section-title {
@@ -272,7 +395,8 @@ const clearSearch = () => {
 .pill {
   padding: 6px 12px;
   border-radius: 999px;
-  background: #f3f4f6;
+  background: var(--panel);
+  border: 1px solid var(--border);
   font-size: 12px;
 }
 
@@ -282,8 +406,8 @@ const clearSearch = () => {
 }
 
 .list-item {
-  background: #fff;
-  border-radius: 12px;
+  background: var(--surface);
+  border-radius: var(--radius-card);
   border: 1px solid var(--border);
   padding: 10px 12px;
   display: flex;
@@ -313,17 +437,25 @@ const clearSearch = () => {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #111;
+  background: var(--ink);
   margin-top: 6px;
 }
 
 .thread-card {
-  background: #fff;
-  border-radius: 16px;
+  background: var(--surface);
+  border-radius: var(--radius-card);
   border: 1px solid var(--border);
   padding: 12px;
   display: grid;
   gap: 8px;
+}
+
+.summary {
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .thread-header {
@@ -346,26 +478,27 @@ const clearSearch = () => {
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 12px;
-  background: #f3f4f6;
-  color: #111;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--border);
 }
 
 .direction {
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 12px;
-  background: #111;
-  color: #fff;
+  border: 1px solid var(--border);
+  color: var(--ink);
 }
 
 .btn-primary {
   border: 0;
-  background: #111;
+  background: var(--ink);
   color: #fff;
   font-size: 14px;
   font-weight: 600;
   padding: 10px 16px;
-  border-radius: 999px;
+  border-radius: 10px;
   cursor: pointer;
 }
 
@@ -375,7 +508,7 @@ const clearSearch = () => {
   color: var(--muted);
   font-size: 12px;
   padding: 8px 12px;
-  border-radius: 999px;
+  border-radius: 10px;
   cursor: pointer;
 }
 
@@ -388,12 +521,12 @@ const clearSearch = () => {
   margin: 0 auto;
   bottom: 0;
   margin-top: 0;
-  min-height: 48px;
-  padding: 12px 6px;
+  min-height: 56px;
+  padding: 10px 6px;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 6px;
-  background: #fff;
+  background: var(--surface);
   border-top: 1px solid var(--border);
   z-index: 5;
 }

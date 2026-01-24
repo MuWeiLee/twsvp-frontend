@@ -131,6 +131,77 @@ export async function getCurrentUserSupabase() {
   }
 }
 
+export async function ensureProfileSupabase(user) {
+  if (!user) {
+    return null;
+  }
+
+  const nickname =
+    user.user_metadata?.full_name ||
+    user.user_metadata?.name ||
+    (user.email ? user.email.split("@")[0] : "新用户");
+
+  const payload = {
+    user_id: user.id,
+    nickname,
+    avatar_url: user.user_metadata?.avatar_url || null,
+  };
+
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .upsert(payload, { onConflict: "user_id" })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("创建 profile 失败:", error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("创建 profile 异常:", error);
+    return null;
+  }
+}
+
+export async function getProfileCompletionSupabase(userId) {
+  if (!userId) {
+    return false;
+  }
+
+  try {
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("nickname")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error("读取 profile 失败:", profileError);
+      return false;
+    }
+
+    const { count, error: industryError } = await supabase
+      .from("user_industries")
+      .select("industry_id", { count: "exact", head: true })
+      .eq("user_id", userId);
+
+    if (industryError) {
+      console.error("读取 user_industries 失败:", industryError);
+      return false;
+    }
+
+    const hasNickname = Boolean(profile && profile.nickname);
+    const hasIndustries = (count || 0) > 0;
+    return hasNickname && hasIndustries;
+  } catch (error) {
+    console.error("检查 profile 完整度失败:", error);
+    return false;
+  }
+}
+
 // 使用Supabase登出
 export async function signOutSupabase() {
   try {

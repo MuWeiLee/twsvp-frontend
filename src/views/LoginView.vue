@@ -5,7 +5,7 @@
         <div class="logo">T</div>
         <div>
           <div>TWSVP</div>
-          <div style="font-size: 12px; color: var(--muted)">Google 登录</div>
+          <div style="font-size: 12px; color: var(--muted)">让你的观点价值被看见</div>
         </div>
       </div>
       <h1 class="title">欢迎回来</h1>
@@ -15,40 +15,10 @@
     </header>
 
     <section class="login-card slide-in">
-      <div class="tabs">
-        <button
-          class="tab-btn"
-          :class="{ active: mode === 'login' }"
-          @click="mode = 'login'"
-        >
-          登录
-        </button>
-        <button
-          class="tab-btn"
-          :class="{ active: mode === 'register' }"
-          @click="mode = 'register'"
-        >
-          注册
-        </button>
-      </div>
-
       <p class="subtitle" style="margin: 0 0 14px">
-        {{ 
-          mode === "login"
-            ? "使用 Google 账号快速登录。"
-            : "首次使用请通过 Google 完成注册。"
-        }}
+        使用 Google 账号快速登录。
       </p>
-      
-      <!-- Supabase 切换开关 -->
-      <div class="toggle-container" style="margin: 0 0 14px; display: flex; align-items: center; justify-content: space-between;">
-        <label style="font-size: 14px; color: var(--muted);">使用 Supabase 认证</label>
-        <label class="switch">
-          <input type="checkbox" v-model="useSupabase" />
-          <span class="slider"></span>
-        </label>
-      </div>
-      
+
       <button class="btn btn-google" @click="handleGoogle">
         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
           <path
@@ -68,7 +38,7 @@
             d="M20.6 12.5c0-.4-.1-.9-.2-1.3H12v3.9h5.5c-.3 1.2-1.2 2.3-2.5 3.1l2.7 2.1c1.6-1.5 2.9-3.8 2.9-7.8z"
           />
         </svg>
-        {{ mode === "login" ? "使用 Google 登录" : "使用 Google 注册" }} ({{ useSupabase ? 'Supabase' : '传统' }})
+        使用 Google 登录
       </button>
 
       <p class="legal">
@@ -79,33 +49,35 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
+import { onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { getMe, signInWithGoogleSupabase, getCurrentUserSupabase } from "../services/auth.js";
+import {
+  ensureProfileSupabase,
+  getCurrentUserSupabase,
+  getMe,
+  getProfileCompletionSupabase,
+  signInWithGoogleSupabase,
+} from "../services/auth.js";
 
 const router = useRouter();
-const mode = ref("login");
-const useSupabase = ref(false);
 
 onMounted(async () => {
-  // 检查是否已有用户登录（支持传统认证和Supabase认证）
-  const user = await getMe();
-  if (!user) {
-    // 检查Supabase用户
-    await getCurrentUserSupabase();
-  }
-  
+  // 优先检查 Supabase 会话，同时兼容旧 token
+  const supabaseUser = await getCurrentUserSupabase();
+  const user = supabaseUser || (await getMe());
   if (user) {
+    if (supabaseUser) {
+      await ensureProfileSupabase(supabaseUser);
+      const completed = await getProfileCompletionSupabase(supabaseUser.id);
+      router.replace(completed ? "/feed" : "/personal-setting");
+      return;
+    }
     router.replace("/feed");
   }
 });
 
 const handleGoogle = () => {
-  if (useSupabase.value) {
-    handleGoogleSupabase();
-  } else {
-    window.location.href = "https://api.twsvp.com/auth/google/start";
-  }
+  handleGoogleSupabase();
 };
 
 const handleGoogleSupabase = async () => {
@@ -122,7 +94,7 @@ const handleGoogleSupabase = async () => {
 .phone-frame {
   width: 100%;
   min-height: 100vh;
-  background: var(--card);
+  background: var(--bg);
   border-radius: 0;
   box-shadow: none;
   padding: 32px 22px 40px;
@@ -138,7 +110,7 @@ const handleGoogleSupabase = async () => {
 .logo {
   width: 40px;
   height: 40px;
-  border-radius: 14px;
+  border-radius: 10px;
   background: #111;
   display: grid;
   place-items: center;
@@ -160,53 +132,24 @@ const handleGoogleSupabase = async () => {
 }
 
 .login-card {
-  background: #fff;
-  border-radius: var(--radius);
+  background: var(--surface);
+  border-radius: var(--radius-card);
   padding: 20px;
   border: 1px solid var(--border);
   position: relative;
   z-index: 1;
 }
 
-.tabs {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6px;
-  margin-bottom: 16px;
-  background: #f3f4f6;
-  padding: 4px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-}
-
-.tab-btn {
-  border: 0;
-  background: transparent;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  padding: 10px 0;
-  border-radius: 999px;
-  cursor: pointer;
-  color: var(--muted);
-}
-
-.tab-btn.active {
-  background: #fff;
-  color: var(--ink);
-  box-shadow: 0 6px 16px rgba(15, 20, 25, 0.12);
-}
-
 .btn {
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 10px;
   padding: 12px 16px;
   font-family: inherit;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
-  background: #fff;
+  transition: background 160ms ease;
+  background: var(--surface);
 }
 
 .btn-google {
@@ -220,8 +163,7 @@ const handleGoogleSupabase = async () => {
 }
 
 .btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(15, 20, 25, 0.12);
+  background: var(--panel);
 }
 
 .legal {
@@ -257,56 +199,6 @@ const handleGoogleSupabase = async () => {
   to {
     opacity: 1;
   }
-}
-
-/* 切换开关样式 */
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 44px;
-  height: 24px;
-}
-
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  transition: .4s;
-  border-radius: 24px;
-}
-
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 16px;
-  width: 16px;
-  left: 4px;
-  bottom: 4px;
-  background-color: white;
-  transition: .4s;
-  border-radius: 50%;
-}
-
-input:checked + .slider {
-  background-color: #4285F4;
-}
-
-input:focus + .slider {
-  box-shadow: 0 0 1px #4285F4;
-}
-
-input:checked + .slider:before {
-  transform: translateX(20px);
 }
 
 @media (max-width: 420px) {
