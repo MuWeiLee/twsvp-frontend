@@ -33,6 +33,21 @@ export async function getIndustriesSupabase() {
   return data || [];
 }
 
+export async function getIndustryGroupsSupabase() {
+  const { data, error } = await supabase
+    .from("industry_groups")
+    .select("group_id, name, order_no")
+    .eq("is_active", true)
+    .order("order_no", { ascending: true });
+
+  if (error) {
+    console.error("获取 industry_groups 失败:", error);
+    return [];
+  }
+
+  return data || [];
+}
+
 export async function getUserIndustriesSupabase(userId) {
   if (!userId) {
     return [];
@@ -44,6 +59,23 @@ export async function getUserIndustriesSupabase(userId) {
 
   if (error) {
     console.error("获取 user_industries 失败:", error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function getUserGroupsSupabase(userId) {
+  if (!userId) {
+    return [];
+  }
+  const { data, error } = await supabase
+    .from("user_groups")
+    .select("group_id")
+    .eq("user_id", userId);
+
+  if (error) {
+    console.error("获取 user_groups 失败:", error);
     return [];
   }
 
@@ -77,6 +109,37 @@ export async function upsertProfileSupabase({ userId, nickname, bio, avatarUrl, 
   }
 
   return data;
+}
+
+export async function setUserGroupsSupabase(userId, groupIds) {
+  if (!userId) {
+    return false;
+  }
+  const { error: deleteError } = await supabase
+    .from("user_groups")
+    .delete()
+    .eq("user_id", userId);
+
+  if (deleteError) {
+    console.error("清理 user_groups 失败:", deleteError);
+    return false;
+  }
+
+  if (!groupIds || groupIds.length === 0) {
+    return true;
+  }
+
+  const rows = groupIds.map((groupId) => ({
+    user_id: userId,
+    group_id: groupId,
+  }));
+
+  const { error: insertError } = await supabase.from("user_groups").insert(rows);
+  if (insertError) {
+    console.error("写入 user_groups 失败:", insertError);
+    return false;
+  }
+  return true;
 }
 
 export async function setUserIndustriesSupabase(userId, industryIds) {

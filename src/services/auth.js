@@ -183,19 +183,19 @@ export async function getProfileCompletionSupabase(userId) {
       return false;
     }
 
-    const { count, error: industryError } = await supabase
-      .from("user_industries")
-      .select("industry_id", { count: "exact", head: true })
+    const { count, error: groupError } = await supabase
+      .from("user_groups")
+      .select("group_id", { count: "exact", head: true })
       .eq("user_id", userId);
 
-    if (industryError) {
-      console.error("读取 user_industries 失败:", industryError);
+    if (groupError) {
+      console.error("读取 user_groups 失败:", groupError);
       return false;
     }
 
     const hasNickname = Boolean(profile && profile.nickname);
-    const hasIndustries = (count || 0) > 0;
-    return hasNickname && hasIndustries;
+    const hasGroups = (count || 0) > 0;
+    return hasNickname && hasGroups;
   } catch (error) {
     console.error("检查 profile 完整度失败:", error);
     return false;

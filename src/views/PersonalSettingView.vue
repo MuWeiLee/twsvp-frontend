@@ -2,14 +2,15 @@
   <div class="app-shell">
     <div class="phone-frame">
       <nav class="nav">
-        <router-link class="nav-btn" to="/login">返回</router-link>
-        <div class="nav-title">完善资料</div>
+        <button class="nav-btn" type="button" @click="handleBack">返回</button>
+        <div class="nav-title">完善个人资料</div>
         <span class="nav-space" aria-hidden="true"></span>
       </nav>
 
       <header class="header">
-        <h1 class="title">完成个人资料</h1>
-        <p class="subtitle">昵称与感兴趣行业是进入观点流的必要信息。</p>
+        <h1 class="title">完善个人资料</h1>
+        <p class="subtitle">注册邮箱：{{ email || "—" }}</p>
+        <p class="subtitle">观点流中将会展示您的昵称。</p>
       </header>
 
       <section class="card">
@@ -24,17 +25,17 @@
         </label>
 
         <div class="field">
-          <span>感兴趣行业（至少 1 个）</span>
+          <span>感兴趣行业（最多 3 个）</span>
           <div class="tag-grid">
             <button
-              v-for="industry in industries"
-              :key="industry.industry_id"
+              v-for="group in groups"
+              :key="group.group_id"
               class="tag-btn"
-              :class="{ active: selectedIndustryIds.includes(industry.industry_id) }"
-              @click="toggleIndustry(industry.industry_id)"
+              :class="{ active: selectedGroupIds.includes(group.group_id) }"
+              @click="toggleGroup(group.group_id)"
               type="button"
             >
-              {{ industry.name }}
+              {{ group.name }}
             </button>
           </div>
         </div>
@@ -52,31 +53,37 @@
 <script setup>
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { getCurrentUserSupabase } from "../services/auth.js";
+import { getCurrentUserSupabase, signOutSupabase } from "../services/auth.js";
 import {
-  getIndustriesSupabase,
+  getIndustryGroupsSupabase,
   getProfileSupabase,
-  getUserIndustriesSupabase,
-  setUserIndustriesSupabase,
+  getUserGroupsSupabase,
+  setUserGroupsSupabase,
   upsertProfileSupabase,
 } from "../services/profile.js";
 
 const router = useRouter();
 const nickname = ref("");
 const bio = ref("");
-const industries = ref([]);
-const selectedIndustryIds = ref([]);
+const email = ref("");
+const groups = ref([]);
+const selectedGroupIds = ref([]);
 const isLoading = ref(false);
 const error = ref("");
 const userId = ref(null);
 
-const fallbackIndustries = [
-  { industry_id: 1, name: "半导体" },
-  { industry_id: 2, name: "AI 供应链" },
-  { industry_id: 3, name: "金融" },
-  { industry_id: 4, name: "航运" },
-  { industry_id: 5, name: "电动车" },
-  { industry_id: 6, name: "消费电子" },
+const fallbackGroups = [
+  { group_id: 1, name: "半导体与电子" },
+  { group_id: 2, name: "资讯服务" },
+  { group_id: 3, name: "金融" },
+  { group_id: 4, name: "航运" },
+  { group_id: 5, name: "消费" },
+  { group_id: 6, name: "医疗" },
+  { group_id: 7, name: "能源" },
+  { group_id: 8, name: "建材" },
+  { group_id: 9, name: "工业材料" },
+  { group_id: 10, name: "工业制造" },
+  { group_id: 11, name: "其他" },
 ];
 
 onMounted(async () => {
@@ -86,11 +93,12 @@ onMounted(async () => {
     return;
   }
   userId.value = user.id;
+  email.value = user.email || user.user_metadata?.email || "";
 
-  const [profile, industryList, userIndustries] = await Promise.all([
+  const [profile, groupList, userGroups] = await Promise.all([
     getProfileSupabase(user.id),
-    getIndustriesSupabase(),
-    getUserIndustriesSupabase(user.id),
+    getIndustryGroupsSupabase(),
+    getUserGroupsSupabase(user.id),
   ]);
 
   if (profile) {
@@ -98,23 +106,23 @@ onMounted(async () => {
     bio.value = profile.bio || "";
   }
 
-  const usableIndustries = industryList.length ? industryList : fallbackIndustries;
-  industries.value = usableIndustries;
-  selectedIndustryIds.value = userIndustries.map((item) => item.industry_id);
+  const usableGroups = groupList.length ? groupList : fallbackGroups;
+  groups.value = usableGroups;
+  selectedGroupIds.value = userGroups.map((item) => item.group_id);
 });
 
-const toggleIndustry = (industryId) => {
-  const exists = selectedIndustryIds.value.includes(industryId);
+const toggleGroup = (groupId) => {
+  const exists = selectedGroupIds.value.includes(groupId);
   if (exists) {
-    selectedIndustryIds.value = selectedIndustryIds.value.filter((id) => id !== industryId);
+    selectedGroupIds.value = selectedGroupIds.value.filter((id) => id !== groupId);
     return;
   }
-  if (selectedIndustryIds.value.length >= 5) {
-    error.value = "最多选择 5 个行业。";
+  if (selectedGroupIds.value.length >= 3) {
+    error.value = "最多选择 3 个行业。";
     return;
   }
   error.value = "";
-  selectedIndustryIds.value = [...selectedIndustryIds.value, industryId];
+  selectedGroupIds.value = [...selectedGroupIds.value, groupId];
 };
 
 const handleSave = async () => {
@@ -122,7 +130,7 @@ const handleSave = async () => {
     error.value = "请填写昵称。";
     return;
   }
-  if (selectedIndustryIds.value.length === 0) {
+  if (selectedGroupIds.value.length === 0) {
     error.value = "请选择至少 1 个行业。";
     return;
   }
@@ -136,17 +144,26 @@ const handleSave = async () => {
     completed: true,
   });
 
-  const savedIndustries = await setUserIndustriesSupabase(
+  const savedGroups = await setUserGroupsSupabase(
     userId.value,
-    selectedIndustryIds.value
+    selectedGroupIds.value
   );
 
   isLoading.value = false;
-  if (profile && savedIndustries) {
+  if (profile && savedGroups) {
     router.replace("/feed");
     return;
   }
   error.value = "保存失败，请稍后重试。";
+};
+
+const handleBack = async () => {
+  const success = await signOutSupabase();
+  if (success) {
+    router.replace("/login");
+    return;
+  }
+  error.value = "退出失败，请稍后重试。";
 };
 </script>
 
