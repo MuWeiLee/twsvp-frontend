@@ -94,10 +94,11 @@ export async function exchangeGoogleCode(code) {
 // 使用Supabase进行Google登录
 export async function signInWithGoogleSupabase() {
   try {
+    const redirectTo = `${window.location.origin}/auth/callback`;
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo,
       },
     });
 
