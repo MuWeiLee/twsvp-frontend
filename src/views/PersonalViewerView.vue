@@ -66,7 +66,6 @@
             class="view-item"
             @click="goFeed(view.feed_id)"
           >
-            <div class="thread-dot" aria-hidden="true"></div>
             <div class="thread-body">
               <div class="view-header">
                 <span>{{ view.target_symbol }} {{ view.target_name }}</span>
@@ -189,7 +188,7 @@ onMounted(loadProfile);
 
 <style scoped>
 .app-shell {
-  max-width: 480px;
+  max-width: 375px;
   margin: 0 auto;
   background: var(--bg);
   min-height: 100vh;
@@ -201,7 +200,7 @@ onMounted(loadProfile);
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: 72px 20px 40px;
+  padding: 76px 16px 40px;
   position: relative;
 }
 
@@ -210,14 +209,14 @@ onMounted(loadProfile);
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  height: 52px;
+  height: 64px;
   padding: 0 16px;
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   width: 100%;
-  max-width: 480px;
+  max-width: 375px;
   margin: 0 auto;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -226,8 +225,8 @@ onMounted(loadProfile);
 }
 
 .nav-title {
-  font-weight: 700;
-  font-size: 15px;
+  font-weight: 500;
+  font-size: 20px;
 }
 
 .nav-btn {
@@ -246,7 +245,7 @@ onMounted(loadProfile);
 }
 
 .nav-space {
-  width: 28px;
+  width: 32px;
 }
 
 .profile {
@@ -336,18 +335,8 @@ onMounted(loadProfile);
 }
 
 .view-item {
-  display: grid;
-  grid-template-columns: 16px 1fr;
-  gap: 12px;
+  display: block;
   cursor: pointer;
-}
-
-.thread-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--ink);
-  margin-top: 8px;
 }
 
 .thread-body {

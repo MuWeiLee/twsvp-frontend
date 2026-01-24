@@ -74,7 +74,7 @@
       </section>
 
       <nav class="tabbar">
-        <router-link class="tab-item" active-class="active" to="/feed">观点流</router-link>
+        <router-link class="tab-item" active-class="active" to="/feed">观点</router-link>
         <router-link class="tab-item" active-class="active" to="/search">搜索</router-link>
         <router-link class="tab-item" active-class="active" to="/create-feed">发布</router-link>
         <router-link class="tab-item" active-class="active" to="/notifications">通知</router-link>
@@ -153,7 +153,7 @@ const handlePublish = async () => {
 
 <style scoped>
 .app-shell {
-  max-width: 480px;
+  max-width: 375px;
   margin: 0 auto;
   background: var(--bg);
   min-height: 100vh;
@@ -165,7 +165,7 @@ const handlePublish = async () => {
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: 72px 20px 96px;
+  padding: 76px 16px 96px;
   position: relative;
 }
 
@@ -174,14 +174,14 @@ const handlePublish = async () => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  height: 52px;
+  height: 64px;
   padding: 0 16px;
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   width: 100%;
-  max-width: 480px;
+  max-width: 375px;
   margin: 0 auto;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -190,8 +190,8 @@ const handlePublish = async () => {
 }
 
 .nav-title {
-  font-weight: 700;
-  font-size: 15px;
+  font-weight: 500;
+  font-size: 20px;
 }
 
 .nav-btn {
@@ -210,7 +210,7 @@ const handlePublish = async () => {
 }
 
 .nav-space {
-  width: 28px;
+  width: 32px;
 }
 
 .card {
@@ -288,12 +288,12 @@ const handlePublish = async () => {
   left: 0;
   right: 0;
   width: 100%;
-  max-width: 480px;
+  max-width: 375px;
   margin: 0 auto;
   bottom: 0;
   margin-top: 0;
-  min-height: 56px;
-  padding: 10px 6px;
+  min-height: 64px;
+  padding: 0 6px;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 6px;
@@ -304,7 +304,7 @@ const handlePublish = async () => {
 
 .tab-item {
   text-align: center;
-  font-size: 12px;
+  font-size: 16px;
   color: var(--muted);
   text-decoration: none;
   display: block;

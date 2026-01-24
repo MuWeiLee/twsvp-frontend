@@ -1,18 +1,18 @@
 :root {
-  --bg: #f7f7f7;
+  --bg: #efefef;
   --surface: #ffffff;
   --card: #ffffff;
-  --panel: #f1f3f5;
+  --panel: #f3f3f3;
   --ink: #121417;
   --muted: #6b7280;
-  --border: #e5e7eb;
+  --border: #e0e0e0;
   --accent: #121417;
   --accent-soft: #f0f0f0;
   --positive: #167a3d;
   --negative: #b42318;
   --shadow: 0 2px 8px rgba(15, 20, 25, 0.06);
-  --radius: 12px;
-  --radius-card: 8px;
+  --radius: 8px;
+  --radius-card: 0px;
 }
 
 * {

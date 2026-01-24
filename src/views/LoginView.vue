@@ -101,7 +101,7 @@ const handleGoogleSupabase = async () => {
   box-shadow: none;
   padding: 32px 22px 40px;
   position: relative;
-  max-width: 480px;
+  max-width: 375px;
   margin: 0 auto;
 }
 

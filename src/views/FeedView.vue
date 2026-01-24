@@ -5,75 +5,59 @@
         <router-link class="nav-logo" to="/feed" aria-label="TWSVP">
           <img :src="logoUrl" alt="TWSVP" />
         </router-link>
-        <div class="nav-title">观点流</div>
+        <div class="nav-title">观点</div>
         <router-link class="nav-btn" to="/search">搜索</router-link>
       </nav>
 
       <header class="slide-in">
-        <div style="display: flex; justify-content: flex-end">
-          <a class="nav-btn" href="#publish">发布观点</a>
-        </div>
-
-        <div class="tabs">
-          <button
-            class="tab-btn"
-            :class="{ active: statusFilter === 'all' }"
-            @click="statusFilter = 'all'"
-          >
-            全部
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: statusFilter === 'active' }"
-            @click="statusFilter = 'active'"
-          >
-            未结束
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: statusFilter === 'expired' }"
-            @click="statusFilter = 'expired'"
-          >
-            已结束
-          </button>
-        </div>
-
-        <div class="tabs tabs-compact">
-          <button
-            class="tab-btn"
-            :class="{ active: sortKey === 'time' }"
-            @click="sortKey = 'time'"
-          >
-            时间
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: sortKey === 'hot' }"
-            @click="sortKey = 'hot'"
-          >
-            热度
-          </button>
-        </div>
-
-        <div id="publish" class="composer">
-          <div class="composer-top">
-            <div class="avatar">{{ user.initials }}</div>
-            <div class="composer-text">写下你的观点（标的、方向、时效）</div>
+        <div class="filter-row">
+          <div class="filter-group">
+            <button
+              class="filter-btn"
+              :class="{ active: statusFilter === 'all' }"
+              @click="statusFilter = 'all'"
+            >
+              全部
+            </button>
+            <span class="divider">|</span>
+            <button
+              class="filter-btn"
+              :class="{ active: statusFilter === 'active' }"
+              @click="statusFilter = 'active'"
+            >
+              未结束
+            </button>
+            <span class="divider">|</span>
+            <button
+              class="filter-btn"
+              :class="{ active: statusFilter === 'expired' }"
+              @click="statusFilter = 'expired'"
+            >
+              已结束
+            </button>
           </div>
-          <div class="composer-meta">
-            <div>
-              <span class="chip">标的：{{ composer.asset }}</span>
-              <span class="chip">方向：{{ composer.direction }}</span>
-              <span class="chip">时效：{{ composer.horizon }}</span>
-            </div>
-            <router-link class="btn-primary" to="/create-feed">发布观点</router-link>
+          <div class="filter-group">
+            <button
+              class="filter-btn"
+              :class="{ active: sortKey === 'time' }"
+              @click="sortKey = 'time'"
+            >
+              时间
+            </button>
+            <span class="divider">|</span>
+            <button
+              class="filter-btn"
+              :class="{ active: sortKey === 'hot' }"
+              @click="sortKey = 'hot'"
+            >
+              热度
+            </button>
           </div>
         </div>
       </header>
 
       <section class="feed">
         <div v-for="view in filteredViews" :key="view.feed_id" class="thread slide-in">
-          <div class="thread-dot" aria-hidden="true"></div>
           <div class="thread-card" @click="goFeed(view.feed_id)">
             <div class="thread-header">
               <div class="stock">
@@ -114,7 +98,7 @@
       </p>
 
       <nav class="tabbar">
-        <router-link class="tab-item" active-class="active" to="/feed">观点流</router-link>
+        <router-link class="tab-item" active-class="active" to="/feed">观点</router-link>
         <router-link class="tab-item" active-class="active" to="/search">搜索</router-link>
         <router-link class="tab-item" active-class="active" to="/create-feed">发布</router-link>
         <router-link class="tab-item" active-class="active" to="/notifications">通知</router-link>
@@ -141,11 +125,6 @@ const statusFilter = ref("all");
 const sortKey = ref("time");
 const user = ref({
   initials: "",
-});
-const composer = ref({
-  asset: "2330 台积电",
-  direction: "看多",
-  horizon: "10 个交易日",
 });
 const feeds = ref([]);
 const isLoading = ref(false);
@@ -262,7 +241,7 @@ watch([statusFilter, sortKey], loadFeeds);
 
 <style scoped>
 .app-shell {
-  max-width: 480px;
+  max-width: 375px;
   margin: 0 auto;
   background: var(--bg);
   min-height: 100vh;
@@ -274,7 +253,7 @@ watch([statusFilter, sortKey], loadFeeds);
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: 72px 20px 96px;
+  padding: 76px 16px 96px;
   position: relative;
 }
 
@@ -283,14 +262,14 @@ watch([statusFilter, sortKey], loadFeeds);
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  height: 52px;
+  height: 64px;
   padding: 0 16px;
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   width: 100%;
-  max-width: 480px;
+  max-width: 375px;
   margin: 0 auto;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -299,8 +278,8 @@ watch([statusFilter, sortKey], loadFeeds);
 }
 
 .nav-title {
-  font-weight: 700;
-  font-size: 15px;
+  font-weight: 500;
+  font-size: 20px;
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
@@ -313,7 +292,7 @@ watch([statusFilter, sortKey], loadFeeds);
   height: 32px;
   padding: 0 10px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   text-decoration: none;
   color: var(--ink);
@@ -322,9 +301,9 @@ watch([statusFilter, sortKey], loadFeeds);
 }
 
 .nav-logo {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
   background: var(--surface);
   display: inline-flex;
   align-items: center;
@@ -334,103 +313,43 @@ watch([statusFilter, sortKey], loadFeeds);
 }
 
 .nav-logo img {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   display: block;
 }
 
-.tabs {
-  margin-top: 14px;
+.filter-row {
   display: flex;
-  gap: 16px;
-  border-bottom: 1px solid var(--border);
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  padding: 4px 0 2px;
+  color: var(--ink);
 }
 
-.tab-btn {
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-btn {
   border: 0;
   background: transparent;
   font-family: inherit;
   font-size: 14px;
-  font-weight: 600;
-  padding: 10px 0;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  color: var(--muted);
-}
-
-.tab-btn.active {
+  font-weight: 500;
   color: var(--ink);
-  border-color: var(--ink);
-}
-
-.tabs-compact {
-  margin-top: 8px;
-  gap: 12px;
-}
-
-.composer {
-  margin-top: 14px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  display: grid;
-  gap: 12px;
-  background: var(--surface);
-}
-
-.composer-top {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.avatar {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  background: var(--panel);
-  display: grid;
-  place-items: center;
-  font-weight: 600;
-}
-
-.composer-text {
-  flex: 1;
-  font-size: 14px;
-  color: var(--muted);
-}
-
-.composer-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  margin-right: 6px;
-}
-
-.btn-primary {
-  border: 0;
-  background: var(--ink);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  padding: 10px 16px;
-  border-radius: 10px;
   cursor: pointer;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
+  padding: 0;
+}
+
+.filter-btn.active {
+  text-decoration: underline;
+}
+
+.divider {
+  color: var(--muted);
 }
 
 .feed {
@@ -440,18 +359,7 @@ watch([statusFilter, sortKey], loadFeeds);
 }
 
 .thread {
-  display: grid;
-  grid-template-columns: 16px 1fr;
-  gap: 12px;
-  align-items: start;
-}
-
-.thread-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--ink);
-  margin-top: 6px;
+  display: block;
 }
 
 .thread-card {
@@ -491,10 +399,10 @@ watch([statusFilter, sortKey], loadFeeds);
 }
 
 .pill {
-  padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--panel);
+  padding: 0;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
   color: var(--ink);
 }
 
@@ -507,12 +415,12 @@ watch([statusFilter, sortKey], loadFeeds);
 }
 
 .more-btn {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  border-radius: 8px;
-  padding: 2px 8px;
+  border: 0;
+  background: transparent;
+  padding: 0;
   font-size: 12px;
   cursor: pointer;
+  color: var(--muted);
 }
 
 .thread-sub {
@@ -565,12 +473,12 @@ watch([statusFilter, sortKey], loadFeeds);
   left: 0;
   right: 0;
   width: 100%;
-  max-width: 480px;
+  max-width: 375px;
   margin: 0 auto;
   bottom: 0;
   margin-top: 0;
-  min-height: 56px;
-  padding: 10px 6px;
+  min-height: 64px;
+  padding: 0 6px;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 6px;
@@ -581,7 +489,7 @@ watch([statusFilter, sortKey], loadFeeds);
 
 .tab-item {
   text-align: center;
-  font-size: 12px;
+  font-size: 16px;
   color: var(--muted);
   text-decoration: none;
   display: block;

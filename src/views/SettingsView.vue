@@ -180,7 +180,7 @@ onMounted(loadAccount);
 
 <style scoped>
 .app-shell {
-  max-width: 480px;
+  max-width: 375px;
   margin: 0 auto;
   background: var(--bg);
   min-height: 100vh;
@@ -192,7 +192,7 @@ onMounted(loadAccount);
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: 72px 20px 40px;
+  padding: 76px 16px 40px;
   position: relative;
 }
 
@@ -201,14 +201,14 @@ onMounted(loadAccount);
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  height: 52px;
+  height: 64px;
   padding: 0 16px;
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   width: 100%;
-  max-width: 480px;
+  max-width: 375px;
   margin: 0 auto;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -217,8 +217,8 @@ onMounted(loadAccount);
 }
 
 .nav-title {
-  font-weight: 700;
-  font-size: 15px;
+  font-weight: 500;
+  font-size: 20px;
 }
 
 .nav-btn {
@@ -237,7 +237,7 @@ onMounted(loadAccount);
 }
 
 .nav-space {
-  width: 28px;
+  width: 32px;
 }
 
 .brand {
@@ -323,8 +323,8 @@ onMounted(loadAccount);
 .switch::after {
   content: "";
   position: absolute;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: var(--surface);
   top: 3px;
