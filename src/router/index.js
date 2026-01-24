@@ -12,6 +12,8 @@ import CreateFeedView from "../views/CreateFeedView.vue";
 import StockFeedView from "../views/StockFeedView.vue";
 import SectorFeedView from "../views/SectorFeedView.vue";
 import AuthCallbackView from "../views/AuthCallbackView.vue";
+import UserAgreementView from "../views/UserAgreementView.vue";
+import PrivacyPolicyView from "../views/PrivacyPolicyView.vue";
 import { getCurrentUserSupabase, getMe, getProfileCompletionSupabase } from "../services/auth.js";
 
 const routes = [
@@ -29,6 +31,8 @@ const routes = [
   { path: "/user/:id", component: PersonalViewerView },
   { path: "/profile", component: ProfileView },
   { path: "/settings", component: SettingsView },
+  { path: "/agreement/user", component: UserAgreementView },
+  { path: "/agreement/privacy", component: PrivacyPolicyView },
   { path: "/:pathMatch(.*)*", redirect: "/login" },
 ];
 
@@ -46,13 +50,15 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const isLoginRoute =
     to.path === "/" || to.path === "/login" || to.path === "/auth/callback";
+  const isAgreementRoute =
+    to.path === "/agreement/user" || to.path === "/agreement/privacy";
   const supabaseUser = await getCurrentUserSupabase();
   const user = supabaseUser || (await getMe());
 
   if (user && supabaseUser) {
     const isPersonalSettingRoute = to.path === "/personal-setting";
     const completed = await getProfileCompletionSupabase(supabaseUser.id);
-    if (!completed && !isLoginRoute && !isPersonalSettingRoute) {
+    if (!completed && !isLoginRoute && !isPersonalSettingRoute && !isAgreementRoute) {
       return "/personal-setting";
     }
     if (completed && isPersonalSettingRoute) {
@@ -69,6 +75,10 @@ router.beforeEach(async (to) => {
       return completed ? "/feed" : "/personal-setting";
     }
     return "/feed";
+  }
+
+  if (isAgreementRoute) {
+    return true;
   }
 
   return user ? true : "/login";

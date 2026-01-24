@@ -2,7 +2,9 @@
   <div class="app-shell">
     <div class="phone-frame">
       <nav class="nav">
-        <router-link class="nav-logo" to="/feed" aria-label="TWSVP">T</router-link>
+        <router-link class="nav-logo" to="/feed" aria-label="TWSVP">
+          <img :src="logoUrl" alt="TWSVP" />
+        </router-link>
         <div class="nav-title">个人中心</div>
         <button class="nav-btn" @click="goSettings">设置</button>
       </nav>
@@ -95,6 +97,7 @@
 
 <script setup>
 import { computed, ref } from "vue";
+import logoUrl from "../assets/logo.png";
 import { useRouter } from "vue-router";
 
 const router = useRouter();
@@ -167,7 +170,8 @@ const goSettings = () => {
 .app-shell {
   max-width: 480px;
   margin: 0 auto;
-  background: transparent;
+  background: var(--bg);
+  min-height: 100vh;
 }
 
 .phone-frame {
@@ -185,7 +189,8 @@ const goSettings = () => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 16px;
+  height: 52px;
+  padding: 0 16px;
   position: fixed;
   top: 0;
   left: 0;
@@ -195,13 +200,13 @@ const goSettings = () => {
   margin: 0 auto;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(15, 20, 25, 0.04);
   z-index: 5;
 }
 
 .nav-title {
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 15px;
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
@@ -211,26 +216,33 @@ const goSettings = () => {
   border: 1px solid var(--border);
   background: var(--surface);
   border-radius: 10px;
-  padding: 6px 10px;
+  height: 32px;
+  padding: 0 10px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
   color: var(--ink);
+  display: inline-flex;
+  align-items: center;
 }
 
 .nav-logo {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 8px;
-  background: var(--ink);
-  display: grid;
-  place-items: center;
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
-  font-weight: 700;
-  color: #fff;
+  background: var(--surface);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid var(--border);
   text-decoration: none;
+}
+
+.nav-logo img {
+  width: 18px;
+  height: 18px;
+  display: block;
 }
 
 .profile {

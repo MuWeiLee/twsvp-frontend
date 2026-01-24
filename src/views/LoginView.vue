@@ -2,16 +2,13 @@
   <div class="phone-frame fade-in">
     <header class="slide-in">
       <div class="brand">
-        <div class="logo">T</div>
+        <img class="logo" :src="logoUrl" alt="TWSVP" />
         <div>
           <div>TWSVP</div>
-          <div style="font-size: 12px; color: var(--muted)">让你的观点价值被看见</div>
+          <div style="font-size: 12px; color: var(--muted)">让你观点的价值被看见</div>
         </div>
       </div>
-      <h1 class="title">欢迎回来</h1>
-      <p class="subtitle">
-        继续使用 TWSVP，请通过 Google 账号完成登录或注册。
-      </p>
+      <h1 class="title">欢迎使用TWSVP</h1>
     </header>
 
     <section class="login-card slide-in">
@@ -42,7 +39,11 @@
       </button>
 
       <p class="legal">
-        继续即表示你同意《服务条款》，并确认已阅读《隐私政策》。
+        继续即表示你同意
+        <router-link class="legal-link" to="/agreement/user">《用户协议》</router-link>
+        ，并确认已阅读
+        <router-link class="legal-link" to="/agreement/privacy">《隐私政策》</router-link>
+        。
       </p>
     </section>
   </div>
@@ -50,6 +51,7 @@
 
 <script setup>
 import { onMounted } from "vue";
+import logoUrl from "../assets/logo.png";
 import { useRouter } from "vue-router";
 import {
   ensureProfileSupabase,
@@ -99,6 +101,8 @@ const handleGoogleSupabase = async () => {
   box-shadow: none;
   padding: 32px 22px 40px;
   position: relative;
+  max-width: 480px;
+  margin: 0 auto;
 }
 
 .brand {
@@ -108,19 +112,16 @@ const handleGoogleSupabase = async () => {
 }
 
 .logo {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: #111;
-  display: grid;
-  place-items: center;
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
-  font-weight: 700;
-  color: #fff;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  object-fit: contain;
+  display: block;
 }
 
 .title {
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
   font-size: 24px;
   margin: 18px 0 6px;
 }
@@ -171,6 +172,12 @@ const handleGoogleSupabase = async () => {
   font-size: 12px;
   color: var(--muted);
   line-height: 1.5;
+}
+
+.legal-link {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .slide-in {

@@ -110,7 +110,8 @@ const handlePublish = () => {
 .app-shell {
   max-width: 480px;
   margin: 0 auto;
-  background: transparent;
+  background: var(--bg);
+  min-height: 100vh;
 }
 
 .phone-frame {
@@ -128,7 +129,8 @@ const handlePublish = () => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 16px;
+  height: 52px;
+  padding: 0 16px;
   position: fixed;
   top: 0;
   left: 0;
@@ -138,29 +140,32 @@ const handlePublish = () => {
   margin: 0 auto;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(15, 20, 25, 0.04);
   z-index: 5;
 }
 
 .nav-title {
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .nav-btn {
   border: 1px solid var(--border);
   background: var(--surface);
   border-radius: 10px;
-  padding: 6px 10px;
+  height: 32px;
+  padding: 0 10px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
   color: var(--ink);
+  display: inline-flex;
+  align-items: center;
 }
 
 .nav-space {
-  width: 46px;
+  width: 28px;
 }
 
 .card {

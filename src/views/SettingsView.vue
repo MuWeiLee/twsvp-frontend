@@ -9,7 +9,7 @@
 
       <header class="slide-in">
         <div class="brand">
-          <div class="logo">T</div>
+          <img class="logo" :src="logoUrl" alt="TWSVP" />
           <div>
             <div>TWSVP</div>
             <div style="font-size: 12px; color: var(--muted)">设置</div>
@@ -82,6 +82,22 @@
           <button class="btn-outline" @click="handleBlocked">编辑</button>
         </div>
 
+        <div class="section-title">协议与隐私</div>
+        <div class="setting-item">
+          <div class="setting-meta">
+            <strong>用户协议</strong>
+            <span>了解平台服务条款</span>
+          </div>
+          <router-link class="btn-outline" to="/agreement/user">查看</router-link>
+        </div>
+        <div class="setting-item">
+          <div class="setting-meta">
+            <strong>隐私政策</strong>
+            <span>了解信息如何被使用</span>
+          </div>
+          <router-link class="btn-outline" to="/agreement/privacy">查看</router-link>
+        </div>
+
         <div class="section-title">退出</div>
         <div class="setting-item">
           <div class="setting-meta">
@@ -100,6 +116,7 @@
 
 <script setup>
 import { computed, reactive } from "vue";
+import logoUrl from "../assets/logo.png";
 import { useRouter } from "vue-router";
 import { signOutSupabase } from "../services/auth.js";
 
@@ -158,7 +175,8 @@ const handleLogout = async () => {
 .app-shell {
   max-width: 480px;
   margin: 0 auto;
-  background: transparent;
+  background: var(--bg);
+  min-height: 100vh;
 }
 
 .phone-frame {
@@ -167,7 +185,7 @@ const handleLogout = async () => {
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: 72px 20px 96px;
+  padding: 72px 20px 40px;
   position: relative;
 }
 
@@ -176,7 +194,8 @@ const handleLogout = async () => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 16px;
+  height: 52px;
+  padding: 0 16px;
   position: fixed;
   top: 0;
   left: 0;
@@ -186,29 +205,32 @@ const handleLogout = async () => {
   margin: 0 auto;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(15, 20, 25, 0.04);
   z-index: 5;
 }
 
 .nav-title {
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .nav-btn {
   border: 1px solid var(--border);
   background: var(--surface);
   border-radius: 10px;
-  padding: 6px 10px;
+  height: 32px;
+  padding: 0 10px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
   color: var(--ink);
+  display: inline-flex;
+  align-items: center;
 }
 
 .nav-space {
-  width: 46px;
+  width: 28px;
 }
 
 .brand {
@@ -218,19 +240,16 @@ const handleLogout = async () => {
 }
 
 .logo {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: #111;
-  display: grid;
-  place-items: center;
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
-  font-weight: 700;
-  color: #fff;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  object-fit: contain;
+  display: block;
 }
 
 .title {
-  font-family: "Manrope", "Noto Sans SC", sans-serif;
   font-size: 24px;
   margin: 18px 0 6px;
 }
@@ -322,6 +341,10 @@ const handleLogout = async () => {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  color: var(--ink);
 }
 
 .btn-danger {
