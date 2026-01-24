@@ -150,19 +150,38 @@ export async function ensureProfileSupabase(user) {
 
   try {
     const { data, error } = await supabase
-      .from("profiles")
+      .from("users")
       .upsert(payload, { onConflict: "user_id" })
       .select()
       .single();
 
     if (error) {
-      console.error("创建 profile 失败:", error);
-      return null;
+      console.error("创建 users 失败:", error);
+      const { data: legacy, error: legacyError } = await supabase
+        .from("profiles")
+        .upsert(payload, { onConflict: "user_id" })
+        .select()
+        .single();
+
+      if (legacyError) {
+        console.error("创建 profiles 失败:", legacyError);
+        return null;
+      }
+
+      return legacy;
+    }
+
+    const { error: legacyError } = await supabase
+      .from("profiles")
+      .upsert(payload, { onConflict: "user_id" });
+
+    if (legacyError) {
+      console.warn("同步 profiles 失败:", legacyError);
     }
 
     return data;
   } catch (error) {
-    console.error("创建 profile 异常:", error);
+    console.error("创建 users 异常:", error);
     return null;
   }
 }
@@ -173,15 +192,31 @@ export async function getProfileCompletionSupabase(userId) {
   }
 
   try {
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
+    let profile = null;
+    const { data: userRow, error: userError } = await supabase
+      .from("users")
       .select("nickname")
       .eq("user_id", userId)
       .maybeSingle();
 
-    if (profileError) {
-      console.error("读取 profile 失败:", profileError);
-      return false;
+    if (userError) {
+      console.error("读取 users 失败:", userError);
+    }
+
+    profile = userRow;
+
+    if (!profile) {
+      const { data: legacyRow, error: legacyError } = await supabase
+        .from("profiles")
+        .select("nickname")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (legacyError) {
+        console.error("读取 profiles 失败:", legacyError);
+        return false;
+      }
+      profile = legacyRow;
     }
 
     const { count, error: groupError } = await supabase

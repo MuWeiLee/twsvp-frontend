@@ -5,17 +5,31 @@ export async function getProfileSupabase(userId) {
     return null;
   }
   const { data, error } = await supabase
-    .from("profiles")
-    .select("user_id, nickname, bio, avatar_url, profile_completed_at")
+    .from("users")
+    .select("user_id, nickname, bio, avatar_url, profile_completed_at, created_at")
     .eq("user_id", userId)
     .maybeSingle();
 
   if (error) {
-    console.error("获取 profile 失败:", error);
+    console.error("获取 users 失败:", error);
+  }
+
+  if (data) {
+    return data;
+  }
+
+  const { data: legacy, error: legacyError } = await supabase
+    .from("profiles")
+    .select("user_id, nickname, bio, avatar_url, profile_completed_at, created_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (legacyError) {
+    console.error("获取 profiles 失败:", legacyError);
     return null;
   }
 
-  return data;
+  return legacy;
 }
 
 export async function getIndustriesSupabase() {
@@ -98,14 +112,33 @@ export async function upsertProfileSupabase({ userId, nickname, bio, avatarUrl, 
   }
 
   const { data, error } = await supabase
-    .from("profiles")
+    .from("users")
     .upsert(payload, { onConflict: "user_id" })
     .select()
     .single();
 
   if (error) {
-    console.error("更新 profile 失败:", error);
-    return null;
+    console.error("更新 users 失败:", error);
+    const { data: legacy, error: legacyError } = await supabase
+      .from("profiles")
+      .upsert(payload, { onConflict: "user_id" })
+      .select()
+      .single();
+
+    if (legacyError) {
+      console.error("更新 profiles 失败:", legacyError);
+      return null;
+    }
+
+    return legacy;
+  }
+
+  const { error: legacyError } = await supabase
+    .from("profiles")
+    .upsert(payload, { onConflict: "user_id" });
+
+  if (legacyError) {
+    console.warn("同步 profiles 失败:", legacyError);
   }
 
   return data;
