@@ -60,79 +60,131 @@
         </div>
 
         <div class="view-list">
-          <div v-for="view in filteredViews" :key="view.id" class="view-item">
+          <div
+            v-for="view in filteredViews"
+            :key="view.feed_id"
+            class="view-item"
+            @click="goFeed(view.feed_id)"
+          >
             <div class="thread-dot" aria-hidden="true"></div>
             <div class="thread-body">
               <div class="view-header">
-                <span>{{ view.asset }}</span>
+                <span>{{ view.target_symbol }} {{ view.target_name }}</span>
                 <span class="status">{{ view.statusLabel }}</span>
               </div>
               <div class="view-meta">
-                <span class="direction">{{ view.direction }}</span>
-                <span>{{ view.horizon }}</span>
-                <span>发布于 {{ view.date }}</span>
+                <span class="direction">{{ view.directionLabel }}</span>
+                <span>剩余 {{ view.remainingDays }} 天</span>
+                <span>发布于 {{ view.createdLabel }}</span>
               </div>
               <div class="summary">{{ view.content }}</div>
             </div>
           </div>
         </div>
+        <div v-if="!filteredViews.length" class="empty">暂无观点</div>
       </section>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { getProfileSupabase, getUserGroupNamesSupabase } from "../services/profile.js";
+import { fetchFeedsSupabase, mapDirectionToLabel } from "../services/feeds.js";
 
+const route = useRoute();
+const router = useRouter();
 const mode = ref("all");
 const user = ref({
-  initials: "林",
-  name: "林可心",
-  bio: "专注台股半导体与供应链，偏中短期策略。",
-  tags: ["半导体", "AI 供应链", "ETF"],
-  joined: "2023/06/18",
+  initials: "",
+  name: "",
+  bio: "",
+  tags: [],
+  joined: "—",
 });
-const stats = ref({
-  totalViews: 32,
-  closedViews: 12,
-  winRate: "待结算",
-});
-const views = ref([
-  {
-    id: 1,
-    asset: "2330 台积电",
-    direction: "看多",
-    horizon: "10 个交易日",
-    date: "2024/11/06",
-    status: "active",
-    statusLabel: "未结束",
-    content: "法说会后估值修复，关注量能与外资动向。",
-  },
-  {
-    id: 2,
-    asset: "2454 联发科",
-    direction: "中性",
-    horizon: "5 个交易日",
-    date: "2024/11/02",
-    status: "active",
-    statusLabel: "未结束",
-    content: "区间震荡，等待下个催化剂确认方向。",
-  },
-  {
-    id: 3,
-    asset: "2603 长荣",
-    direction: "看空",
-    horizon: "20 个交易日",
-    date: "2024/10/15",
-    status: "closed",
-    statusLabel: "已结束",
-    content: "运价回落压力增大，留意航运指数变化。",
-  },
-]);
+const feeds = ref([]);
 
-const filteredViews = computed(() =>
-  views.value.filter((view) => (mode.value === "all" ? true : view.status === mode.value))
-);
+const formatDate = (value) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}/${month}/${day}`;
+};
+
+const getRemainingDays = (value) => {
+  if (!value) return 0;
+  const expiresAt = new Date(value).getTime();
+  if (Number.isNaN(expiresAt)) return 0;
+  const diff = expiresAt - Date.now();
+  if (diff <= 0) return 0;
+  return Math.ceil(diff / (24 * 60 * 60 * 1000));
+};
+
+const getInitials = (name) => {
+  if (!name) return "";
+  return name.trim().slice(0, 1);
+};
+
+const stats = computed(() => {
+  const totalViews = feeds.value.length;
+  const closedViews = feeds.value.filter((view) => view.status !== "active").length;
+  return {
+    totalViews,
+    closedViews,
+    winRate: totalViews ? "待结算" : "—",
+  };
+});
+
+const filteredViews = computed(() => {
+  const filtered = feeds.value.filter((view) => {
+    if (mode.value === "all") return true;
+    if (mode.value === "active") return view.status === "active";
+    return view.status !== "active";
+  });
+  return filtered.map((view) => ({
+    ...view,
+    statusLabel: view.status === "active" ? "未结束" : "已结束",
+    directionLabel: mapDirectionToLabel(view.direction),
+    createdLabel: formatDate(view.created_at),
+    remainingDays: getRemainingDays(view.expires_at),
+  }));
+});
+
+const loadProfile = async () => {
+  const userId = route.params.id;
+  if (!userId || Array.isArray(userId)) {
+    return;
+  }
+
+  const [profile, tags] = await Promise.all([
+    getProfileSupabase(userId),
+    getUserGroupNamesSupabase(userId),
+  ]);
+
+  const nickname = profile?.nickname || "用户";
+
+  user.value = {
+    initials: getInitials(nickname),
+    name: nickname,
+    bio: profile?.bio || "尚未填写简介",
+    tags,
+    joined: formatDate(profile?.created_at),
+  };
+
+  const data = await fetchFeedsSupabase({ userId });
+  feeds.value = data;
+};
+
+const goFeed = (feedId) => {
+  if (!feedId) return;
+  router.push(`/feed/${feedId}`);
+};
+
+onMounted(loadProfile);
 </script>
 
 <style scoped>
@@ -287,6 +339,7 @@ const filteredViews = computed(() =>
   display: grid;
   grid-template-columns: 16px 1fr;
   gap: 12px;
+  cursor: pointer;
 }
 
 .thread-dot {
@@ -354,6 +407,12 @@ const filteredViews = computed(() =>
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.empty {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .tags {

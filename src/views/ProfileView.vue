@@ -62,22 +62,28 @@
         </div>
 
         <div class="view-list">
-          <div v-for="view in filteredViews" :key="view.id" class="view-item">
+          <div
+            v-for="view in filteredViews"
+            :key="view.feed_id"
+            class="view-item"
+            @click="goFeed(view.feed_id)"
+          >
             <div class="thread-dot" aria-hidden="true"></div>
             <div class="thread-body">
               <div class="view-header">
-                <span>{{ view.asset }}</span>
+                <span>{{ view.target_symbol }} {{ view.target_name }}</span>
                 <span class="status">{{ view.statusLabel }}</span>
               </div>
               <div class="view-meta">
-                <span class="direction">{{ view.direction }}</span>
-                <span>{{ view.horizon }}</span>
-                <span>发布于 {{ view.date }}</span>
+                <span class="direction">{{ view.directionLabel }}</span>
+                <span>剩余 {{ view.remainingDays }} 天</span>
+                <span>发布于 {{ view.createdLabel }}</span>
               </div>
               <div class="summary">{{ view.content }}</div>
             </div>
           </div>
         </div>
+        <div v-if="!filteredViews.length" class="empty">暂无观点</div>
 
         <p class="legal">
           仅记录观点与回溯结果，不展示预测价格，也不作为投资建议。
@@ -96,74 +102,112 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import logoUrl from "../assets/logo.png";
 import { useRouter } from "vue-router";
+import { getCurrentUserSupabase } from "../services/auth.js";
+import { getProfileSupabase, getUserGroupNamesSupabase } from "../services/profile.js";
+import { fetchFeedsSupabase, mapDirectionToLabel } from "../services/feeds.js";
 
 const router = useRouter();
 const mode = ref("all");
 const user = ref({
-  initials: "林",
-  name: "林可心",
-  bio: "专注台股半导体与供应链，偏中短期策略。",
-  tags: ["半导体", "AI 供应链", "ETF"],
-  joined: "2024/08/12",
+  initials: "",
+  name: "",
+  bio: "",
+  tags: [],
+  joined: "—",
 });
-const performance = ref({
-  totalViews: 24,
-  closedViews: 8,
-  winRate: "待结算",
-});
-const views = ref([
-  {
-    id: 1,
-    asset: "2330 台积电",
-    direction: "看多",
-    horizon: "10 个交易日",
-    date: "2024/11/06",
-    status: "active",
-    statusLabel: "进行中",
-    content: "法说会后估值修复，关注量能与外资动向。",
-  },
-  {
-    id: 2,
-    asset: "2454 联发科",
-    direction: "中性",
-    horizon: "5 个交易日",
-    date: "2024/11/02",
-    status: "active",
-    statusLabel: "进行中",
-    content: "区间震荡，等待下个催化剂确认方向。",
-  },
-  {
-    id: 3,
-    asset: "2603 长荣",
-    direction: "看空",
-    horizon: "20 个交易日",
-    date: "2024/10/15",
-    status: "closed",
-    statusLabel: "已结算",
-    content: "运价回落压力增大，留意航运指数变化。",
-  },
-  {
-    id: 4,
-    asset: "3037 欣兴",
-    direction: "看多",
-    horizon: "10 个交易日",
-    date: "2024/10/01",
-    status: "closed",
-    statusLabel: "已结算",
-    content: "AI 需求带动订单，短期均线趋势向上。",
-  },
-]);
+const feeds = ref([]);
 
-const filteredViews = computed(() =>
-  views.value.filter((view) => (mode.value === "all" ? true : view.status === mode.value))
-);
+const formatDate = (value) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}/${month}/${day}`;
+};
+
+const getRemainingDays = (value) => {
+  if (!value) return 0;
+  const expiresAt = new Date(value).getTime();
+  if (Number.isNaN(expiresAt)) return 0;
+  const diff = expiresAt - Date.now();
+  if (diff <= 0) return 0;
+  return Math.ceil(diff / (24 * 60 * 60 * 1000));
+};
+
+const getInitials = (name) => {
+  if (!name) return "";
+  return name.trim().slice(0, 1);
+};
+
+const performance = computed(() => {
+  const totalViews = feeds.value.length;
+  const closedViews = feeds.value.filter((view) => view.status !== "active").length;
+  return {
+    totalViews,
+    closedViews,
+    winRate: totalViews ? "待结算" : "—",
+  };
+});
+
+const filteredViews = computed(() => {
+  const filtered = feeds.value.filter((view) => {
+    if (mode.value === "all") return true;
+    if (mode.value === "active") return view.status === "active";
+    return view.status !== "active";
+  });
+  return filtered.map((view) => ({
+    ...view,
+    statusLabel: view.status === "active" ? "未结束" : "已结束",
+    directionLabel: mapDirectionToLabel(view.direction),
+    createdLabel: formatDate(view.created_at),
+    remainingDays: getRemainingDays(view.expires_at),
+  }));
+});
+
+const loadProfile = async () => {
+  const supabaseUser = await getCurrentUserSupabase();
+  if (!supabaseUser) {
+    router.replace("/login");
+    return;
+  }
+
+  const [profile, tags] = await Promise.all([
+    getProfileSupabase(supabaseUser.id),
+    getUserGroupNamesSupabase(supabaseUser.id),
+  ]);
+
+  const nickname =
+    profile?.nickname ||
+    supabaseUser.user_metadata?.full_name ||
+    supabaseUser.user_metadata?.name ||
+    (supabaseUser.email ? supabaseUser.email.split("@")[0] : "用户");
+
+  user.value = {
+    initials: getInitials(nickname),
+    name: nickname,
+    bio: profile?.bio || "尚未填写简介",
+    tags,
+    joined: formatDate(profile?.created_at || supabaseUser.created_at),
+  };
+
+  const data = await fetchFeedsSupabase({ userId: supabaseUser.id });
+  feeds.value = data;
+};
+
+const goFeed = (feedId) => {
+  router.push(`/feed/${feedId}`);
+};
 
 const goSettings = () => {
   router.push("/settings");
 };
+
+onMounted(loadProfile);
 </script>
 
 <style scoped>
@@ -335,6 +379,7 @@ const goSettings = () => {
   display: grid;
   grid-template-columns: 16px 1fr;
   gap: 12px;
+  cursor: pointer;
 }
 
 .thread-dot {
@@ -409,6 +454,12 @@ const goSettings = () => {
   font-size: 12px;
   color: var(--muted);
   line-height: 1.5;
+}
+
+.empty {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .tabbar {

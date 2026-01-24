@@ -68,7 +68,7 @@
           <div class="helper">至少 20 字，最多 1000 字</div>
         </div>
 
-        <button class="btn-primary" :disabled="!isValid" @click="handlePublish">
+        <button class="btn-primary" :disabled="!isValid || isSubmitting" @click="handlePublish">
           发布
         </button>
       </section>
@@ -86,7 +86,15 @@
 
 <script setup>
 import { computed, ref } from "vue";
+import { useRouter } from "vue-router";
+import { getCurrentUserSupabase } from "../services/auth.js";
+import {
+  createFeedSupabase,
+  mapLabelToDirection,
+  mapLabelToHorizon,
+} from "../services/feeds.js";
 
+const router = useRouter();
 const assets = ["2330 台积电", "2454 联发科", "2603 长荣", "0050 台股 ETF"];
 const directions = ["看多", "看空", "中性"];
 const horizons = ["短期 5-20 天", "中期 20-60 天", "长期 60-180 天"];
@@ -95,14 +103,51 @@ const selectedAsset = ref(assets[0]);
 const selectedDirection = ref(directions[0]);
 const selectedHorizon = ref(horizons[0]);
 const content = ref("");
+const isSubmitting = ref(false);
 
-const isValid = computed(() => content.value.trim().length >= 20);
+const isValid = computed(() => {
+  const length = content.value.trim().length;
+  return length >= 20 && length <= 1000;
+});
 
-const handlePublish = () => {
-  if (!isValid.value) {
+const parseAsset = (value) => {
+  const parts = value.trim().split(/\s+/);
+  const symbol = parts.shift() || "";
+  const name = parts.join(" ") || value.trim();
+  return { symbol, name };
+};
+
+const handlePublish = async () => {
+  if (!isValid.value || isSubmitting.value) {
     return;
   }
-  alert("发布示例：已提交观点。");
+
+  const user = await getCurrentUserSupabase();
+  if (!user) {
+    router.replace("/login");
+    return;
+  }
+
+  const { symbol, name } = parseAsset(selectedAsset.value);
+  const direction = mapLabelToDirection(selectedDirection.value);
+  const horizon = mapLabelToHorizon(selectedHorizon.value);
+
+  try {
+    isSubmitting.value = true;
+    await createFeedSupabase({
+      userId: user.id,
+      targetSymbol: symbol,
+      targetName: name,
+      direction,
+      horizon,
+      content: content.value.trim(),
+    });
+    router.replace("/feed");
+  } catch (error) {
+    alert("发布失败，请稍后重试。");
+  } finally {
+    isSubmitting.value = false;
+  }
 };
 </script>
 

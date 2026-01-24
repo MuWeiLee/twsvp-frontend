@@ -7,42 +7,140 @@
         <span class="nav-space" aria-hidden="true"></span>
       </nav>
 
-      <section class="card">
+      <section class="card" v-if="feed">
         <div class="header">
           <div class="stock">
-            <strong>{{ feed.symbol }}</strong>
-            <span>{{ feed.name }}</span>
+            <strong>{{ feed.target_symbol }}</strong>
+            <span>{{ feed.target_name }}</span>
           </div>
-          <span class="status">{{ feed.status }}</span>
+          <div class="header-meta">
+            <span class="pill">{{ feed.directionLabel }}</span>
+            <span class="pill status">{{ feed.statusLabel }}</span>
+            <span class="remain">还有: {{ feed.remainingDays }} 天</span>
+            <button class="more-btn" type="button">更多</button>
+          </div>
         </div>
-        <div class="meta">
-          <span class="direction">{{ feed.direction }}</span>
-          <span>{{ feed.horizon }}</span>
-          <span>作者 {{ feed.author }}</span>
+        <div class="sub">
+          <span>{{ feed.author }}</span>
+          <span>{{ feed.createdLabel }}</span>
         </div>
         <p class="content">{{ feed.content }}</p>
         <div class="footer">
-          <span>发布时间 {{ feed.createdAt }}</span>
-          <span>互动 {{ feed.likes }}</span>
+          <button
+            class="like-btn"
+            type="button"
+            :class="{ active: feed.isLiked }"
+            @click="toggleLike"
+          >
+            👍 {{ feed.like_count }}
+          </button>
         </div>
       </section>
+      <section v-else class="card empty">暂无该观点。</section>
     </div>
   </div>
 </template>
 
 <script setup>
-const feed = {
-  symbol: "2330",
-  name: "台积电",
-  direction: "看多",
-  horizon: "10 个交易日",
-  author: "林可心",
-  status: "未结束",
-  createdAt: "2024/11/06",
-  likes: 18,
-  content:
-    "法说会后动能持续，关注外资回补与量能变化。观点到期前不做加码，偏趋势跟随策略。",
+import { onMounted, ref } from "vue";
+import { useRoute } from "vue-router";
+import {
+  fetchFeedByIdSupabase,
+  mapDirectionToLabel,
+  updateFeedLikeCountSupabase,
+} from "../services/feeds.js";
+
+const route = useRoute();
+const feed = ref(null);
+const likedIds = ref(new Set());
+
+const formatDateTime = (value) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  const hours = `${date.getHours()}`.padStart(2, "0");
+  const minutes = `${date.getMinutes()}`.padStart(2, "0");
+  return `${year}/${month}/${day} ${hours}:${minutes}`;
 };
+
+const getRemainingDays = (value) => {
+  if (!value) return 0;
+  const expiresAt = new Date(value).getTime();
+  if (Number.isNaN(expiresAt)) return 0;
+  const diff = expiresAt - Date.now();
+  if (diff <= 0) return 0;
+  return Math.ceil(diff / (24 * 60 * 60 * 1000));
+};
+
+const getStatusLabel = (value) => {
+  if (value === "verified") return "已验证";
+  if (value === "expired") return "已结束";
+  return "未结束";
+};
+
+const loadLikedIds = () => {
+  try {
+    const raw = localStorage.getItem("twsvp_feed_likes");
+    const ids = raw ? JSON.parse(raw) : [];
+    likedIds.value = new Set(ids);
+  } catch (error) {
+    likedIds.value = new Set();
+  }
+};
+
+const saveLikedIds = () => {
+  localStorage.setItem("twsvp_feed_likes", JSON.stringify([...likedIds.value]));
+};
+
+const toggleLike = async () => {
+  if (!feed.value) return;
+  const alreadyLiked = likedIds.value.has(feed.value.feed_id);
+  const delta = alreadyLiked ? -1 : 1;
+  const nextCount = Math.max(0, (feed.value.like_count || 0) + delta);
+  feed.value.like_count = nextCount;
+  feed.value.isLiked = !alreadyLiked;
+  if (alreadyLiked) {
+    likedIds.value.delete(feed.value.feed_id);
+  } else {
+    likedIds.value.add(feed.value.feed_id);
+  }
+  saveLikedIds();
+  await updateFeedLikeCountSupabase(feed.value.feed_id, delta);
+};
+
+const loadFeed = async () => {
+  const feedId = route.params.id;
+  if (!feedId || Array.isArray(feedId)) {
+    return;
+  }
+
+  const numericId = Number(feedId);
+  if (Number.isNaN(numericId)) {
+    return;
+  }
+
+  const data = await fetchFeedByIdSupabase(numericId);
+  if (!data) {
+    feed.value = null;
+    return;
+  }
+
+  feed.value = {
+    ...data,
+    statusLabel: getStatusLabel(data.status),
+    directionLabel: mapDirectionToLabel(data.direction),
+    remainingDays: getRemainingDays(data.expires_at),
+    createdLabel: formatDateTime(data.created_at),
+    author: data.users?.nickname || "用户",
+    isLiked: likedIds.value.has(data.feed_id),
+  };
+};
+
+onMounted(loadLikedIds);
+onMounted(loadFeed);
 </script>
 
 <style scoped>
@@ -117,39 +215,56 @@ const feed = {
 }
 
 .header {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  gap: 8px;
 }
 
 .stock {
-  display: inline-flex;
+  display: flex;
   align-items: baseline;
   gap: 8px;
   font-weight: 600;
 }
 
-.status {
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.meta {
+.header-meta {
   display: flex;
-  gap: 8px;
   flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
   font-size: 12px;
   color: var(--muted);
 }
 
-.direction {
-  padding: 2px 8px;
+.pill {
+  padding: 3px 8px;
   border-radius: 999px;
   border: 1px solid var(--border);
+  background: var(--panel);
   color: var(--ink);
+}
+
+.pill.status {
+  color: var(--muted);
+}
+
+.remain {
+  color: var(--muted);
+}
+
+.more-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 2px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sub {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .content {
@@ -159,9 +274,28 @@ const feed = {
 }
 
 .footer {
-  font-size: 12px;
-  color: var(--muted);
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
+}
+
+.like-btn {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.like-btn.active {
+  border-color: var(--ink);
+  background: var(--surface);
+}
+
+.empty {
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
 }
 </style>

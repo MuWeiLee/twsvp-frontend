@@ -205,3 +205,56 @@ export async function setUserIndustriesSupabase(userId, industryIds) {
   }
   return true;
 }
+
+export async function getUserGroupNamesSupabase(userId) {
+  if (!userId) {
+    return [];
+  }
+
+  const [groups, userGroups] = await Promise.all([
+    getIndustryGroupsSupabase(),
+    getUserGroupsSupabase(userId),
+  ]);
+
+  if (!groups.length || !userGroups.length) {
+    return [];
+  }
+
+  const nameMap = new Map(groups.map((group) => [group.group_id, group.name]));
+  return userGroups
+    .map((item) => nameMap.get(item.group_id))
+    .filter((name) => Boolean(name));
+}
+
+export async function searchUsersSupabase(keyword, limit = 20) {
+  if (!keyword) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("users")
+    .select("user_id, nickname, bio, profile_completed_at, created_at")
+    .ilike("nickname", `%${keyword}%`)
+    .limit(limit);
+
+  if (error) {
+    console.error("搜索 users 失败:", error);
+  }
+
+  if (data && data.length) {
+    return data;
+  }
+
+  const { data: legacy, error: legacyError } = await supabase
+    .from("profiles")
+    .select("user_id, nickname, bio, profile_completed_at, created_at")
+    .ilike("nickname", `%${keyword}%`)
+    .limit(limit);
+
+  if (legacyError) {
+    console.error("搜索 profiles 失败:", legacyError);
+    return [];
+  }
+
+  return legacy || [];
+}

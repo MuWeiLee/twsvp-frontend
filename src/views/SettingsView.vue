@@ -115,15 +115,15 @@
 </template>
 
 <script setup>
-import { computed, reactive } from "vue";
+import { computed, onMounted, reactive } from "vue";
 import logoUrl from "../assets/logo.png";
 import { useRouter } from "vue-router";
-import { signOutSupabase } from "../services/auth.js";
+import { getCurrentUserSupabase, signOutSupabase } from "../services/auth.js";
 
 const router = useRouter();
 
 const account = reactive({
-  email: "twsv.user@gmail.com",
+  email: "—",
 });
 
 const preferences = reactive({
@@ -155,6 +155,11 @@ const handleBlocked = () => {
   alert("屏蔽词管理示例：打开关键词编辑弹窗。");
 };
 
+const loadAccount = async () => {
+  const user = await getCurrentUserSupabase();
+  account.email = user?.email || "—";
+};
+
 const handleLogout = async () => {
   const confirmed = window.confirm("确定要退出登录吗？");
   if (!confirmed) {
@@ -169,6 +174,8 @@ const handleLogout = async () => {
 
   alert("退出失败，请稍后重试。");
 };
+
+onMounted(loadAccount);
 </script>
 
 <style scoped>

@@ -115,10 +115,11 @@
             <div v-else class="empty">暂无相关话题</div>
           </div>
           <div v-else>
-            <div v-if="filteredUsers.length" class="list">
-              <div v-for="item in filteredUsers" :key="item.name" class="list-item">
-                <strong>{{ item.name }}</strong>
-                <span>{{ item.stats }}</span>
+            <div v-if="isUserLoading" class="empty">正在加载用户...</div>
+            <div v-else-if="filteredUsers.length" class="list">
+              <div v-for="item in filteredUsers" :key="item.user_id" class="list-item">
+                <strong>{{ item.nickname }}</strong>
+                <span>{{ item.meta }}</span>
               </div>
             </div>
             <div v-else class="empty">暂无相关用户</div>
@@ -138,8 +139,9 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import logoUrl from "../assets/logo.png";
+import { searchUsersSupabase } from "../services/profile.js";
 
 const query = ref("");
 const submittedQuery = ref("");
@@ -196,10 +198,18 @@ const sectors = ref([
   { name: "半导体" },
   { name: "航运" },
 ]);
-const users = ref([
-  { name: "林可心", stats: "观点 24 · 胜率 待结算" },
-  { name: "张以安", stats: "观点 18 · 胜率 待结算" },
-]);
+const users = ref([]);
+const isUserLoading = ref(false);
+
+const formatDate = (value) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}/${month}/${day}`;
+};
 
 const matchedSuggestions = computed(() => {
   const q = query.value.trim().toLowerCase();
@@ -237,9 +247,7 @@ const filteredSectors = computed(() => {
 });
 
 const filteredUsers = computed(() => {
-  const q = submittedQuery.value.trim().toLowerCase();
-  if (!q) return [];
-  return users.value.filter((item) => item.name.toLowerCase().includes(q));
+  return users.value;
 });
 
 const handleInput = () => {
@@ -260,6 +268,31 @@ const clearSearch = () => {
   query.value = "";
   submittedQuery.value = "";
 };
+
+const loadUserResults = async () => {
+  const q = submittedQuery.value.trim();
+  if (!q || activeTab.value !== "user") {
+    users.value = [];
+    isUserLoading.value = false;
+    return;
+  }
+
+  isUserLoading.value = true;
+  const result = await searchUsersSupabase(q);
+  users.value = result.map((item) => {
+    const completed = Boolean(item.profile_completed_at);
+    const dateLabel = formatDate(item.created_at);
+    const statusLabel = completed ? "资料已完善" : "资料未完善";
+    return {
+      user_id: item.user_id,
+      nickname: item.nickname || "用户",
+      meta: dateLabel === "—" ? statusLabel : `${statusLabel} · 加入于 ${dateLabel}`,
+    };
+  });
+  isUserLoading.value = false;
+};
+
+watch([submittedQuery, activeTab], loadUserResults);
 </script>
 
 <style scoped>

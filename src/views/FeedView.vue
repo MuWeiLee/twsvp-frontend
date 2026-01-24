@@ -72,27 +72,40 @@
       </header>
 
       <section class="feed">
-        <div v-for="view in filteredViews" :key="view.id" class="thread slide-in">
+        <div v-for="view in filteredViews" :key="view.feed_id" class="thread slide-in">
           <div class="thread-dot" aria-hidden="true"></div>
-          <div class="thread-card">
+          <div class="thread-card" @click="goFeed(view.feed_id)">
             <div class="thread-header">
               <div class="stock">
-                <strong>{{ view.symbol }}</strong>
-                <span>{{ view.name }}</span>
+                <strong>{{ view.target_symbol }}</strong>
+                <span>{{ view.target_name }}</span>
               </div>
-              <span class="status">{{ view.statusLabel }}</span>
+              <div class="header-meta">
+                <span class="pill">{{ view.directionLabel }}</span>
+                <span class="pill status">{{ view.statusLabel }}</span>
+                <span class="remain">还有: {{ view.remainingDays }} 天</span>
+                <button class="more-btn" type="button" @click.stop>更多</button>
+              </div>
             </div>
-            <div class="thread-meta">
-              <span class="direction">{{ view.direction }}</span>
-              <span>{{ view.horizon }}</span>
-              <span>作者 {{ view.author }}</span>
+            <div class="thread-sub">
+              <span>{{ view.author }}</span>
+              <span>{{ view.createdLabel }}</span>
             </div>
-            <div class="summary">{{ view.summary }}</div>
+            <div class="summary">{{ view.content }}</div>
             <div class="thread-footer">
-              <span>赞 {{ view.likes }}</span>
-              <span>{{ view.createdAt }}</span>
+              <button
+                class="like-btn"
+                type="button"
+                :class="{ active: view.isLiked }"
+                @click.stop="toggleLike(view)"
+              >
+                👍 {{ view.like_count }}
+              </button>
             </div>
           </div>
+        </div>
+        <div v-if="!isLoading && !filteredViews.length" class="empty">
+          暂无观点，先发布一条吧。
         </div>
       </section>
 
@@ -112,106 +125,139 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import logoUrl from "../assets/logo.png";
+import { useRouter } from "vue-router";
+import { getCurrentUserSupabase } from "../services/auth.js";
+import { getProfileSupabase } from "../services/profile.js";
+import {
+  fetchFeedsSupabase,
+  mapDirectionToLabel,
+  updateFeedLikeCountSupabase,
+} from "../services/feeds.js";
 
+const router = useRouter();
 const statusFilter = ref("all");
 const sortKey = ref("time");
 const user = ref({
-  initials: "林",
+  initials: "",
 });
 const composer = ref({
   asset: "2330 台积电",
   direction: "看多",
   horizon: "10 个交易日",
 });
-const views = ref([
-  {
-    id: 1,
-    symbol: "2330",
-    name: "台积电",
-    direction: "看多",
-    horizon: "10 个交易日",
-    author: "林可心",
-    createdAt: "刚刚",
-    likes: 18,
-    summary: "法说会后动能持续，关注外资回补与量能变化。",
-    status: "active",
-    hotScore: 42,
-  },
-  {
-    id: 2,
-    symbol: "2454",
-    name: "联发科",
-    direction: "中性",
-    horizon: "5 个交易日",
-    author: "陈映帆",
-    createdAt: "10 分钟前",
-    likes: 6,
-    summary: "区间震荡为主，等待新一轮催化确定方向。",
-    status: "active",
-    hotScore: 28,
-  },
-  {
-    id: 3,
-    symbol: "2603",
-    name: "长荣",
-    direction: "看空",
-    horizon: "20 个交易日",
-    author: "张以安",
-    createdAt: "1 小时前",
-    likes: 21,
-    summary: "运价回落压力增大，短期风险偏高。",
-    status: "expired",
-    hotScore: 19,
-  },
-  {
-    id: 4,
-    symbol: "2382",
-    name: "广达",
-    direction: "看多",
-    horizon: "10 个交易日",
-    author: "周知晓",
-    createdAt: "3 小时前",
-    likes: 28,
-    summary: "订单能见度提升，关注财报后的估值修复。",
-    status: "active",
-    hotScore: 66,
-  },
-  {
-    id: 5,
-    symbol: "2308",
-    name: "台达电",
-    direction: "中性",
-    horizon: "10 个交易日",
-    author: "何雨静",
-    createdAt: "今天",
-    likes: 9,
-    summary: "短线波动大，等待量价关系进一步明确。",
-    status: "expired",
-    hotScore: 12,
-  },
-]);
+const feeds = ref([]);
+const isLoading = ref(false);
+const likedIds = ref(new Set());
 
-const filteredViews = computed(() => {
-  const filtered = views.value.filter((view) => {
-    if (statusFilter.value === "all") {
-      return true;
-    }
-    return view.status === statusFilter.value;
-  });
-  const sorted = [...filtered].sort((a, b) => {
-    if (sortKey.value === "hot") {
-      return b.hotScore - a.hotScore;
-    }
-    return b.id - a.id;
-  });
-  return sorted.map((view) => ({
+const filteredViews = computed(() =>
+  feeds.value.map((view) => ({
     ...view,
-    statusLabel: view.status === "active" ? "未结束" : "已结束",
-  }));
-});
+    statusLabel: getStatusLabel(view),
+    directionLabel: mapDirectionToLabel(view.direction),
+    remainingDays: getRemainingDays(view.expires_at),
+    createdLabel: formatDateTime(view.created_at),
+    author: view.users?.nickname || "用户",
+    isLiked: likedIds.value.has(view.feed_id),
+  }))
+);
 
+const getInitials = (name) => {
+  if (!name) return "";
+  return name.trim().slice(0, 1);
+};
+
+const loadUser = async () => {
+  const supabaseUser = await getCurrentUserSupabase();
+  if (!supabaseUser) {
+    return;
+  }
+
+  const profile = await getProfileSupabase(supabaseUser.id);
+  const nickname =
+    profile?.nickname ||
+    supabaseUser.user_metadata?.full_name ||
+    supabaseUser.user_metadata?.name ||
+    (supabaseUser.email ? supabaseUser.email.split("@")[0] : "");
+
+  user.value.initials = getInitials(nickname);
+};
+
+const formatDateTime = (value) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  const hours = `${date.getHours()}`.padStart(2, "0");
+  const minutes = `${date.getMinutes()}`.padStart(2, "0");
+  return `${year}/${month}/${day} ${hours}:${minutes}`;
+};
+
+const getStatusLabel = (view) => {
+  if (view.status === "verified") return "已验证";
+  if (view.status === "expired") return "已结束";
+  const remaining = getRemainingDays(view.expires_at);
+  return remaining === 0 ? "已结束" : "未结束";
+};
+
+const getRemainingDays = (value) => {
+  if (!value) return 0;
+  const expiresAt = new Date(value).getTime();
+  if (Number.isNaN(expiresAt)) return 0;
+  const diff = expiresAt - Date.now();
+  if (diff <= 0) return 0;
+  return Math.ceil(diff / (24 * 60 * 60 * 1000));
+};
+
+const loadFeeds = async () => {
+  isLoading.value = true;
+  const data = await fetchFeedsSupabase({
+    status: statusFilter.value,
+    sort: sortKey.value,
+  });
+  feeds.value = data;
+  isLoading.value = false;
+};
+
+const loadLikedIds = () => {
+  try {
+    const raw = localStorage.getItem("twsvp_feed_likes");
+    const ids = raw ? JSON.parse(raw) : [];
+    likedIds.value = new Set(ids);
+  } catch (error) {
+    likedIds.value = new Set();
+  }
+};
+
+const saveLikedIds = () => {
+  localStorage.setItem("twsvp_feed_likes", JSON.stringify([...likedIds.value]));
+};
+
+const toggleLike = async (view) => {
+  const alreadyLiked = likedIds.value.has(view.feed_id);
+  const delta = alreadyLiked ? -1 : 1;
+  const nextCount = Math.max(0, (view.like_count || 0) + delta);
+  view.like_count = nextCount;
+  if (alreadyLiked) {
+    likedIds.value.delete(view.feed_id);
+  } else {
+    likedIds.value.add(view.feed_id);
+  }
+  saveLikedIds();
+  await updateFeedLikeCountSupabase(view.feed_id, delta);
+};
+
+const goFeed = (feedId) => {
+  router.push(`/feed/${feedId}`);
+};
+
+onMounted(loadUser);
+onMounted(loadFeeds);
+onMounted(loadLikedIds);
+watch([statusFilter, sortKey], loadFeeds);
 </script>
 
 <style scoped>
@@ -414,53 +460,81 @@ const filteredViews = computed(() => {
   border: 1px solid var(--border);
   padding: 12px;
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  cursor: pointer;
 }
 
 .thread-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
   gap: 8px;
-  font-weight: 600;
-}
-
-.thread-meta {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.direction {
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 12px;
-  border: 1px solid var(--border);
-  color: var(--ink);
 }
 
 .thread-footer {
   display: flex;
-  gap: 16px;
-  font-size: 12px;
-  color: var(--muted);
+  justify-content: flex-end;
 }
 
 .stock {
-  display: inline-flex;
+  display: flex;
   align-items: baseline;
   gap: 8px;
   font-weight: 600;
 }
 
-.status {
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
+.header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
   font-size: 12px;
   color: var(--muted);
+}
+
+.pill {
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.pill.status {
+  color: var(--muted);
+}
+
+.remain {
+  color: var(--muted);
+}
+
+.more-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 2px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.thread-sub {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.like-btn {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.like-btn.active {
+  border-color: var(--ink);
+  background: var(--surface);
 }
 
 .summary {
@@ -477,6 +551,13 @@ const filteredViews = computed(() => {
   font-size: 12px;
   color: var(--muted);
   line-height: 1.5;
+}
+
+.empty {
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 12px 0;
 }
 
 .tabbar {
