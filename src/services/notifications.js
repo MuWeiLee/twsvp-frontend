@@ -8,7 +8,7 @@ export async function fetchNotificationsSupabase(userId, limit = 50) {
   const { data, error } = await supabase
     .from("notifications")
     .select(
-      "noti_id,user_id,type,actor_user_id,target_feed_id,created_at,read_at,feeds!notifications_target_feed_id_fkey(feed_id,target_symbol,target_name,summary,content,expires_at,deleted_at),actor:users!notifications_actor_user_id_fkey(user_id,nickname,avatar_url)"
+      "*,feeds(feed_id,target_symbol,target_name,summary,content,expires_at,deleted_at),actor:users!notifications_actor_user_id_fkey(user_id,nickname,avatar_url)"
     )
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
@@ -19,5 +19,10 @@ export async function fetchNotificationsSupabase(userId, limit = 50) {
     return [];
   }
 
-  return data || [];
+  return (data || []).map((row) => ({
+    ...row,
+    noti_id: row.noti_id || row.notification_id,
+    target_feed_id: row.target_feed_id || row.ref_feed_id,
+    read_at: row.read_at || (row.is_read ? row.created_at : null),
+  }));
 }
