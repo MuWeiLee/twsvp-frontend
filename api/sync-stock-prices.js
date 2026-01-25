@@ -96,19 +96,29 @@ const fetchTwseDaily = async (date) => {
   return payload;
 };
 
-const fetchFinmindPrices = async (token, stockId, startDate, endDate, retry = 2) => {
+const fetchFinmindPrices = async (
+  token,
+  dataset,
+  stockId,
+  startDate,
+  endDate,
+  retry = 2
+) => {
   const url = new URL(FINMIND_ENDPOINT);
-  url.searchParams.set("dataset", "TaiwanStockPrice");
+  url.searchParams.set("dataset", dataset);
   url.searchParams.set("data_id", stockId);
   url.searchParams.set("start_date", startDate);
   url.searchParams.set("end_date", endDate);
-  url.searchParams.set("token", token);
 
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
   if (!response.ok) {
     if (response.status === 429 && retry > 0) {
       await sleep(1000);
-      return fetchFinmindPrices(token, stockId, startDate, endDate, retry - 1);
+      return fetchFinmindPrices(token, dataset, stockId, startDate, endDate, retry - 1);
     }
     throw new Error(`FinMind request failed ${response.status} ${response.statusText}`);
   }
@@ -139,10 +149,18 @@ const parseFinmindRows = (rows, stockId) =>
       return {
         stock_id: stockId,
         trade_date: tradeDate,
-        open: normalizeNumber(item.open ?? item.Open),
-        high: normalizeNumber(item.max ?? item.high ?? item.High),
-        low: normalizeNumber(item.min ?? item.low ?? item.Low),
-        close: normalizeNumber(item.close ?? item.Close),
+        open: normalizeNumber(
+          item.open ?? item.adj_open ?? item.Open ?? item.AdjOpen ?? item.Adj_Open
+        ),
+        high: normalizeNumber(
+          item.max ?? item.high ?? item.adj_high ?? item.High ?? item.AdjHigh ?? item.Adj_High
+        ),
+        low: normalizeNumber(
+          item.min ?? item.low ?? item.adj_low ?? item.Low ?? item.AdjLow ?? item.Adj_Low
+        ),
+        close: normalizeNumber(
+          item.close ?? item.adj_close ?? item.Close ?? item.AdjClose ?? item.Adj_Close
+        ),
         average,
         volume: volume === null ? null : Math.trunc(volume),
         turnover,
@@ -362,6 +380,7 @@ export default async function handler(req, res) {
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
+  const dataset = `${params.dataset || "TaiwanStockPrice"}`.trim();
   const stockIdParam = `${params.stock_id || params.stockId || ""}`.trim();
   const stockIdsParam = `${params.stock_ids || params.stockIds || ""}`
     .split(",")
@@ -371,6 +390,7 @@ export default async function handler(req, res) {
   const maxStocks = Number(params.max_stocks || params.maxStocks || 200);
 
   const logParams = {
+    dataset: source === "finmind" ? dataset : null,
     markets,
     maxDays,
     chunkSize,
@@ -424,7 +444,13 @@ export default async function handler(req, res) {
         let errorMessage = null;
         let rows = [];
         try {
-          const raw = await fetchFinmindPrices(token, stockId, startDate, endDate);
+          const raw = await fetchFinmindPrices(
+            token,
+            dataset,
+            stockId,
+            startDate,
+            endDate
+          );
           rows = parseFinmindRows(raw, stockId);
           if (!dryRun && rows.length) {
             await upsertRows(
