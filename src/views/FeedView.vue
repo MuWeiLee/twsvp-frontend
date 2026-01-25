@@ -60,14 +60,14 @@
         <div v-for="view in filteredViews" :key="view.feed_id" class="thread slide-in">
           <div class="thread-card" @click="goFeed(view.feed_id)">
             <div class="thread-header">
-              <div class="stock">
-                <span class="stock-name">{{ view.target_name }}</span>
-                <span class="stock-code">{{ view.target_symbol }}</span>
-              </div>
-              <div class="header-actions">
+              <div class="header-left">
+                <div class="stock">
+                  <span class="stock-name">{{ view.target_name }}</span>
+                  <span class="stock-code">{{ view.target_symbol }}</span>
+                </div>
                 <span class="direction">{{ view.directionLabel }}</span>
-                <button class="more-btn" type="button" @click.stop>...</button>
               </div>
+              <button class="more-btn" type="button" @click.stop>...</button>
             </div>
             <div class="thread-meta">
               <div class="author">
@@ -77,11 +77,11 @@
                 </span>
                 <span class="author-name">{{ view.author }}</span>
               </div>
-              <span class="status">{{ view.statusLabel }}</span>
+              <span class="status">{{ view.statusDisplay }}</span>
             </div>
             <div class="summary">{{ view.content }}</div>
             <div class="thread-footer">
-              <span class="created-at">发布时间 {{ view.createdDateLabel }}</span>
+              <span class="created-at">{{ view.createdDateLabel }}</span>
               <button
                 class="like-btn"
                 type="button"
@@ -133,7 +133,7 @@ const likedIds = ref(new Set());
 const filteredViews = computed(() =>
   feeds.value.map((view) => ({
     ...view,
-    statusLabel: getStatusLabel(view),
+    statusDisplay: getStatusDisplay(view),
     directionLabel: mapDirectionToLabel(view.direction),
     remainingDays: getRemainingDays(view.expires_at),
     createdLabel: formatDateTime(view.created_at),
@@ -193,6 +193,13 @@ const getStatusLabel = (view) => {
   if (view.status === "expired") return "已结束";
   const remaining = getRemainingDays(view.expires_at);
   return remaining === 0 ? "已结束" : "未结束";
+};
+
+const getStatusDisplay = (view) => {
+  if (view.status === "expired") return "已结束";
+  const remaining = getRemainingDays(view.expires_at);
+  if (remaining <= 0) return "已结束";
+  return `剩余 ${remaining} 天 未结束`;
 };
 
 const getRemainingDays = (value) => {
@@ -397,16 +404,12 @@ watch([statusFilter, sortKey], loadFeeds);
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
 }
 
 .thread-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
 }
 
 .stock {
@@ -426,11 +429,10 @@ watch([statusFilter, sortKey], loadFeeds);
   color: var(--muted);
 }
 
-.header-actions {
+.header-left {
   display: flex;
   align-items: center;
-  gap: 6px;
-  align-items: center;
+  gap: 10px;
   font-size: 12px;
 }
 
@@ -455,8 +457,6 @@ watch([statusFilter, sortKey], loadFeeds);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border);
   font-size: 12px;
   color: var(--muted);
 }

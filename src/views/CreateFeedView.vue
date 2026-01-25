@@ -31,6 +31,20 @@
             type="text"
             placeholder="请输入标的"
           />
+          <div v-if="isStockLoading" class="search-tip">正在搜索...</div>
+          <div v-if="stockResults.length" class="search-results">
+            <button
+              v-for="stock in stockResults"
+              :key="stock.stock_id"
+              type="button"
+              class="search-item"
+              @click="selectStock(stock)"
+            >
+              <span class="search-code">{{ stock.stock_id }}</span>
+              <span class="search-name">{{ stock.name }}</span>
+              <span class="search-market">{{ stock.market }}</span>
+            </button>
+          </div>
         </div>
 
         <div class="section">
@@ -82,10 +96,11 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import BottomTabbar from "../components/BottomTabbar.vue";
 import { getCurrentUserSupabase } from "../services/auth.js";
+import { searchStocksSupabase } from "../services/stocks.js";
 import {
   createFeedSupabase,
   mapLabelToDirection,
@@ -101,7 +116,10 @@ const selectedHorizon = ref(horizons[0]);
 const content = ref("");
 const targetInput = ref("");
 const isSubmitting = ref(false);
+const stockResults = ref([]);
+const isStockLoading = ref(false);
 const DRAFT_KEY = "twsvp_feed_draft";
+let stockSearchTimer = null;
 
 const isValid = computed(() => {
   const length = content.value.trim().length;
@@ -149,6 +167,27 @@ const loadDraft = () => {
   }
 };
 
+const searchStocks = () => {
+  const q = targetInput.value.trim();
+  clearTimeout(stockSearchTimer);
+  if (!q) {
+    stockResults.value = [];
+    return;
+  }
+
+  stockSearchTimer = setTimeout(async () => {
+    isStockLoading.value = true;
+    const results = await searchStocksSupabase(q, 8);
+    stockResults.value = results;
+    isStockLoading.value = false;
+  }, 250);
+};
+
+const selectStock = (stock) => {
+  targetInput.value = `${stock.stock_id} ${stock.name}`;
+  stockResults.value = [];
+};
+
 const handlePublish = async () => {
   if (!isValid.value || isSubmitting.value) {
     return;
@@ -186,6 +225,8 @@ const handlePublish = async () => {
     isSubmitting.value = false;
   }
 };
+
+watch(targetInput, searchStocks);
 
 onMounted(loadDraft);
 </script>
@@ -321,6 +362,52 @@ onMounted(loadDraft);
   font-family: inherit;
   font-size: 14px;
   background: var(--surface);
+}
+
+.search-tip {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.search-results {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  display: grid;
+  overflow: hidden;
+}
+
+.search-item {
+  display: grid;
+  grid-template-columns: 64px 1fr 56px;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.search-item:last-child {
+  border-bottom: 0;
+}
+
+.search-code {
+  font-weight: 600;
+}
+
+.search-name {
+  color: var(--ink);
+}
+
+.search-market {
+  color: var(--muted);
+  text-align: right;
 }
 
 .helper {
