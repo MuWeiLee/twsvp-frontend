@@ -8,7 +8,7 @@ export async function fetchNotificationsSupabase(userId, limit = 50) {
   const { data, error } = await supabase
     .from("notifications")
     .select(
-      "*,feeds(feed_id,target_symbol,target_name,summary,content,expires_at,deleted_at),actor:users!notifications_actor_user_id_fkey(user_id,nickname,avatar_url)"
+      "*,feeds(feed_id,target_symbol,target_name,summary,content,expires_at,deleted_at,like_count),actor:users!notifications_actor_user_id_fkey(user_id,nickname,avatar_url)"
     )
     .eq("user_id", userId)
     .order("created_at", { ascending: false })

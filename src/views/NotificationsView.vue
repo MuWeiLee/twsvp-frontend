@@ -118,12 +118,13 @@ const buildItem = (row) => {
   let tab = row.type || "";
 
   if (row.type === "like") {
-    if (!row.title) {
-      title = "有人点赞了你的观点";
-    }
-    if (!row.detail) {
-      detail = `${actorName}点赞了${targetLabel ? `「${targetLabel}」` : "你的观点"}`;
-    }
+    const likeCount = Number(feed.like_count || 0);
+    const others = Math.max(0, likeCount - 1);
+    title =
+      others > 0
+        ? `${actorName} 与另外 ${others} 个人点赞了你的观点。`
+        : `${actorName} 点赞了你的观点。`;
+    detail = row.detail || "";
   } else if (row.type === "bookmark") {
     if (!row.title) {
       title = "观点被收藏";
