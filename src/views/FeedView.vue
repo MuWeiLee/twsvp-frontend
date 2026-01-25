@@ -2,11 +2,11 @@
   <div class="app-shell">
     <div class="phone-frame fade-in">
       <nav class="nav slide-in">
-        <button class="nav-logo" type="button" aria-label="刷新观点" @click="refreshFeeds">
+        <button class="nav-logo" type="button" :aria-label="t('刷新观点')" @click="refreshFeeds">
           <img :src="logoUrl" alt="TWSVP" />
         </button>
-        <div class="nav-title">观点</div>
-        <router-link class="nav-btn" to="/search" aria-label="搜索">
+        <div class="nav-title">{{ t("观点") }}</div>
+        <router-link class="nav-btn" to="/search" :aria-label="t('搜索')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <circle
               cx="11"
@@ -35,28 +35,28 @@
               :class="{ active: statusFilter === 'all' }"
               @click="statusFilter = 'all'"
             >
-              全部
+              {{ t("全部") }}
             </button>
             <button
               class="tab-btn"
               :class="{ active: statusFilter === 'pending' }"
               @click="statusFilter = 'pending'"
             >
-              未开始
+              {{ t("未开始") }}
             </button>
             <button
               class="tab-btn"
               :class="{ active: statusFilter === 'active' }"
               @click="statusFilter = 'active'"
             >
-              进行中
+              {{ t("进行中") }}
             </button>
             <button
               class="tab-btn"
               :class="{ active: statusFilter === 'ended' }"
               @click="statusFilter = 'ended'"
             >
-              已结束
+              {{ t("已结束") }}
             </button>
           </div>
           <div class="tab-group tab-group-right">
@@ -65,14 +65,14 @@
               :class="{ active: sortKey === 'time' }"
               @click="sortKey = 'time'"
             >
-              时间
+              {{ t("时间") }}
             </button>
             <button
               class="tab-btn"
               :class="{ active: sortKey === 'hot' }"
               @click="sortKey = 'hot'"
             >
-              热度
+              {{ t("热度") }}
             </button>
           </div>
         </div>
@@ -103,7 +103,7 @@
                       type="button"
                       @click.stop="handleEditFeed(view)"
                     >
-                      编辑观点
+                      {{ t("编辑观点") }}
                     </button>
                     <button
                       v-if="view.statusPhase !== 'ended'"
@@ -111,10 +111,10 @@
                       type="button"
                       @click.stop="handleEndFeed(view)"
                     >
-                      手动结束
+                      {{ t("手动结束") }}
                     </button>
                     <button class="menu-item danger" type="button" @click.stop="handleDeleteFeed(view)">
-                      删除观点
+                      {{ t("删除观点") }}
                     </button>
                   </template>
                   <button
@@ -123,7 +123,7 @@
                     type="button"
                     @click.stop="handleHideFeed(view)"
                   >
-                    不看这条
+                    {{ t("不看这条") }}
                   </button>
                 </div>
               </div>
@@ -153,14 +153,14 @@
           </div>
         </div>
         <div v-if="!isLoading && !filteredViews.length" class="empty">
-          暂无观点，先发布一条吧。
+          {{ t("暂无观点，先发布一条吧。") }}
         </div>
       </section>
 
       <BottomTabbar />
 
       <p class="legal">
-        任何观点仅作为记录与回溯，不作为预测价格与投资建议。
+        {{ t("任何观点仅作为记录与回溯，不作为预测价格与投资建议。") }}
       </p>
     </div>
   </div>
@@ -173,6 +173,7 @@ import BottomTabbar from "../components/BottomTabbar.vue";
 import { useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { getProfileSupabase } from "../services/profile.js";
+import { t } from "../services/i18n.js";
 import {
   addFeedLikeSupabase,
   fetchFeedsSupabase,
@@ -213,9 +214,9 @@ const filteredViews = computed(() => {
         remainingDays: getRemainingDays(view),
         createdLabel: formatFeedTimestamp(view.created_at),
         createdDateLabel: formatFeedTimestamp(view.created_at),
-        author: view.users?.nickname || "用户",
+        author: view.users?.nickname || t("用户"),
         authorAvatar: view.users?.avatar_url || "",
-        authorInitial: getInitials(view.users?.nickname || "用户"),
+        authorInitial: getInitials(view.users?.nickname || t("用户")),
         isLiked: likedIds.value.has(view.feed_id),
         isAuthor: currentUserId.value && view.user_id === currentUserId.value,
         canEdit: canEditFeed(view),
@@ -312,7 +313,7 @@ const handleHideFeed = (view) => {
 };
 
 const handleDeleteFeed = async (view) => {
-  const confirmed = window.confirm("确定删除这条观点吗？");
+  const confirmed = window.confirm(t("确定删除这条观点吗？"));
   if (!confirmed) return;
   await supabase
     .from("feeds")
@@ -323,7 +324,7 @@ const handleDeleteFeed = async (view) => {
 };
 
 const handleEndFeed = async (view) => {
-  const confirmed = window.confirm("确定结束这条观点吗？");
+  const confirmed = window.confirm(t("确定结束这条观点吗？"));
   if (!confirmed) return;
   await supabase
     .from("feeds")
@@ -334,7 +335,7 @@ const handleEndFeed = async (view) => {
 };
 
 const handleEditFeed = async (view) => {
-  const nextContent = window.prompt("编辑观点内容", view.content || "");
+  const nextContent = window.prompt(t("编辑观点内容"), view.content || "");
   if (!nextContent) return;
   await supabase
     .from("feeds")

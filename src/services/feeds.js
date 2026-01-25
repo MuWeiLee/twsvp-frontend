@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { t } from "./i18n.js";
 
 const DIRECTION_LABELS = {
   long: "看多",
@@ -21,10 +22,25 @@ const HORIZON_VALUES = Object.fromEntries(
   Object.entries(HORIZON_LABELS).map(([key, value]) => [value, key])
 );
 
-export const mapDirectionToLabel = (value) => DIRECTION_LABELS[value] || value;
-export const mapLabelToDirection = (label) => DIRECTION_VALUES[label] || "neutral";
-export const mapHorizonToLabel = (value) => HORIZON_LABELS[value] || value;
-export const mapLabelToHorizon = (label) => HORIZON_VALUES[label] || "short";
+export const mapDirectionToLabel = (value) => t(DIRECTION_LABELS[value] || value);
+
+export const mapLabelToDirection = (label) => {
+  if (DIRECTION_VALUES[label]) return DIRECTION_VALUES[label];
+  const translated = Object.fromEntries(
+    Object.entries(DIRECTION_LABELS).map(([key, value]) => [t(value), key])
+  );
+  return translated[label] || "neutral";
+};
+
+export const mapHorizonToLabel = (value) => t(HORIZON_LABELS[value] || value);
+
+export const mapLabelToHorizon = (label) => {
+  if (HORIZON_VALUES[label]) return HORIZON_VALUES[label];
+  const translated = Object.fromEntries(
+    Object.entries(HORIZON_LABELS).map(([key, value]) => [t(value), key])
+  );
+  return translated[label] || "short";
+};
 
 const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
 
@@ -45,10 +61,10 @@ export const formatFeedTimestamp = (value) => {
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
   const time = `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
-  if (date >= startOfToday) return `今天 ${time}`;
-  if (date >= startOfYesterday) return `昨天 ${time}`;
+  if (date >= startOfToday) return t("今天 {time}", { time });
+  if (date >= startOfYesterday) return t("昨天 {time}", { time });
   if (date >= sevenDaysAgo) {
-    return `星期${WEEKDAY_LABELS[date.getDay()]} ${time}`;
+    return t("星期{weekday} {time}", { weekday: WEEKDAY_LABELS[date.getDay()], time });
   }
 
   const month = pad2(date.getMonth() + 1);
@@ -88,15 +104,15 @@ export const getStatusPhase = (view) => {
 };
 
 export const getStatusLabel = (phase) => {
-  if (phase === "ended") return "已结束";
-  if (phase === "active") return "进行中";
-  return "未开始";
+  if (phase === "ended") return t("已结束");
+  if (phase === "active") return t("进行中");
+  return t("未开始");
 };
 
 export const getStatusDisplay = (view, phase) => {
-  if (phase === "ended") return "已结束";
-  if (phase === "active") return "进行中";
-  return "未开始";
+  if (phase === "ended") return t("已结束");
+  if (phase === "active") return t("进行中");
+  return t("未开始");
 };
 
 const horizonDays = {

@@ -2,7 +2,7 @@
   <div class="app-shell">
     <div class="phone-frame">
       <nav class="nav">
-        <router-link class="nav-btn" to="/feed" aria-label="返回">
+        <router-link class="nav-btn" to="/feed" :aria-label="t('返回')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path
               d="M15 18l-6-6 6-6"
@@ -14,26 +14,28 @@
             />
           </svg>
         </router-link>
-        <div class="nav-title">概念观点</div>
+        <div class="nav-title">{{ t("概念观点") }}</div>
         <span class="nav-space" aria-hidden="true"></span>
       </nav>
 
       <section class="card">
         <div class="stock-header">
           <strong>{{ sector.name }}</strong>
-          <span>{{ sector.type }}</span>
+          <span>{{ t(sector.type) }}</span>
         </div>
-        <div class="summary">近期讨论热度 {{ sector.mentions }} 次</div>
+        <div class="summary">
+          {{ t("近期讨论热度") }} {{ sector.mentions }} {{ t("次") }}
+        </div>
       </section>
 
       <section class="list">
         <div v-for="view in views" :key="view.id" class="item">
           <div class="item-header">
-            <span class="direction">{{ view.direction }}</span>
-            <span class="status">{{ view.horizon }}</span>
+            <span class="direction">{{ t(view.direction) }}</span>
+            <span class="status">{{ t(view.horizon) }}</span>
           </div>
           <p class="content">{{ view.summary }}</p>
-          <div class="meta">发布于 {{ view.createdAt }}</div>
+          <div class="meta">{{ t("发布于") }} {{ t(view.createdAt) }}</div>
         </div>
       </section>
     </div>
@@ -41,6 +43,8 @@
 </template>
 
 <script setup>
+import { t } from "../services/i18n.js";
+
 const sector = {
   name: "AI 供应链",
   type: "主题",

@@ -1,10 +1,11 @@
 <template>
-  <div class="auth-callback">正在登录...</div>
+  <div class="auth-callback">{{ t("正在登录...") }}</div>
 </template>
 
 <script setup>
 import { onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { t } from "../services/i18n.js";
 import {
   clearAuthCache,
   ensureProfileSupabase,

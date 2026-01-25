@@ -23,7 +23,7 @@
           />
         </svg>
       </span>
-      <span class="tab-label">观点</span>
+      <span class="tab-label">{{ t("观点") }}</span>
     </router-link>
     <router-link class="tab-item" active-class="active" to="/search">
       <span class="tab-icon" aria-hidden="true">
@@ -32,7 +32,7 @@
           <path d="M16.5 16.5L20 20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
         </svg>
       </span>
-      <span class="tab-label">搜索</span>
+      <span class="tab-label">{{ t("搜索") }}</span>
     </router-link>
     <router-link class="tab-item" active-class="active" to="/create-feed">
       <span class="tab-icon" aria-hidden="true">
@@ -41,7 +41,7 @@
           <path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
         </svg>
       </span>
-      <span class="tab-label">发布</span>
+      <span class="tab-label">{{ t("发布") }}</span>
     </router-link>
     <router-link class="tab-item" active-class="active" to="/notifications">
       <span class="tab-icon" aria-hidden="true">
@@ -55,14 +55,14 @@
           <path d="M10 18a2 2 0 0 0 4 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
         </svg>
       </span>
-      <span class="tab-label">通知</span>
+      <span class="tab-label">{{ t("通知") }}</span>
     </router-link>
     <router-link class="tab-item" active-class="active" to="/profile">
       <span class="tab-avatar" :class="{ empty: !avatarUrl }">
-        <img v-if="avatarUrl" :src="avatarUrl" alt="我的" />
+        <img v-if="avatarUrl" :src="avatarUrl" :alt="t('我的')" />
         <span v-else>{{ avatarFallback }}</span>
       </span>
-      <span class="tab-label">我的</span>
+      <span class="tab-label">{{ t("我的") }}</span>
     </router-link>
   </nav>
 </template>
@@ -71,9 +71,10 @@
 import { onMounted, ref } from "vue";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { getProfileSupabase } from "../services/profile.js";
+import { t } from "../services/i18n.js";
 
 const avatarUrl = ref("");
-const avatarFallback = ref("我");
+const avatarFallback = ref(t("我"));
 
 const loadAvatar = async () => {
   const user = await getCurrentUserSupabase();
@@ -84,7 +85,7 @@ const loadAvatar = async () => {
     user.user_metadata?.full_name ||
     user.user_metadata?.name ||
     (user.email ? user.email.split("@")[0] : "");
-  avatarFallback.value = nickname ? nickname.trim().slice(0, 1) : "我";
+  avatarFallback.value = nickname ? nickname.trim().slice(0, 1) : t("我");
   avatarUrl.value = profile?.avatar_url || user.user_metadata?.avatar_url || "";
 };
 

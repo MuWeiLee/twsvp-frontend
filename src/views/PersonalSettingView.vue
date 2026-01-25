@@ -2,7 +2,7 @@
   <div class="app-shell">
     <div class="phone-frame">
       <nav class="nav">
-        <button class="nav-btn" type="button" aria-label="返回" @click="handleBack">
+        <button class="nav-btn" type="button" :aria-label="t('返回')" @click="handleBack">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path
               d="M15 18l-6-6 6-6"
@@ -14,29 +14,29 @@
             />
           </svg>
         </button>
-        <div class="nav-title">完善个人资料</div>
+        <div class="nav-title">{{ t("完善个人资料") }}</div>
         <span class="nav-space" aria-hidden="true"></span>
       </nav>
 
       <header class="header">
-        <h1 class="title">完善个人资料</h1>
-        <p class="subtitle">注册邮箱：{{ email || "—" }}</p>
-        <p class="subtitle">观点中将会展示您的昵称。</p>
+        <h1 class="title">{{ t("完善个人资料") }}</h1>
+        <p class="subtitle">{{ t("注册邮箱：{email}", { email: email || "—" }) }}</p>
+        <p class="subtitle">{{ t("观点中将会展示您的昵称。") }}</p>
       </header>
 
       <section class="card">
         <label class="field">
-          <span>昵称</span>
-          <input v-model="nickname" type="text" placeholder="输入你的昵称" />
+          <span>{{ t("昵称") }}</span>
+          <input v-model="nickname" type="text" :placeholder="t('输入你的昵称')" />
         </label>
 
         <label class="field">
-          <span>个人介绍（可选）</span>
-          <textarea v-model="bio" rows="3" placeholder="介绍你的投资领域与风格"></textarea>
+          <span>{{ t("个人介绍（可选）") }}</span>
+          <textarea v-model="bio" rows="3" :placeholder="t('介绍你的投资领域与风格')"></textarea>
         </label>
 
         <div class="field">
-          <span>系统语言</span>
+          <span>{{ t("系统语言") }}</span>
           <div class="option-group">
             <button
               class="option-btn"
@@ -44,7 +44,7 @@
               type="button"
               @click="setLanguage('zh-Hans')"
             >
-              简体
+              {{ t("简体") }}
             </button>
             <button
               class="option-btn"
@@ -52,13 +52,13 @@
               type="button"
               @click="setLanguage('zh-Hant')"
             >
-              繁体
+              {{ t("繁体") }}
             </button>
           </div>
         </div>
 
         <div class="field">
-          <span>感兴趣行业（最多 3 个）</span>
+          <span>{{ t("感兴趣行业（最多 3 个）") }}</span>
           <div class="tag-grid">
             <button
               v-for="group in groups"
@@ -76,7 +76,7 @@
         <p v-if="error" class="error">{{ error }}</p>
 
         <button class="btn-primary" :disabled="isLoading" @click="handleSave">
-          {{ isLoading ? "保存中..." : "保存并进入观点" }}
+          {{ isLoading ? t("保存中...") : t("保存并进入观点") }}
         </button>
       </section>
     </div>
@@ -88,6 +88,7 @@ import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { getCurrentUserSupabase, signOutSupabase } from "../services/auth.js";
 import { applyLanguagePreference, getLanguagePreference } from "../services/preferences.js";
+import { t } from "../services/i18n.js";
 import {
   getIndustryGroupsSupabase,
   getProfileSupabase,
@@ -109,17 +110,17 @@ const userId = ref(null);
 const profileCompleted = ref(false);
 
 const fallbackGroups = [
-  { group_id: 1, name: "半导体与电子" },
-  { group_id: 2, name: "资讯服务" },
-  { group_id: 3, name: "金融" },
-  { group_id: 4, name: "航运" },
-  { group_id: 5, name: "消费" },
-  { group_id: 6, name: "医疗" },
-  { group_id: 7, name: "能源" },
-  { group_id: 8, name: "建材" },
-  { group_id: 9, name: "工业材料" },
-  { group_id: 10, name: "工业制造" },
-  { group_id: 11, name: "其他" },
+  { group_id: 1, name: t("半导体与电子") },
+  { group_id: 2, name: t("资讯服务") },
+  { group_id: 3, name: t("金融") },
+  { group_id: 4, name: t("航运") },
+  { group_id: 5, name: t("消费") },
+  { group_id: 6, name: t("医疗") },
+  { group_id: 7, name: t("能源") },
+  { group_id: 8, name: t("建材") },
+  { group_id: 9, name: t("工业材料") },
+  { group_id: 10, name: t("工业制造") },
+  { group_id: 11, name: t("其他") },
 ];
 
 onMounted(async () => {
@@ -158,7 +159,7 @@ const toggleGroup = (groupId) => {
     return;
   }
   if (selectedGroupIds.value.length >= 3) {
-    error.value = "最多选择 3 个行业。";
+    error.value = t("最多选择 3 个行业。");
     return;
   }
   error.value = "";
@@ -167,11 +168,11 @@ const toggleGroup = (groupId) => {
 
 const handleSave = async () => {
   if (!nickname.value.trim()) {
-    error.value = "请填写昵称。";
+    error.value = t("请填写昵称。");
     return;
   }
   if (selectedGroupIds.value.length === 0) {
-    error.value = "请选择至少 1 个行业。";
+    error.value = t("请选择至少 1 个行业。");
     return;
   }
   error.value = "";
@@ -196,7 +197,7 @@ const handleSave = async () => {
     router.replace("/feed");
     return;
   }
-  error.value = "保存失败，请稍后重试。";
+  error.value = t("保存失败，请稍后重试。");
 };
 
 const handleBack = async () => {
@@ -209,11 +210,12 @@ const handleBack = async () => {
     router.replace("/login");
     return;
   }
-  error.value = "退出失败，请稍后重试。";
+  error.value = t("退出失败，请稍后重试。");
 };
 
 const setLanguage = (value) => {
   language.value = applyLanguagePreference(value);
+  window.location.reload();
 };
 </script>
 

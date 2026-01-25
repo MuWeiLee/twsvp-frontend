@@ -3,6 +3,7 @@ const AUTH_CACHE_MS = 60000;
 const TOKEN_KEY = "twsvp_token";
 
 import { supabase } from './supabase';
+import { t } from "./i18n.js";
 
 let cachedUser = null;
 let checkedAt = 0;
@@ -140,7 +141,7 @@ export async function ensureProfileSupabase(user) {
   const nickname =
     user.user_metadata?.full_name ||
     user.user_metadata?.name ||
-    (user.email ? user.email.split("@")[0] : "新用户");
+    (user.email ? user.email.split("@")[0] : t("新用户"));
 
   const payload = {
     user_id: user.id,

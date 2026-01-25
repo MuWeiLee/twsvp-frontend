@@ -2,7 +2,7 @@
   <div class="app-shell">
     <div class="phone-frame">
       <nav class="nav">
-        <router-link class="nav-btn" to="/feed" aria-label="关闭">
+        <router-link class="nav-btn" to="/feed" :aria-label="t('关闭')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path
               d="M6 6l12 12M18 6l-12 12"
@@ -13,37 +13,37 @@
             />
           </svg>
         </router-link>
-        <div class="nav-title">我的观点</div>
-        <button class="nav-link ghost" type="button" @click="saveDraft">保存草稿</button>
+        <div class="nav-title">{{ t("我的观点") }}</div>
+        <button class="nav-link ghost" type="button" @click="saveDraft">
+          {{ t("保存草稿") }}
+        </button>
       </nav>
 
       <section class="card">
         <div class="section">
           <div class="section-title">
-            <span>观点内容</span>
+            <span>{{ t("观点内容") }}</span>
             <span v-if="overLimitCount" class="limit-alert">{{ overLimitCount }}</span>
           </div>
           <textarea
             v-model="content"
             class="content-input"
-            placeholder="用一句话说明你的核心判断
-你的判断依据
-关于观点的风险提示..."
+            :placeholder="t('用一句话说明你的核心判断\n你的判断依据\n关于观点的风险提示...')"
           ></textarea>
-          <div class="helper">每个观点最少 20 字</div>
+          <div class="helper">{{ t("每个观点最少 20 字") }}</div>
         </div>
 
         <div class="section">
-          <div class="section-title">标的</div>
+          <div class="section-title">{{ t("标的") }}</div>
           <div class="search-field">
             <input
               v-model="targetInput"
               class="text-input"
               type="text"
-              placeholder="请输入标的"
+              :placeholder="t('请输入标的')"
             />
             <div v-if="isStockLoading && !stockResults.length" class="search-tip">
-              正在搜索...
+              {{ t("正在搜索...") }}
             </div>
             <div v-if="stockResults.length" class="search-results">
               <button
@@ -62,7 +62,7 @@
         </div>
 
         <div class="section">
-          <div class="section-title">看法</div>
+          <div class="section-title">{{ t("看法") }}</div>
           <div class="pill-group">
             <button
               v-for="direction in directions"
@@ -72,13 +72,13 @@
               @click="selectedDirection = direction"
               type="button"
             >
-              {{ direction }}
+              {{ t(direction) }}
             </button>
           </div>
         </div>
 
         <div class="section">
-          <div class="section-title">时效</div>
+          <div class="section-title">{{ t("时效") }}</div>
           <div class="pill-group">
             <button
               v-for="horizon in horizons"
@@ -88,7 +88,7 @@
               @click="selectedHorizon = horizon"
               type="button"
             >
-              {{ horizon }}
+              {{ t(horizon) }}
             </button>
           </div>
         </div>
@@ -100,7 +100,7 @@
           :disabled="!isValid || isSubmitting"
           @click="handlePublish"
         >
-          发布观点
+          {{ t("发布观点") }}
         </button>
       </div>
 
@@ -120,6 +120,7 @@ import {
   mapLabelToDirection,
   mapLabelToHorizon,
 } from "../services/feeds.js";
+import { t } from "../services/i18n.js";
 
 const router = useRouter();
 const directions = ["看多", "中性", "看空"];
@@ -234,7 +235,7 @@ const handlePublish = async () => {
     localStorage.removeItem(DRAFT_KEY);
     router.replace("/feed");
   } catch (error) {
-    alert("发布失败，请稍后重试。");
+    alert(t("发布失败，请稍后重试。"));
   } finally {
     isSubmitting.value = false;
   }

@@ -2,7 +2,7 @@
   <div class="app-shell">
     <div class="phone-frame">
       <nav class="nav">
-        <button class="nav-btn" type="button" aria-label="返回" @click="handleBack">
+        <button class="nav-btn" type="button" :aria-label="t('返回')" @click="handleBack">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path
               d="M15 18l-6-6 6-6"
@@ -14,7 +14,7 @@
             />
           </svg>
         </button>
-        <div class="nav-title">观点详情</div>
+        <div class="nav-title">{{ t("观点详情") }}</div>
         <span class="nav-space" aria-hidden="true"></span>
       </nav>
 
@@ -53,7 +53,7 @@
           </button>
         </div>
       </section>
-      <section v-else class="thread-card empty">暂无该观点。</section>
+      <section v-else class="thread-card empty">{{ t("暂无该观点。") }}</section>
     </div>
   </div>
 </template>
@@ -62,6 +62,7 @@
 import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
+import { t } from "../services/i18n.js";
 import {
   addFeedLikeSupabase,
   fetchFeedByIdSupabase,
@@ -162,9 +163,9 @@ const loadFeed = async () => {
     directionLabel: mapDirectionToLabel(data.direction),
     createdLabel: formatFeedTimestamp(data.created_at),
     createdDateLabel: formatFeedTimestamp(data.created_at),
-    author: data.users?.nickname || "用户",
+    author: data.users?.nickname || t("用户"),
     authorAvatar: data.users?.avatar_url || "",
-    authorInitial: getInitials(data.users?.nickname || "用户"),
+    authorInitial: getInitials(data.users?.nickname || t("用户")),
     isLiked: false,
   };
   await loadLikedIds(data.feed_id);

@@ -2,7 +2,7 @@
   <div class="app-shell">
     <div class="phone-frame fade-in">
       <nav class="nav slide-in">
-        <router-link class="nav-btn" to="/profile" aria-label="返回">
+        <router-link class="nav-btn" to="/profile" :aria-label="t('返回')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path
               d="M15 18l-6-6 6-6"
@@ -14,29 +14,29 @@
             />
           </svg>
         </router-link>
-        <div class="nav-title">设置</div>
+        <div class="nav-title">{{ t("设置") }}</div>
         <span class="nav-space" aria-hidden="true"></span>
       </nav>
 
       <header class="slide-in">
-        <h1 class="title">个人设置</h1>
-        <p class="subtitle">管理你的通知、隐私与账号安全偏好。</p>
+        <h1 class="title">{{ t("个人设置") }}</h1>
+        <p class="subtitle">{{ t("管理你的通知、隐私与账号安全偏好。") }}</p>
       </header>
 
       <section class="card slide-in">
-        <div class="section-title">账号与安全</div>
+        <div class="section-title">{{ t("账号与安全") }}</div>
         <div class="setting-item">
           <div class="setting-meta">
-            <strong>Google 账号</strong>
+            <strong>{{ t("Google 账号") }}</strong>
             <span>{{ account.email }}</span>
           </div>
         </div>
 
-        <div class="section-title">通知偏好</div>
-        <div class="setting-item">
+        <div class="section-title">{{ t("通知偏好") }}</div>
+        <div class="setting-item setting-item-switch">
           <div class="setting-meta">
-            <strong>观点结算提醒</strong>
-            <span>当观点到期或结算时提醒</span>
+            <strong>{{ t("观点结算提醒") }}</strong>
+            <span>{{ t("当观点到期或结算时提醒") }}</span>
           </div>
           <div
             class="switch"
@@ -44,14 +44,14 @@
             @click="toggle('settlementNotice')"
             role="switch"
             :aria-checked="preferences.settlementNotice"
-            aria-label="观点结算提醒"
+            :aria-label="t('观点结算提醒')"
           ></div>
         </div>
 
-        <div class="section-title">涨跌设置</div>
+        <div class="section-title">{{ t("涨跌设置") }}</div>
         <div class="setting-item">
           <div class="setting-meta">
-            <strong>涨跌颜色</strong>
+            <strong>{{ t("涨跌颜色") }}</strong>
           </div>
           <div class="option-group">
             <button
@@ -60,7 +60,7 @@
               type="button"
               @click="setPriceScheme('red_up')"
             >
-              红涨绿跌
+              {{ t("红涨绿跌") }}
             </button>
             <button
               class="option-btn"
@@ -68,16 +68,16 @@
               type="button"
               @click="setPriceScheme('green_up')"
             >
-              绿涨红跌
+              {{ t("绿涨红跌") }}
             </button>
           </div>
         </div>
 
-        <div class="section-title">系统语言</div>
+        <div class="section-title">{{ t("系统语言") }}</div>
         <div class="setting-item">
           <div class="setting-meta">
-            <strong>界面语言</strong>
-            <span>简体/繁体</span>
+            <strong>{{ t("界面语言") }}</strong>
+            <span>{{ t("简体/繁体") }}</span>
           </div>
           <div class="option-group">
             <button
@@ -86,7 +86,7 @@
               type="button"
               @click="setLanguage('zh-Hans')"
             >
-              简体
+              {{ t("简体") }}
             </button>
             <button
               class="option-btn"
@@ -94,18 +94,18 @@
               type="button"
               @click="setLanguage('zh-Hant')"
             >
-              繁体
+              {{ t("繁体") }}
             </button>
           </div>
         </div>
 
-        <div class="section-title">协议与隐私</div>
+        <div class="section-title">{{ t("协议与隐私") }}</div>
         <div class="setting-item">
           <div class="setting-meta">
-            <strong>用户协议</strong>
-            <span>了解平台服务条款</span>
+            <strong>{{ t("用户协议") }}</strong>
+            <span>{{ t("了解平台服务条款") }}</span>
           </div>
-          <router-link class="btn-icon" to="/agreement/user" aria-label="用户协议">
+          <router-link class="btn-icon" to="/agreement/user" :aria-label="t('用户协议')">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
                 d="M9 6l6 6-6 6"
@@ -120,10 +120,10 @@
         </div>
         <div class="setting-item">
           <div class="setting-meta">
-            <strong>隐私政策</strong>
-            <span>了解信息如何被使用</span>
+            <strong>{{ t("隐私政策") }}</strong>
+            <span>{{ t("了解信息如何被使用") }}</span>
           </div>
-          <router-link class="btn-icon" to="/agreement/privacy" aria-label="隐私政策">
+          <router-link class="btn-icon" to="/agreement/privacy" :aria-label="t('隐私政策')">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
                 d="M9 6l6 6-6 6"
@@ -137,16 +137,18 @@
           </router-link>
         </div>
 
-        <div class="section-title">退出</div>
+        <div class="section-title">{{ t("退出") }}</div>
         <div class="setting-item">
           <div class="setting-meta">
-            <strong>退出当前账号</strong>
-            <span>将在本设备清除会话</span>
+            <strong>{{ t("退出当前账号") }}</strong>
+            <span>{{ t("将在本设备清除会话") }}</span>
           </div>
-          <button class="btn-danger" @click="handleLogout">退出</button>
+          <button class="btn-danger" @click="handleLogout">{{ t("退出") }}</button>
         </div>
 
-        <p class="legal">任何观点仅作为记录与回溯，不作为预测价格与投资建议。</p>
+        <p class="legal">
+          {{ t("任何观点仅作为记录与回溯，不作为预测价格与投资建议。") }}
+        </p>
       </section>
 
     </div>
@@ -158,6 +160,7 @@ import { onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { getCurrentUserSupabase, signOutSupabase } from "../services/auth.js";
 import { getProfileSupabase, upsertProfileSupabase } from "../services/profile.js";
+import { t } from "../services/i18n.js";
 import {
   applyLanguagePreference,
   applyPriceScheme,
@@ -200,7 +203,7 @@ const loadAccount = async () => {
 };
 
 const handleLogout = async () => {
-  const confirmed = window.confirm("确定要退出登录吗？");
+  const confirmed = window.confirm(t("确定要退出登录吗？"));
   if (!confirmed) {
     return;
   }
@@ -211,7 +214,7 @@ const handleLogout = async () => {
     return;
   }
 
-  alert("退出失败，请稍后重试。");
+  alert(t("退出失败，请稍后重试。"));
 };
 
 const loadPreferences = () => {
@@ -227,6 +230,7 @@ const setLanguage = async (value) => {
   language.value = next;
   if (!currentUserId.value) return;
   await upsertProfileSupabase({ userId: currentUserId.value, language: next });
+  window.location.reload();
 };
 </script>
 
@@ -329,6 +333,14 @@ const setLanguage = async (value) => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.setting-item.setting-item-switch {
+  align-items: flex-start;
+}
+
+.setting-item.setting-item-switch .switch {
+  margin-top: 2px;
 }
 
 .option-group {

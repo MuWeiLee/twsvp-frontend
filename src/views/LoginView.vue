@@ -5,15 +5,17 @@
         <img class="logo" :src="logoUrl" alt="TWSVP" />
         <div>
           <div>TWSVP</div>
-          <div style="font-size: 12px; color: var(--muted)">让每一个观点的价值被看见</div>
+          <div style="font-size: 12px; color: var(--muted)">
+            {{ t("让每一个观点的价值被看见") }}
+          </div>
         </div>
       </div>
-      <h1 class="title">准备进入TWSVP...</h1>
+      <h1 class="title">{{ t("准备进入TWSVP...") }}</h1>
     </header>
 
     <section class="login-card slide-in">
       <p class="subtitle" style="margin: 0 0 14px">
-        使用 Google 账号快速登录。
+        {{ t("使用 Google 账号快速登录。") }}
       </p>
 
       <button class="btn btn-google" @click="handleGoogle">
@@ -35,14 +37,18 @@
             d="M20.6 12.5c0-.4-.1-.9-.2-1.3H12v3.9h5.5c-.3 1.2-1.2 2.3-2.5 3.1l2.7 2.1c1.6-1.5 2.9-3.8 2.9-7.8z"
           />
         </svg>
-        使用 Google 登录
+        {{ t("使用 Google 登录") }}
       </button>
 
       <p class="legal">
-        继续即表示你同意
-        <router-link class="legal-link" to="/agreement/user">《用户协议》</router-link>
-        ，并确认已阅读
-        <router-link class="legal-link" to="/agreement/privacy">《隐私政策》</router-link>
+        {{ t("继续即表示你同意") }}
+        <router-link class="legal-link" to="/agreement/user">
+          {{ t("《用户协议》") }}
+        </router-link>
+        ，{{ t("并确认已阅读") }}
+        <router-link class="legal-link" to="/agreement/privacy">
+          {{ t("《隐私政策》") }}
+        </router-link>
         。
       </p>
     </section>
@@ -53,6 +59,7 @@
 import { onMounted } from "vue";
 import logoUrl from "../assets/logo.png";
 import { useRouter } from "vue-router";
+import { t } from "../services/i18n.js";
 import {
   ensureProfileSupabase,
   getCurrentUserSupabase,

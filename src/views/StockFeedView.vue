@@ -2,7 +2,7 @@
   <div class="app-shell">
     <div class="phone-frame">
       <nav class="nav">
-        <button class="nav-btn" type="button" aria-label="返回" @click="handleBack">
+        <button class="nav-btn" type="button" :aria-label="t('返回')" @click="handleBack">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path
               d="M15 18l-6-6 6-6"
@@ -23,19 +23,31 @@
 
       <section class="chart-card">
         <div class="chart-header">
-          <div class="chart-title">日K 行情</div>
+          <div class="chart-title">{{ t("日K 行情") }}</div>
           <div v-if="activePrice" class="hint-card">
             <div class="hint-row">
               <span class="hint-date">{{ activePrice.dateLabel }}</span>
-              <span class="hint-meta">观点数量：{{ activePrice.feedCount }} 条</span>
+              <span class="hint-meta">
+                {{ t("观点数量：{count} 条", { count: activePrice.feedCount }) }}
+              </span>
             </div>
             <div class="hint-grid">
-              <div>收盘价：{{ formatPrice(activePrice.close) }}元</div>
-              <div>涨跌幅：{{ formatPercent(activePrice.changePct) }}</div>
-              <div>开盘价：{{ formatPrice(activePrice.open) }}元</div>
-              <div>振幅：{{ formatPercent(activePrice.amplitude) }}</div>
-              <div>最高：{{ formatPrice(activePrice.high) }}元</div>
-              <div>最低：{{ formatPrice(activePrice.low) }}元</div>
+              <div>
+                {{ t("收盘价：{value}元", { value: formatPrice(activePrice.close) }) }}
+              </div>
+              <div>
+                {{ t("涨跌幅：{value}", { value: formatPercent(activePrice.changePct) }) }}
+              </div>
+              <div>
+                {{ t("开盘价：{value}元", { value: formatPrice(activePrice.open) }) }}
+              </div>
+              <div>{{ t("振幅") }}：{{ formatPercent(activePrice.amplitude) }}</div>
+              <div>
+                {{ t("最高：{value}元", { value: formatPrice(activePrice.high) }) }}
+              </div>
+              <div>
+                {{ t("最低：{value}元", { value: formatPrice(activePrice.low) }) }}
+              </div>
             </div>
           </div>
         </div>
@@ -60,16 +72,16 @@
               <span class="body"></span>
             </button>
           </div>
-          <div v-else class="chart-empty">暂无行情数据</div>
+          <div v-else class="chart-empty">{{ t("暂无行情数据") }}</div>
         </div>
       </section>
 
       <section class="sentiment-card">
-        <div class="sentiment-title">近 7 日观点统计</div>
+        <div class="sentiment-title">{{ t("近 7 日观点统计") }}</div>
         <div class="sentiment-row">
-          <span>看多 {{ sevenDayStats.longPct }}%</span>
-          <span>中性 {{ sevenDayStats.neutralPct }}%</span>
-          <span>看空 {{ sevenDayStats.shortPct }}%</span>
+          <span>{{ t("看多") }} {{ sevenDayStats.longPct }}%</span>
+          <span>{{ t("中性") }} {{ sevenDayStats.neutralPct }}%</span>
+          <span>{{ t("看空") }} {{ sevenDayStats.shortPct }}%</span>
         </div>
         <div class="sentiment-bar" aria-hidden="true">
           <span class="segment long" :style="{ width: `${sevenDayStats.longPct}%` }"></span>
@@ -87,28 +99,28 @@
           :class="{ active: filter === 'all' }"
           @click="filter = 'all'"
         >
-          全部
+          {{ t("全部") }}
         </button>
         <button
           class="tab-btn"
           :class="{ active: filter === 'long' }"
           @click="filter = 'long'"
         >
-          看多
+          {{ t("看多") }}
         </button>
         <button
           class="tab-btn"
           :class="{ active: filter === 'short' }"
           @click="filter = 'short'"
         >
-          看空
+          {{ t("看空") }}
         </button>
         <button
           class="tab-btn"
           :class="{ active: filter === 'neutral' }"
           @click="filter = 'neutral'"
         >
-          中性
+          {{ t("中性") }}
         </button>
       </div>
 
@@ -118,28 +130,28 @@
           :class="{ active: statusFilter === 'all' }"
           @click="statusFilter = 'all'"
         >
-          全部
+          {{ t("全部") }}
         </button>
         <button
           class="status-btn"
           :class="{ active: statusFilter === 'pending' }"
           @click="statusFilter = 'pending'"
         >
-          未开始
+          {{ t("未开始") }}
         </button>
         <button
           class="status-btn"
           :class="{ active: statusFilter === 'active' }"
           @click="statusFilter = 'active'"
         >
-          进行中
+          {{ t("进行中") }}
         </button>
         <button
           class="status-btn"
           :class="{ active: statusFilter === 'ended' }"
           @click="statusFilter = 'ended'"
         >
-          已结束
+          {{ t("已结束") }}
         </button>
       </div>
 
@@ -168,7 +180,7 @@
                       type="button"
                       @click.stop="handleEditFeed(view)"
                     >
-                      编辑观点
+                      {{ t("编辑观点") }}
                     </button>
                     <button
                       v-if="view.statusPhase !== 'ended'"
@@ -176,18 +188,18 @@
                       type="button"
                       @click.stop="handleEndFeed(view)"
                     >
-                      手动结束
+                      {{ t("手动结束") }}
                     </button>
                     <button
                       class="menu-item danger"
                       type="button"
                       @click.stop="handleDeleteFeed(view)"
                     >
-                      删除观点
+                      {{ t("删除观点") }}
                     </button>
                   </template>
                   <button v-else class="menu-item" type="button" @click.stop="handleHideFeed(view)">
-                    不看这条
+                    {{ t("不看这条") }}
                   </button>
                 </div>
               </div>
@@ -219,7 +231,7 @@
           </div>
         </div>
         <div v-if="!isLoading && !filteredViews.length" class="empty">
-          暂无观点
+          {{ t("暂无观点") }}
         </div>
       </section>
     </div>
@@ -247,6 +259,7 @@ import {
 } from "../services/feeds.js";
 import { supabase } from "../services/supabase.js";
 import { fetchStockByIdSupabase, fetchStockPricesSupabase } from "../services/stocks.js";
+import { t } from "../services/i18n.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -403,7 +416,7 @@ const activePrice = computed(() => {
 const buildViews = (list) =>
   list.map((view) => {
     const phase = getStatusPhase(view);
-    const author = view.users?.nickname || "用户";
+    const author = view.users?.nickname || t("用户");
     return {
       ...view,
       statusPhase: phase,
@@ -512,7 +525,7 @@ const goProfile = (view) => {
 };
 
 const handleDeleteFeed = async (view) => {
-  const confirmed = window.confirm("确定删除这条观点吗？");
+  const confirmed = window.confirm(t("确定删除这条观点吗？"));
   if (!confirmed) return;
   await supabase
     .from("feeds")
@@ -523,7 +536,7 @@ const handleDeleteFeed = async (view) => {
 };
 
 const handleEndFeed = async (view) => {
-  const confirmed = window.confirm("确定结束这条观点吗？");
+  const confirmed = window.confirm(t("确定结束这条观点吗？"));
   if (!confirmed) return;
   await supabase
     .from("feeds")
@@ -534,7 +547,7 @@ const handleEndFeed = async (view) => {
 };
 
 const handleEditFeed = async (view) => {
-  const nextContent = window.prompt("编辑观点内容", view.content || "");
+  const nextContent = window.prompt(t("编辑观点内容"), view.content || "");
   if (!nextContent) return;
   await supabase
     .from("feeds")

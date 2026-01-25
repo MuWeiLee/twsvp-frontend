@@ -2,7 +2,7 @@
   <div class="app-shell">
     <div class="phone-frame">
       <nav class="nav">
-        <button class="nav-btn" type="button" aria-label="返回" @click="handleBack">
+        <button class="nav-btn" type="button" :aria-label="t('返回')" @click="handleBack">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path
               d="M15 18l-6-6 6-6"
@@ -14,7 +14,7 @@
             />
           </svg>
         </button>
-        <div class="nav-title">个人主页</div>
+        <div class="nav-title">{{ t("个人主页") }}</div>
         <span class="nav-space" aria-hidden="true"></span>
       </nav>
 
@@ -25,7 +25,7 @@
             <div class="name-row">
               <div class="name">{{ user.name }}</div>
             </div>
-            <div class="joined">加入于 {{ user.joined }}</div>
+            <div class="joined">{{ t("加入于 {date}", { date: user.joined }) }}</div>
             <div class="bio-row">
               <span class="bio-text">{{ user.bio }}</span>
             </div>
@@ -34,15 +34,15 @@
 
         <div class="stats">
           <div>
-            <div class="stat-label">观点总数</div>
+            <div class="stat-label">{{ t("观点总数") }}</div>
             <div class="stat-value">{{ stats.totalViews }}</div>
           </div>
           <div>
-            <div class="stat-label">已结束</div>
+            <div class="stat-label">{{ t("已结束") }}</div>
             <div class="stat-value">{{ stats.closedViews }}</div>
           </div>
           <div>
-            <div class="stat-label">胜率</div>
+            <div class="stat-label">{{ t("胜率") }}</div>
             <div class="stat-value">{{ stats.winRate }}</div>
           </div>
         </div>
@@ -53,28 +53,28 @@
             :class="{ active: mode === 'all' }"
             @click="mode = 'all'"
           >
-            全部
+            {{ t("全部") }}
           </button>
           <button
             class="tab-btn"
             :class="{ active: mode === 'pending' }"
             @click="mode = 'pending'"
           >
-            未开始
+            {{ t("未开始") }}
           </button>
           <button
             class="tab-btn"
             :class="{ active: mode === 'active' }"
             @click="mode = 'active'"
           >
-            进行中
+            {{ t("进行中") }}
           </button>
           <button
             class="tab-btn"
             :class="{ active: mode === 'ended' }"
             @click="mode = 'ended'"
           >
-            已结束
+            {{ t("已结束") }}
           </button>
         </div>
 
@@ -122,11 +122,11 @@
             </div>
           </div>
         </div>
-        <div v-if="!filteredViews.length" class="empty">暂无观点</div>
+        <div v-if="!filteredViews.length" class="empty">{{ t("暂无观点") }}</div>
       </section>
 
       <p class="legal">
-        任何观点仅作为记录与回溯，不作为预测价格与投资建议。
+        {{ t("任何观点仅作为记录与回溯，不作为预测价格与投资建议。") }}
       </p>
     </div>
   </div>
@@ -137,6 +137,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { getProfileSupabase, getUserGroupNamesSupabase } from "../services/profile.js";
+import { t } from "../services/i18n.js";
 import {
   addFeedLikeSupabase,
   fetchFeedsSupabase,
@@ -183,7 +184,7 @@ const getInitials = (name) => {
 const viewsWithStatus = computed(() =>
   feeds.value.map((view) => {
     const phase = getStatusPhase(view);
-    const author = view.users?.nickname || user.value.name || "用户";
+    const author = view.users?.nickname || user.value.name || t("用户");
     return {
       ...view,
       statusPhase: phase,
@@ -209,7 +210,7 @@ const stats = computed(() => {
   return {
     totalViews,
     closedViews,
-    winRate: totalViews ? "待结算" : "—",
+    winRate: totalViews ? t("待结算") : "—",
   };
 });
 
@@ -233,12 +234,12 @@ const loadProfile = async () => {
     getUserGroupNamesSupabase(userId),
   ]);
 
-  const nickname = profile?.nickname || "用户";
+  const nickname = profile?.nickname || t("用户");
 
   user.value = {
     initials: getInitials(nickname),
     name: nickname,
-    bio: profile?.bio || "尚未填写简介",
+    bio: profile?.bio || t("尚未填写简介"),
     tags,
     joined: formatDate(profile?.created_at),
   };

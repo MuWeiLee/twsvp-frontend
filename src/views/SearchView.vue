@@ -5,7 +5,7 @@
         <router-link class="nav-logo" to="/feed" aria-label="TWSVP">
           <img :src="logoUrl" alt="TWSVP" />
         </router-link>
-        <div class="nav-title">搜索</div>
+        <div class="nav-title">{{ t("搜索") }}</div>
         <span class="nav-space" aria-hidden="true"></span>
       </nav>
 
@@ -15,7 +15,7 @@
             <input
               class="search-input"
               type="text"
-              placeholder="搜索股票、代码、话题或作者"
+              :placeholder="t('搜索股票、代码、话题或作者')"
               v-model="query"
               @input="handleInput"
               @keyup.enter="handleSearch"
@@ -24,13 +24,13 @@
               v-if="query"
               class="clear-btn"
               type="button"
-              aria-label="清除搜索"
+              :aria-label="t('清除搜索')"
               @click="clearSearch"
             >
               ×
             </button>
             <div v-if="isSuggesting && !suggestedStocks.length" class="suggest-tip">
-              正在联想...
+              {{ t("正在联想...") }}
             </div>
             <div v-if="suggestedStocks.length" class="suggest-list">
               <button
@@ -45,7 +45,7 @@
               </button>
             </div>
           </div>
-          <button class="btn-primary" type="button" @click="handleSearch">搜索</button>
+          <button class="btn-primary" type="button" @click="handleSearch">{{ t("搜索") }}</button>
         </div>
 
         <section v-if="submittedQuery">
@@ -55,34 +55,38 @@
               :class="{ active: activeResultTab === 'all' }"
               @click="activeResultTab = 'all'"
             >
-              全部 {{ stockResults.length + visibleFeedResults.length + userResults.length }}
+              {{
+                t("全部 {count}", {
+                  count: stockResults.length + visibleFeedResults.length + userResults.length,
+                })
+              }}
             </button>
             <button
               class="tab-btn"
               :class="{ active: activeResultTab === 'stock' }"
               @click="activeResultTab = 'stock'"
             >
-              股票 {{ stockResults.length }}
+              {{ t("股票 {count}", { count: stockResults.length }) }}
             </button>
             <button
               class="tab-btn"
               :class="{ active: activeResultTab === 'feed' }"
               @click="activeResultTab = 'feed'"
             >
-              观点 {{ visibleFeedResults.length }}
+              {{ t("观点 {count}", { count: visibleFeedResults.length }) }}
             </button>
             <button
               class="tab-btn"
               :class="{ active: activeResultTab === 'user' }"
               @click="activeResultTab = 'user'"
             >
-              用户 {{ userResults.length }}
+              {{ t("用户 {count}", { count: userResults.length }) }}
             </button>
           </div>
 
           <div v-if="activeResultTab === 'all'">
             <div class="result-section">
-              <div class="result-title">股票</div>
+              <div class="result-title">{{ t("股票") }}</div>
               <div v-if="stockResults.length" class="list">
                 <div
                   v-for="item in stockResults"
@@ -94,11 +98,11 @@
                   <span>{{ item.market }}</span>
                 </div>
               </div>
-              <div v-else class="empty">暂无相关股票</div>
+              <div v-else class="empty">{{ t("暂无相关股票") }}</div>
             </div>
 
             <div class="result-section">
-              <div class="result-title">观点</div>
+              <div class="result-title">{{ t("观点") }}</div>
               <div v-if="visibleFeedResults.length" class="feed">
                 <div v-for="view in visibleFeedResults" :key="view.feed_id" class="thread">
                   <div class="thread-card" @click="goFeed(view.feed_id)">
@@ -128,7 +132,7 @@
                               type="button"
                               @click.stop="handleEditFeed(view)"
                             >
-                              编辑观点
+                              {{ t("编辑观点") }}
                             </button>
                             <button
                               v-if="view.statusPhase !== 'ended'"
@@ -136,14 +140,14 @@
                               type="button"
                               @click.stop="handleEndFeed(view)"
                             >
-                              手动结束
+                              {{ t("手动结束") }}
                             </button>
                             <button
                               class="menu-item danger"
                               type="button"
                               @click.stop="handleDeleteFeed(view)"
                             >
-                              删除观点
+                              {{ t("删除观点") }}
                             </button>
                           </template>
                           <button
@@ -152,7 +156,7 @@
                             type="button"
                             @click.stop="handleHideFeed(view)"
                           >
-                            不看这条
+                            {{ t("不看这条") }}
                           </button>
                         </div>
                       </div>
@@ -184,11 +188,11 @@
                   </div>
                 </div>
               </div>
-              <div v-else class="empty">暂无相关观点</div>
+              <div v-else class="empty">{{ t("暂无相关观点") }}</div>
             </div>
 
             <div class="result-section">
-              <div class="result-title">用户</div>
+              <div class="result-title">{{ t("用户") }}</div>
               <div v-if="userResults.length" class="user-list">
                 <div
                   v-for="user in userResults"
@@ -196,11 +200,11 @@
                   class="user-card"
                   @click="goUser(user)"
                 >
-                  <strong>{{ user.nickname || "用户" }}</strong>
-                  <span>{{ user.bio || "暂无简介" }}</span>
+                  <strong>{{ user.nickname || t("用户") }}</strong>
+                  <span>{{ user.bio || t("暂无简介") }}</span>
                 </div>
               </div>
-              <div v-else class="empty">暂无相关用户</div>
+              <div v-else class="empty">{{ t("暂无相关用户") }}</div>
             </div>
           </div>
 
@@ -216,7 +220,7 @@
                 <span>{{ item.market }}</span>
               </div>
             </div>
-            <div v-else class="empty">暂无相关股票</div>
+            <div v-else class="empty">{{ t("暂无相关股票") }}</div>
           </div>
 
           <div v-else-if="activeResultTab === 'feed'">
@@ -249,7 +253,7 @@
                             type="button"
                             @click.stop="handleEditFeed(view)"
                           >
-                            编辑观点
+                            {{ t("编辑观点") }}
                           </button>
                           <button
                             v-if="view.statusPhase !== 'ended'"
@@ -257,14 +261,14 @@
                             type="button"
                             @click.stop="handleEndFeed(view)"
                           >
-                            手动结束
+                            {{ t("手动结束") }}
                           </button>
                           <button
                             class="menu-item danger"
                             type="button"
                             @click.stop="handleDeleteFeed(view)"
                           >
-                            删除观点
+                            {{ t("删除观点") }}
                           </button>
                         </template>
                         <button
@@ -273,7 +277,7 @@
                           type="button"
                           @click.stop="handleHideFeed(view)"
                         >
-                          不看这条
+                          {{ t("不看这条") }}
                         </button>
                       </div>
                     </div>
@@ -305,7 +309,7 @@
                 </div>
               </div>
             </div>
-            <div v-else class="empty">暂无相关观点</div>
+            <div v-else class="empty">{{ t("暂无相关观点") }}</div>
           </div>
 
           <div v-else>
@@ -316,15 +320,17 @@
                 class="user-card"
                 @click="goUser(user)"
               >
-                <strong>{{ user.nickname || "用户" }}</strong>
-                <span>{{ user.bio || "暂无简介" }}</span>
+                <strong>{{ user.nickname || t("用户") }}</strong>
+                <span>{{ user.bio || t("暂无简介") }}</span>
               </div>
             </div>
-            <div v-else class="empty">暂无相关用户</div>
+            <div v-else class="empty">{{ t("暂无相关用户") }}</div>
           </div>
         </section>
 
-        <p class="legal">任何观点仅作为记录与回溯，不作为预测价格与投资建议。</p>
+        <p class="legal">
+          {{ t("任何观点仅作为记录与回溯，不作为预测价格与投资建议。") }}
+        </p>
       </section>
 
       <BottomTabbar />
@@ -340,6 +346,7 @@ import BottomTabbar from "../components/BottomTabbar.vue";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { searchUsersSupabase } from "../services/profile.js";
 import { searchStocksSupabase } from "../services/stocks.js";
+import { t } from "../services/i18n.js";
 import { supabase } from "../services/supabase.js";
 import {
   addFeedLikeSupabase,
@@ -443,7 +450,7 @@ const runSearch = async (q, preferredTab = activeResultTab.value) => {
   stockResults.value = stocks;
   feedResults.value = feeds.map((view) => {
     const phase = getStatusPhase(view);
-    const author = view.users?.nickname || "用户";
+    const author = view.users?.nickname || t("用户");
     return {
       ...view,
       statusPhase: phase,
@@ -533,7 +540,7 @@ const refreshFeedResults = async () => {
 };
 
 const handleDeleteFeed = async (view) => {
-  const confirmed = window.confirm("确定删除这条观点吗？");
+  const confirmed = window.confirm(t("确定删除这条观点吗？"));
   if (!confirmed) return;
   await supabase
     .from("feeds")
@@ -544,7 +551,7 @@ const handleDeleteFeed = async (view) => {
 };
 
 const handleEndFeed = async (view) => {
-  const confirmed = window.confirm("确定结束这条观点吗？");
+  const confirmed = window.confirm(t("确定结束这条观点吗？"));
   if (!confirmed) return;
   await supabase
     .from("feeds")
@@ -555,7 +562,7 @@ const handleEndFeed = async (view) => {
 };
 
 const handleEditFeed = async (view) => {
-  const nextContent = window.prompt("编辑观点内容", view.content || "");
+  const nextContent = window.prompt(t("编辑观点内容"), view.content || "");
   if (!nextContent) return;
   await supabase
     .from("feeds")

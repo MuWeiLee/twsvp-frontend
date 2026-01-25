@@ -5,7 +5,7 @@
         <router-link class="nav-logo" to="/feed" aria-label="TWSVP">
           <img :src="logoUrl" alt="TWSVP" />
         </router-link>
-        <div class="nav-title">通知</div>
+        <div class="nav-title">{{ t("通知") }}</div>
         <span class="nav-space" aria-hidden="true"></span>
       </nav>
 
@@ -15,14 +15,14 @@
           :class="{ active: activeTab === 'like' }"
           @click="activeTab = 'like'"
         >
-          点赞
+          {{ t("点赞") }}
         </button>
         <button
           class="tab-btn"
           :class="{ active: activeTab === 'expire' }"
           @click="activeTab = 'expire'"
         >
-          到期提醒
+          {{ t("到期提醒") }}
         </button>
       </div>
 
@@ -43,7 +43,7 @@
               <img v-if="item.actorAvatar" :src="item.actorAvatar" alt="" />
               <span v-else>{{ item.actorInitial }}</span>
             </button>
-            <div v-else class="avatar system">系</div>
+            <div v-else class="avatar system">{{ t("系") }}</div>
             <div class="item-body">
               <span class="notice">{{ item.title }}</span>
               <strong v-if="item.stockLabel" class="stock-title">{{ item.stockLabel }}</strong>
@@ -52,10 +52,14 @@
             </div>
           </div>
         </div>
-        <div v-if="!isLoading && !filteredItems.length" class="empty">暂无通知</div>
+        <div v-if="!isLoading && !filteredItems.length" class="empty">
+          {{ t("暂无通知") }}
+        </div>
       </section>
 
-      <p class="legal">任何观点仅作为记录与回溯，不作为预测价格与投资建议。</p>
+      <p class="legal">
+        {{ t("任何观点仅作为记录与回溯，不作为预测价格与投资建议。") }}
+      </p>
 
       <BottomTabbar />
     </div>
@@ -70,6 +74,7 @@ import BottomTabbar from "../components/BottomTabbar.vue";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { fetchNotificationsSupabase } from "../services/notifications.js";
 import { formatFeedTimestamp } from "../services/feeds.js";
+import { t } from "../services/i18n.js";
 
 const router = useRouter();
 const activeTab = ref("like");
@@ -93,11 +98,11 @@ const getDaysLeft = (expiresAt) => {
 const buildItem = (row) => {
   const feed = row.feeds || {};
   const actor = row.actor || {};
-  const actorName = actor.nickname || "用户";
+  const actorName = actor.nickname || t("用户");
   const targetLabel = [feed.target_symbol, feed.target_name].filter(Boolean).join(" ");
   const summary = feed.summary || feed.content || "";
   const daysLeft = getDaysLeft(feed.expires_at);
-  let title = row.title || "通知";
+  let title = row.title || t("通知");
   let detail = row.detail || "";
   let tab = row.type || "";
 
@@ -106,39 +111,56 @@ const buildItem = (row) => {
     const others = Math.max(0, likeCount - 1);
     title =
       others > 0
-        ? `${actorName} 与另外 ${others} 个人点赞了你的观点。`
-        : `${actorName} 点赞了你的观点。`;
+        ? t("{actorName} 与另外 {others} 个人点赞了你的观点。", {
+            actorName,
+            others,
+          })
+        : t("{actorName} 点赞了你的观点。", { actorName });
     detail = row.detail || "";
   } else if (row.type === "bookmark") {
     if (!row.title) {
-      title = "观点被收藏";
+      title = t("观点被收藏");
     }
     if (!row.detail) {
-      detail = `${actorName}收藏了${targetLabel ? `「${targetLabel}」` : "你的观点"}`;
+      detail = t("{actorName}收藏了{target}", {
+        actorName,
+        target: targetLabel ? `「${targetLabel}」` : t("你的观点"),
+      });
     }
     tab = "like";
   } else if (row.type === "share") {
     if (!row.title) {
-      title = "观点被分享";
+      title = t("观点被分享");
     }
     if (!row.detail) {
-      detail = `${actorName}分享了${targetLabel ? `「${targetLabel}」` : "你的观点"}`;
+      detail = t("{actorName}分享了{target}", {
+        actorName,
+        target: targetLabel ? `「${targetLabel}」` : t("你的观点"),
+      });
     }
   } else if (row.type === "expire_soon") {
-    const suffix = daysLeft !== null ? `将在 ${daysLeft} 天后到期` : "即将到期";
+    const suffix =
+      daysLeft !== null
+        ? t("将在 {days} 天后到期", { days: daysLeft })
+        : t("即将到期");
     if (!row.title) {
-      title = "观点即将到期";
+      title = t("观点即将到期");
     }
     if (!row.detail) {
-      detail = `你的观点${targetLabel ? `「${targetLabel}」` : ""}${suffix}`;
+      detail = t("你的观点{target}{suffix}", {
+        target: targetLabel ? `「${targetLabel}」` : "",
+        suffix,
+      });
     }
     tab = "expire";
   } else if (row.type === "expired") {
     if (!row.title) {
-      title = "观点已到期";
+      title = t("观点已到期");
     }
     if (!row.detail) {
-      detail = `你的观点${targetLabel ? `「${targetLabel}」` : ""}已到期`;
+      detail = t("你的观点{target}已到期", {
+        target: targetLabel ? `「${targetLabel}」` : "",
+      });
     }
     tab = "expire";
   }

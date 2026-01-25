@@ -5,8 +5,8 @@
         <router-link class="nav-logo" to="/feed" aria-label="TWSVP">
           <img :src="logoUrl" alt="TWSVP" />
         </router-link>
-        <div class="nav-title">个人中心</div>
-        <button class="nav-action" @click="goSettings">设置</button>
+        <div class="nav-title">{{ t("个人中心") }}</div>
+        <button class="nav-action" @click="goSettings">{{ t("设置") }}</button>
       </nav>
 
       <section class="profile">
@@ -32,10 +32,10 @@
                     stroke-linecap="round"
                   />
                 </svg>
-                编辑
+                {{ t("编辑") }}
               </button>
             </div>
-            <div class="joined">加入于 {{ user.joined }}</div>
+            <div class="joined">{{ t("加入于 {date}", { date: user.joined }) }}</div>
             <div class="bio-row">
               <span class="bio-text">{{ user.bio }}</span>
             </div>
@@ -44,15 +44,15 @@
 
         <div class="stats">
           <div>
-            <div class="stat-label">观点总数</div>
+            <div class="stat-label">{{ t("观点总数") }}</div>
             <div class="stat-value">{{ performance.totalViews }}</div>
           </div>
           <div>
-            <div class="stat-label">观点胜率</div>
+            <div class="stat-label">{{ t("观点胜率") }}</div>
             <div class="stat-value">{{ performance.winRate }}</div>
           </div>
           <div>
-            <div class="stat-label">绩效表现</div>
+            <div class="stat-label">{{ t("绩效表现") }}</div>
             <div class="stat-value">{{ performance.performance }}</div>
           </div>
         </div>
@@ -63,28 +63,28 @@
             :class="{ active: mode === 'all' }"
             @click="mode = 'all'"
           >
-            全部
+            {{ t("全部") }}
           </button>
           <button
             class="tab-btn"
             :class="{ active: mode === 'pending' }"
             @click="mode = 'pending'"
           >
-            未开始
+            {{ t("未开始") }}
           </button>
           <button
             class="tab-btn"
             :class="{ active: mode === 'active' }"
             @click="mode = 'active'"
           >
-            进行中
+            {{ t("进行中") }}
           </button>
           <button
             class="tab-btn"
             :class="{ active: mode === 'ended' }"
             @click="mode = 'ended'"
           >
-            已结束
+            {{ t("已结束") }}
           </button>
         </div>
 
@@ -116,7 +116,7 @@
                       type="button"
                       @click.stop="handleDeleteFeed(view)"
                     >
-                      删除观点
+                      {{ t("删除观点") }}
                     </button>
                   </div>
                 </div>
@@ -146,10 +146,10 @@
             </div>
           </div>
         </div>
-        <div v-if="!filteredViews.length" class="empty">暂无观点</div>
+        <div v-if="!filteredViews.length" class="empty">{{ t("暂无观点") }}</div>
 
         <p class="legal">
-          任何观点仅作为记录与回溯，不作为预测价格与投资建议。
+          {{ t("任何观点仅作为记录与回溯，不作为预测价格与投资建议。") }}
         </p>
       </section>
 
@@ -166,6 +166,7 @@ import { useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { getProfileSupabase } from "../services/profile.js";
 import { supabase } from "../services/supabase.js";
+import { t } from "../services/i18n.js";
 import {
   addFeedLikeSupabase,
   fetchFeedsSupabase,
@@ -211,7 +212,7 @@ const getInitials = (name) => {
 const viewsWithStatus = computed(() =>
   feeds.value.map((view) => {
     const phase = getStatusPhase(view);
-    const author = view.users?.nickname || user.value.name || "用户";
+    const author = view.users?.nickname || user.value.name || t("用户");
     return {
       ...view,
       statusPhase: phase,
@@ -233,8 +234,8 @@ const performance = computed(() => {
   const totalViews = feeds.value.length;
   return {
     totalViews,
-    winRate: totalViews ? "待结算" : "—",
-    performance: totalViews ? "待结算" : "—",
+    winRate: totalViews ? t("待结算") : "—",
+    performance: totalViews ? t("待结算") : "—",
   };
 });
 
@@ -258,12 +259,12 @@ const loadProfile = async () => {
     profile?.nickname ||
     supabaseUser.user_metadata?.full_name ||
     supabaseUser.user_metadata?.name ||
-    (supabaseUser.email ? supabaseUser.email.split("@")[0] : "用户");
+    (supabaseUser.email ? supabaseUser.email.split("@")[0] : t("用户"));
 
   user.value = {
     initials: getInitials(nickname),
     name: nickname,
-    bio: profile?.bio || "尚未填写简介",
+    bio: profile?.bio || t("尚未填写简介"),
     joined: formatDate(profile?.created_at || supabaseUser.created_at),
   };
 
@@ -347,7 +348,7 @@ const closeMenu = () => {
 };
 
 const handleDeleteFeed = async (view) => {
-  const confirmed = window.confirm("确定删除这条观点吗？");
+  const confirmed = window.confirm(t("确定删除这条观点吗？"));
   if (!confirmed) return;
   await supabase
     .from("feeds")
