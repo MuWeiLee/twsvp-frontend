@@ -6,11 +6,15 @@ const MARKET_MAP = new Map([
   ["上柜", "上櫃"],
   ["興櫃", "興櫃"],
   ["兴柜", "興櫃"],
+  ["twse", "上市"],
+  ["tpex", "上櫃"],
+  ["emerging", "興櫃"],
 ]);
 
 const normalizeMarket = (value) => {
   if (!value) return null;
-  return MARKET_MAP.get(value) || null;
+  const key = `${value}`.trim().toLowerCase();
+  return MARKET_MAP.get(key) || MARKET_MAP.get(value) || null;
 };
 
 const chunkArray = (arr, size) => {
