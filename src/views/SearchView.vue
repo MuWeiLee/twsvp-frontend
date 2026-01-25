@@ -138,13 +138,7 @@
         </section>
       </section>
 
-      <nav class="tabbar">
-        <router-link class="tab-item" active-class="active" to="/feed">观点</router-link>
-        <router-link class="tab-item" active-class="active" to="/search">搜索</router-link>
-        <router-link class="tab-item" active-class="active" to="/create-feed">发布</router-link>
-        <router-link class="tab-item" active-class="active" to="/notifications">通知</router-link>
-        <router-link class="tab-item" active-class="active" to="/profile">个人中心</router-link>
-      </nav>
+      <BottomTabbar />
     </div>
   </div>
 </template>
@@ -152,6 +146,7 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import logoUrl from "../assets/logo.png";
+import BottomTabbar from "../components/BottomTabbar.vue";
 import { searchUsersSupabase } from "../services/profile.js";
 
 const query = ref("");
@@ -574,39 +569,6 @@ watch([submittedQuery, activeTab], loadUserResults);
   padding: 10px 16px;
   border-radius: 10px;
   cursor: pointer;
-}
-
-.tabbar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  width: 100%;
-  max-width: 375px;
-  margin: 0 auto;
-  bottom: 0;
-  margin-top: 0;
-  min-height: 64px;
-  padding: 0 6px;
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-  z-index: 5;
-}
-
-.tab-item {
-  text-align: center;
-  font-size: 16px;
-  color: var(--muted);
-  text-decoration: none;
-  display: block;
-  width: 100%;
-}
-
-.tab-item.active {
-  color: var(--ink);
-  font-weight: 600;
 }
 
 @media (max-width: 480px) {

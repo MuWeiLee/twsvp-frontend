@@ -76,13 +76,7 @@
         </button>
       </div>
 
-      <nav class="tabbar">
-        <router-link class="tab-item" active-class="active" to="/feed">观点</router-link>
-        <router-link class="tab-item" active-class="active" to="/search">搜索</router-link>
-        <router-link class="tab-item" active-class="active" to="/create-feed">发布</router-link>
-        <router-link class="tab-item" active-class="active" to="/notifications">通知</router-link>
-        <router-link class="tab-item" active-class="active" to="/profile">个人中心</router-link>
-      </nav>
+      <BottomTabbar />
     </div>
   </div>
 </template>
@@ -90,6 +84,7 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import BottomTabbar from "../components/BottomTabbar.vue";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import {
   createFeedSupabase,
@@ -338,12 +333,10 @@ onMounted(loadDraft);
 
 .bottom-actions {
   position: fixed;
-  left: 0;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
   bottom: 64px;
-  width: 100%;
-  max-width: 375px;
-  margin: 0 auto;
+  width: min(375px, 100%);
   padding: 12px 16px;
   background: linear-gradient(0deg, var(--bg) 70%, rgba(239, 239, 239, 0));
   z-index: 4;
@@ -369,36 +362,4 @@ onMounted(loadDraft);
   cursor: default;
 }
 
-.tabbar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  width: 100%;
-  max-width: 375px;
-  margin: 0 auto;
-  bottom: 0;
-  margin-top: 0;
-  min-height: 64px;
-  padding: 0 6px;
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-  z-index: 5;
-}
-
-.tab-item {
-  text-align: center;
-  font-size: 16px;
-  color: var(--muted);
-  text-decoration: none;
-  display: block;
-  width: 100%;
-}
-
-.tab-item.active {
-  color: var(--ink);
-  font-weight: 600;
-}
 </style>
