@@ -597,11 +597,11 @@ watch(
   display: flex;
   gap: 16px;
   border-bottom: 1px solid var(--border);
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .result-tabs {
-  margin-top: 12px;
+  margin-top: 6px;
 }
 
 .tab-btn {
