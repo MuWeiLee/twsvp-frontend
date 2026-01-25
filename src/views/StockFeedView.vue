@@ -105,7 +105,7 @@
               </div>
               <span class="status">{{ view.statusDisplay }}</span>
             </div>
-            <div class="thread-summary" @click.stop="goStock(view.target_symbol)">
+            <div class="thread-summary" @click.stop="goFeed(view.feed_id)">
               {{ view.summaryText }}
             </div>
             <div class="thread-footer">
@@ -137,6 +137,7 @@ import {
   addFeedLikeSupabase,
   fetchFeedsBySymbolSupabase,
   fetchFeedLikesSupabase,
+  formatFeedTimestamp,
   getRemainingDays,
   getStatusDisplay,
   getStatusLabel,
@@ -165,16 +166,6 @@ const isLoading = ref(false);
 const currentUserId = ref("");
 const likedIds = ref(new Set());
 
-const formatDate = (value) => {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  return `${year}/${month}/${day}`;
-};
-
 const buildViews = (list) =>
   list.map((view) => {
     const phase = getStatusPhase(view);
@@ -186,12 +177,12 @@ const buildViews = (list) =>
       statusDisplay: getStatusDisplay(view, phase),
       directionLabel: mapDirectionToLabel(view.direction),
       horizonLabel: mapHorizonToLabel(view.horizon),
-      createdLabel: formatDate(view.created_at),
+      createdLabel: formatFeedTimestamp(view.created_at),
       remainingDays: getRemainingDays(view),
       author,
       authorAvatar: view.users?.avatar_url || "",
       authorInitial: author ? author.trim().slice(0, 1) : "",
-      summaryText: view.summary || view.content || "",
+      summaryText: view.content || view.summary || "",
       isLiked: likedIds.value.has(view.feed_id),
     };
   });

@@ -55,6 +55,7 @@ import {
   addFeedLikeSupabase,
   fetchFeedByIdSupabase,
   fetchFeedLikesSupabase,
+  formatFeedTimestamp,
   getStatusDisplay,
   getStatusPhase,
   mapDirectionToLabel,
@@ -67,28 +68,6 @@ const router = useRouter();
 const feed = ref(null);
 const likedIds = ref(new Set());
 const currentUserId = ref("");
-
-const formatDateTime = (value) => {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  const hours = `${date.getHours()}`.padStart(2, "0");
-  const minutes = `${date.getMinutes()}`.padStart(2, "0");
-  return `${year}/${month}/${day} ${hours}:${minutes}`;
-};
-
-const formatDate = (value) => {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  return `${year}/${month}/${day}`;
-};
 
 const getInitials = (name) => {
   if (!name) return "";
@@ -170,8 +149,8 @@ const loadFeed = async () => {
     ...data,
     statusDisplay: getStatusDisplay(data, phase),
     directionLabel: mapDirectionToLabel(data.direction),
-    createdLabel: formatDateTime(data.created_at),
-    createdDateLabel: formatDate(data.created_at),
+    createdLabel: formatFeedTimestamp(data.created_at),
+    createdDateLabel: formatFeedTimestamp(data.created_at),
     author: data.users?.nickname || "用户",
     authorAvatar: data.users?.avatar_url || "",
     authorInitial: getInitials(data.users?.nickname || "用户"),

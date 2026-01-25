@@ -124,7 +124,7 @@
               </div>
               <span class="status">{{ view.statusDisplay }}</span>
             </div>
-            <div class="summary" @click.stop="goStock(view)">{{ view.content }}</div>
+            <div class="summary" @click.stop="goFeed(view.feed_id)">{{ view.content }}</div>
             <div class="thread-footer">
               <span class="created-at">{{ view.createdDateLabel }}</span>
               <button
@@ -163,6 +163,7 @@ import {
   addFeedLikeSupabase,
   fetchFeedsSupabase,
   fetchFeedLikesSupabase,
+  formatFeedTimestamp,
   getRemainingDays,
   getStatusDisplay,
   getStatusPhase,
@@ -196,8 +197,8 @@ const filteredViews = computed(() => {
         statusDisplay: getStatusDisplay(view, phase),
         directionLabel: mapDirectionToLabel(view.direction),
         remainingDays: getRemainingDays(view),
-        createdLabel: formatDateTime(view.created_at),
-        createdDateLabel: formatDate(view.created_at),
+        createdLabel: formatFeedTimestamp(view.created_at),
+        createdDateLabel: formatFeedTimestamp(view.created_at),
         author: view.users?.nickname || "用户",
         authorAvatar: view.users?.avatar_url || "",
         authorInitial: getInitials(view.users?.nickname || "用户"),
@@ -232,28 +233,6 @@ const loadUser = async () => {
 
   user.value.initials = getInitials(nickname);
   await loadLikedIds();
-};
-
-const formatDateTime = (value) => {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  const hours = `${date.getHours()}`.padStart(2, "0");
-  const minutes = `${date.getMinutes()}`.padStart(2, "0");
-  return `${year}/${month}/${day} ${hours}:${minutes}`;
-};
-
-const formatDate = (value) => {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  return `${year}/${month}/${day}`;
 };
 
 const canEditFeed = (view) => {

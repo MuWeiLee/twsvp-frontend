@@ -13,11 +13,33 @@
         <div class="user-card">
           <div class="avatar">{{ user.initials }}</div>
           <div class="user-info">
-            <div class="user-row">
+            <div class="name-row">
               <div class="name">{{ user.name }}</div>
-              <div class="joined">加入于 {{ user.joined }}</div>
+              <button class="edit-btn" type="button" @click="goEditProfile">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M4 16.5V20h3.5L19 8.5l-3.5-3.5L4 16.5z"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.4"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M13.5 5l3.5 3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.4"
+                    stroke-linecap="round"
+                  />
+                </svg>
+                编辑
+              </button>
             </div>
-            <div class="meta">{{ user.bio }}</div>
+            <div class="joined">加入于 {{ user.joined }}</div>
+            <div class="bio-row">
+              <span class="bio-label">个人简介</span>
+              <span class="bio-text">{{ user.bio }}</span>
+            </div>
           </div>
         </div>
 
@@ -96,7 +118,7 @@
                 </div>
                 <span class="status">{{ view.statusDisplay }}</span>
               </div>
-              <div class="summary" @click.stop="goStock(view)">{{ view.content }}</div>
+              <div class="summary" @click.stop="goFeed(view.feed_id)">{{ view.content }}</div>
               <div class="thread-footer">
                 <span class="created-at">{{ view.createdDateLabel }}</span>
                 <button
@@ -134,6 +156,7 @@ import {
   addFeedLikeSupabase,
   fetchFeedsSupabase,
   fetchFeedLikesSupabase,
+  formatFeedTimestamp,
   getRemainingDays,
   getStatusLabel,
   getStatusDisplay,
@@ -180,8 +203,8 @@ const viewsWithStatus = computed(() =>
       statusLabel: getStatusLabel(phase),
       statusDisplay: getStatusDisplay(view, phase),
       directionLabel: mapDirectionToLabel(view.direction),
-      createdLabel: formatDate(view.created_at),
-      createdDateLabel: formatDate(view.created_at),
+      createdLabel: formatFeedTimestamp(view.created_at),
+      createdDateLabel: formatFeedTimestamp(view.created_at),
       remainingDays: getRemainingDays(view),
       author,
       authorAvatar: view.users?.avatar_url || "",
@@ -304,6 +327,10 @@ const goSettings = () => {
   router.push("/settings");
 };
 
+const goEditProfile = () => {
+  router.push("/personal-setting");
+};
+
 onMounted(loadProfile);
 </script>
 
@@ -408,9 +435,9 @@ onMounted(loadProfile);
   width: 100%;
 }
 
-.user-row {
+.name-row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
 }
@@ -434,9 +461,36 @@ onMounted(loadProfile);
   color: var(--muted);
 }
 
-.meta {
+.edit-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 4px 8px;
   font-size: 12px;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.edit-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.bio-row {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.bio-label {
   color: var(--muted);
+}
+
+.bio-text {
+  color: var(--ink);
 }
 
 .stats {

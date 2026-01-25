@@ -26,6 +26,37 @@ export const mapLabelToDirection = (label) => DIRECTION_VALUES[label] || "neutra
 export const mapHorizonToLabel = (value) => HORIZON_LABELS[value] || value;
 export const mapLabelToHorizon = (label) => HORIZON_VALUES[label] || "short";
 
+const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
+
+const pad2 = (value) => `${value}`.padStart(2, "0");
+
+export const formatFeedTimestamp = (value) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfYesterday = new Date(startOfToday);
+  startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+  const sevenDaysAgo = new Date(startOfToday);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const oneYearAgo = new Date(startOfToday);
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+  const time = `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+  if (date >= startOfToday) return `今天 ${time}`;
+  if (date >= startOfYesterday) return `昨天 ${time}`;
+  if (date >= sevenDaysAgo) {
+    return `星期${WEEKDAY_LABELS[date.getDay()]} ${time}`;
+  }
+
+  const month = pad2(date.getMonth() + 1);
+  const day = pad2(date.getDate());
+  if (date >= oneYearAgo) return `${month}/${day} ${time}`;
+  return `${date.getFullYear()}/${month}/${day} ${time}`;
+};
+
 export const HORIZON_RANGES = {
   ultra_short: { min: 1, max: 5 },
   short: { min: 5, max: 20 },

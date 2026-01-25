@@ -113,7 +113,7 @@
                     </div>
                     <span class="status">{{ view.statusDisplay }}</span>
                   </div>
-                  <div class="summary" @click.stop="goStock(view.target_symbol)">
+                  <div class="summary" @click.stop="goFeed(view.feed_id)">
                     {{ view.content }}
                   </div>
                   <div class="thread-footer">
@@ -166,6 +166,7 @@ import { searchStocksSupabase } from "../services/stocks.js";
 import {
   addFeedLikeSupabase,
   fetchFeedLikesSupabase,
+  formatFeedTimestamp,
   getStatusDisplay,
   getStatusPhase,
   mapDirectionToLabel,
@@ -249,8 +250,8 @@ const handleSearch = async () => {
       authorInitial: getInitials(author),
       directionLabel: mapDirectionToLabel(view.direction),
       statusDisplay: getStatusDisplay(view, phase),
-      createdLabel: formatDate(view.created_at),
-      createdDateLabel: formatDate(view.created_at),
+      createdLabel: formatFeedTimestamp(view.created_at),
+      createdDateLabel: formatFeedTimestamp(view.created_at),
       isLiked: false,
     };
   });
@@ -270,16 +271,6 @@ const clearSearch = () => {
   clearTimeout(suggestTimer);
   likedIds.value = new Set();
   activeResultTab.value = "stock";
-};
-
-const formatDate = (value) => {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  return `${year}/${month}/${day}`;
 };
 
 const getDefaultTab = () => {

@@ -95,7 +95,7 @@
                 </div>
                 <span class="status">{{ view.statusDisplay }}</span>
               </div>
-              <div class="summary" @click.stop="goStock(view)">{{ view.content }}</div>
+              <div class="summary" @click.stop="goFeed(view.feed_id)">{{ view.content }}</div>
               <div class="thread-footer">
                 <span class="created-at">{{ view.createdDateLabel }}</span>
                 <button
@@ -125,6 +125,7 @@ import {
   addFeedLikeSupabase,
   fetchFeedsSupabase,
   fetchFeedLikesSupabase,
+  formatFeedTimestamp,
   getRemainingDays,
   getStatusLabel,
   getStatusDisplay,
@@ -173,8 +174,8 @@ const viewsWithStatus = computed(() =>
       statusLabel: getStatusLabel(phase),
       statusDisplay: getStatusDisplay(view, phase),
       directionLabel: mapDirectionToLabel(view.direction),
-      createdLabel: formatDate(view.created_at),
-      createdDateLabel: formatDate(view.created_at),
+      createdLabel: formatFeedTimestamp(view.created_at),
+      createdDateLabel: formatFeedTimestamp(view.created_at),
       remainingDays: getRemainingDays(view),
       author,
       authorAvatar: view.users?.avatar_url || "",
