@@ -27,7 +27,6 @@
             </div>
             <div class="joined">加入于 {{ user.joined }}</div>
             <div class="bio-row">
-              <span class="bio-label">个人简介</span>
               <span class="bio-text">{{ user.bio }}</span>
             </div>
           </div>
@@ -454,10 +453,6 @@ onMounted(loadProfile);
   font-size: 12px;
 }
 
-.bio-label {
-  color: var(--muted);
-}
-
 .bio-text {
   color: var(--ink);
 }
@@ -532,8 +527,7 @@ onMounted(loadProfile);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  font-weight: 600;
+  gap: 12px;
 }
 
 .header-left {
@@ -592,7 +586,7 @@ onMounted(loadProfile);
 }
 
 .author {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
@@ -607,7 +601,6 @@ onMounted(loadProfile);
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  font-weight: 600;
   background: var(--panel);
   color: var(--ink);
   overflow: hidden;

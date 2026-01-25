@@ -45,8 +45,8 @@
             </button>
             <div v-else class="avatar system">系</div>
             <div class="item-body">
-              <strong>{{ item.title }}</strong>
-              <span class="detail">{{ item.detail }}</span>
+              <span class="notice">{{ item.title }}</span>
+              <strong v-if="item.stockLabel" class="stock-title">{{ item.stockLabel }}</strong>
               <span v-if="item.summary" class="summary">{{ item.summary }}</span>
               <span class="meta">{{ item.time }}</span>
             </div>
@@ -67,24 +67,13 @@ import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { fetchNotificationsSupabase } from "../services/notifications.js";
+import { formatFeedTimestamp } from "../services/feeds.js";
 
 const router = useRouter();
 const activeTab = ref("like");
 const items = ref([]);
 const isLoading = ref(false);
 const currentUserId = ref("");
-
-const formatDateTime = (value) => {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  const hours = `${date.getHours()}`.padStart(2, "0");
-  const minutes = `${date.getMinutes()}`.padStart(2, "0");
-  return `${year}/${month}/${day} ${hours}:${minutes}`;
-};
 
 const getInitials = (name) => {
   if (!name) return "";
@@ -158,8 +147,9 @@ const buildItem = (row) => {
     feedId: row.target_feed_id || feed.feed_id,
     title,
     detail,
+    stockLabel: [feed.target_name, feed.target_symbol].filter(Boolean).join(" "),
     summary,
-    time: formatDateTime(row.created_at),
+    time: formatFeedTimestamp(row.created_at),
     actorId: row.actor_user_id,
     actor: actorName,
     actorAvatar: actor.avatar_url || "",
@@ -338,20 +328,29 @@ onMounted(loadNotifications);
   gap: 4px;
 }
 
-.item-body span {
+.notice {
   font-size: 12px;
   color: var(--muted);
 }
 
-.detail {
-  color: var(--muted);
+.stock-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .summary {
   color: var(--ink);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .meta {
+  font-size: 12px;
+  color: var(--muted);
   margin-top: 4px;
 }
 
@@ -359,6 +358,7 @@ onMounted(loadNotifications);
   width: 36px;
   height: 36px;
   border-radius: 50%;
+  aspect-ratio: 1 / 1;
   border: 1px solid var(--border);
   display: inline-flex;
   align-items: center;
@@ -369,6 +369,7 @@ onMounted(loadNotifications);
   background: var(--panel);
   overflow: hidden;
   padding: 0;
+  flex-shrink: 0;
 }
 
 .avatar img {

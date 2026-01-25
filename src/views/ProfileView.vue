@@ -37,7 +37,6 @@
             </div>
             <div class="joined">加入于 {{ user.joined }}</div>
             <div class="bio-row">
-              <span class="bio-label">个人简介</span>
               <span class="bio-text">{{ user.bio }}</span>
             </div>
           </div>
@@ -150,7 +149,7 @@
         <div v-if="!filteredViews.length" class="empty">暂无观点</div>
 
         <p class="legal">
-          仅记录观点与回溯结果，不展示预测价格，也不作为投资建议。
+          任何观点仅作为记录与回溯，不作为预测价格与投资建议。
         </p>
       </section>
 
@@ -521,10 +520,6 @@ onMounted(loadProfile);
   font-size: 12px;
 }
 
-.bio-label {
-  color: var(--muted);
-}
-
 .bio-text {
   color: var(--ink);
 }
@@ -599,8 +594,7 @@ onMounted(loadProfile);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  font-weight: 600;
+  gap: 12px;
 }
 
 .more-wrap {
@@ -608,12 +602,10 @@ onMounted(loadProfile);
 }
 
 .more-btn {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  border-radius: 10px;
-  width: 36px;
-  height: 28px;
-  font-size: 14px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 16px;
   cursor: pointer;
   color: var(--muted);
 }
@@ -621,34 +613,33 @@ onMounted(loadProfile);
 .more-menu {
   position: absolute;
   right: 0;
-  top: 34px;
+  top: 18px;
   min-width: 120px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 10px 20px rgba(15, 20, 25, 0.12);
-  padding: 6px;
-  z-index: 3;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  display: grid;
+  z-index: 4;
+  overflow: hidden;
 }
 
 .menu-item {
-  width: 100%;
   border: 0;
   background: transparent;
-  padding: 8px 10px;
+  padding: 10px 12px;
   text-align: left;
   font-size: 12px;
   cursor: pointer;
   color: var(--ink);
-  border-radius: 8px;
 }
 
-.menu-item:hover {
-  background: var(--panel);
+.menu-item + .menu-item {
+  border-top: 1px solid var(--border);
 }
 
 .menu-item.danger {
-  color: #e03b2c;
+  color: var(--negative);
 }
 
 .header-left {
@@ -707,7 +698,7 @@ onMounted(loadProfile);
 }
 
 .author {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
@@ -722,7 +713,6 @@ onMounted(loadProfile);
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  font-weight: 600;
   background: var(--panel);
   color: var(--ink);
   overflow: hidden;

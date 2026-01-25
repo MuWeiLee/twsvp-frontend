@@ -342,7 +342,7 @@ onMounted(loadFeed);
 }
 
 .author {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
@@ -357,7 +357,6 @@ onMounted(loadFeed);
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  font-weight: 600;
   background: var(--panel);
   color: var(--ink);
   overflow: hidden;

@@ -156,6 +156,41 @@
                   {{ view.directionLabel }}
                 </span>
               </div>
+              <div class="more-wrap">
+                <button class="more-btn" type="button" @click.stop="toggleMenu(view.feed_id)">
+                  ...
+                </button>
+                <div v-if="activeMenuId === view.feed_id" class="more-menu">
+                  <template v-if="isAuthor(view)">
+                    <button
+                      v-if="canEditFeed(view)"
+                      class="menu-item"
+                      type="button"
+                      @click.stop="handleEditFeed(view)"
+                    >
+                      编辑观点
+                    </button>
+                    <button
+                      v-if="view.statusPhase !== 'ended'"
+                      class="menu-item"
+                      type="button"
+                      @click.stop="handleEndFeed(view)"
+                    >
+                      手动结束
+                    </button>
+                    <button
+                      class="menu-item danger"
+                      type="button"
+                      @click.stop="handleDeleteFeed(view)"
+                    >
+                      删除观点
+                    </button>
+                  </template>
+                  <button v-else class="menu-item" type="button" @click.stop="handleHideFeed(view)">
+                    不看这条
+                  </button>
+                </div>
+              </div>
             </div>
             <div class="thread-meta">
               <div class="author" @click.stop="goProfile(view)">
@@ -167,7 +202,7 @@
               </div>
               <span class="status">{{ view.statusDisplay }}</span>
             </div>
-            <div class="thread-summary" @click.stop="goFeed(view.feed_id)">
+            <div class="summary" @click.stop="goFeed(view.feed_id)">
               {{ view.summaryText }}
             </div>
             <div class="thread-footer">
@@ -210,6 +245,7 @@ import {
   removeFeedLikeSupabase,
   updateFeedLikeCountSupabase,
 } from "../services/feeds.js";
+import { supabase } from "../services/supabase.js";
 import { fetchStockByIdSupabase, fetchStockPricesSupabase } from "../services/stocks.js";
 
 const route = useRoute();
@@ -230,6 +266,8 @@ const priceSeries = ref([]);
 const isLoading = ref(false);
 const currentUserId = ref("");
 const likedIds = ref(new Set());
+const hiddenIds = ref(new Set());
+const activeMenuId = ref(null);
 const hoveredPrice = ref(null);
 
 const formatDateKey = (value) => {
@@ -265,6 +303,45 @@ const formatPercent = (value) => {
   if (Number.isNaN(num)) return "—";
   const sign = num > 0 ? "+" : "";
   return `${sign}${num.toFixed(2)}%`;
+};
+
+const loadHiddenIds = () => {
+  try {
+    const raw = localStorage.getItem("twsvp_feed_hidden");
+    const ids = raw ? JSON.parse(raw) : [];
+    hiddenIds.value = new Set(ids);
+  } catch (error) {
+    hiddenIds.value = new Set();
+  }
+};
+
+const saveHiddenIds = () => {
+  localStorage.setItem("twsvp_feed_hidden", JSON.stringify([...hiddenIds.value]));
+};
+
+const isAuthor = (view) => currentUserId.value && view.user_id === currentUserId.value;
+
+const canEditFeed = (view) => {
+  if (!currentUserId.value || view.user_id !== currentUserId.value) {
+    return false;
+  }
+  const createdAt = new Date(view.created_at).getTime();
+  if (Number.isNaN(createdAt)) return false;
+  return Date.now() - createdAt <= 10 * 60 * 1000;
+};
+
+const toggleMenu = (feedId) => {
+  activeMenuId.value = activeMenuId.value === feedId ? null : feedId;
+};
+
+const closeMenu = () => {
+  activeMenuId.value = null;
+};
+
+const handleHideFeed = (view) => {
+  hiddenIds.value.add(view.feed_id);
+  saveHiddenIds();
+  closeMenu();
 };
 
 const feedCountByDate = computed(() => {
@@ -361,7 +438,7 @@ const sevenDayStats = computed(() => {
 });
 
 const filteredViews = computed(() => {
-  let list = views.value;
+  let list = views.value.filter((view) => !hiddenIds.value.has(view.feed_id));
   if (filter.value !== "all") {
     list = list.filter((item) => item.direction === filter.value);
   }
@@ -405,6 +482,7 @@ const loadData = async () => {
   views.value = nextViews;
   await loadLikedIds(nextViews);
   isLoading.value = false;
+  activeMenuId.value = null;
 };
 
 const loadUser = async () => {
@@ -431,6 +509,39 @@ const goProfile = (view) => {
   } else {
     router.push(`/user/${userId}`);
   }
+};
+
+const handleDeleteFeed = async (view) => {
+  const confirmed = window.confirm("确定删除这条观点吗？");
+  if (!confirmed) return;
+  await supabase
+    .from("feeds")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("feed_id", view.feed_id);
+  views.value = views.value.filter((item) => item.feed_id !== view.feed_id);
+  closeMenu();
+};
+
+const handleEndFeed = async (view) => {
+  const confirmed = window.confirm("确定结束这条观点吗？");
+  if (!confirmed) return;
+  await supabase
+    .from("feeds")
+    .update({ status: "expired", expires_at: new Date().toISOString() })
+    .eq("feed_id", view.feed_id);
+  await loadData();
+  closeMenu();
+};
+
+const handleEditFeed = async (view) => {
+  const nextContent = window.prompt("编辑观点内容", view.content || "");
+  if (!nextContent) return;
+  await supabase
+    .from("feeds")
+    .update({ content: nextContent.trim() })
+    .eq("feed_id", view.feed_id);
+  await loadData();
+  closeMenu();
 };
 
 const loadLikedIds = async (list = views.value) => {
@@ -502,6 +613,7 @@ const handleBack = () => {
 };
 
 onMounted(loadUser);
+onMounted(loadHiddenIds);
 onMounted(loadData);
 watch(() => route.params.symbol, loadData);
 </script>
@@ -815,6 +927,51 @@ watch(() => route.params.symbol, loadData);
   gap: 12px;
 }
 
+.more-wrap {
+  position: relative;
+}
+
+.more-btn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.more-menu {
+  position: absolute;
+  right: 0;
+  top: 18px;
+  min-width: 120px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  display: grid;
+  z-index: 4;
+  overflow: hidden;
+}
+
+.menu-item {
+  border: 0;
+  background: transparent;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.menu-item + .menu-item {
+  border-top: 1px solid var(--border);
+}
+
+.menu-item.danger {
+  color: var(--negative);
+}
+
 .header-left {
   display: flex;
   align-items: center;
@@ -871,7 +1028,7 @@ watch(() => route.params.symbol, loadData);
 }
 
 .author {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
@@ -886,7 +1043,6 @@ watch(() => route.params.symbol, loadData);
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  font-weight: 600;
   background: var(--panel);
   color: var(--ink);
   overflow: hidden;
@@ -903,10 +1059,13 @@ watch(() => route.params.symbol, loadData);
   color: var(--muted);
 }
 
-.thread-summary {
-  margin: 0;
-  font-size: 14px;
+.summary {
+  color: var(--ink);
   line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .thread-footer {

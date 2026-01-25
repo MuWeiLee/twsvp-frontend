@@ -55,7 +55,7 @@
               :class="{ active: activeResultTab === 'all' }"
               @click="activeResultTab = 'all'"
             >
-              全部 {{ stockResults.length + feedResults.length + userResults.length }}
+              全部 {{ stockResults.length + visibleFeedResults.length + userResults.length }}
             </button>
             <button
               class="tab-btn"
@@ -69,7 +69,7 @@
               :class="{ active: activeResultTab === 'feed' }"
               @click="activeResultTab = 'feed'"
             >
-              观点 {{ feedResults.length }}
+              观点 {{ visibleFeedResults.length }}
             </button>
             <button
               class="tab-btn"
@@ -99,8 +99,8 @@
 
             <div class="result-section">
               <div class="result-title">观点</div>
-              <div v-if="feedResults.length" class="feed">
-                <div v-for="view in feedResults" :key="view.feed_id" class="thread">
+              <div v-if="visibleFeedResults.length" class="feed">
+                <div v-for="view in visibleFeedResults" :key="view.feed_id" class="thread">
                   <div class="thread-card" @click="goFeed(view.feed_id)">
                     <div class="thread-header">
                       <div class="header-left">
@@ -111,6 +111,50 @@
                         <span class="direction" :class="view.direction">
                           {{ view.directionLabel }}
                         </span>
+                      </div>
+                      <div class="more-wrap">
+                        <button
+                          class="more-btn"
+                          type="button"
+                          @click.stop="toggleMenu(view.feed_id)"
+                        >
+                          ...
+                        </button>
+                        <div v-if="activeMenuId === view.feed_id" class="more-menu">
+                          <template v-if="isAuthor(view)">
+                            <button
+                              v-if="canEditFeed(view)"
+                              class="menu-item"
+                              type="button"
+                              @click.stop="handleEditFeed(view)"
+                            >
+                              编辑观点
+                            </button>
+                            <button
+                              v-if="view.statusPhase !== 'ended'"
+                              class="menu-item"
+                              type="button"
+                              @click.stop="handleEndFeed(view)"
+                            >
+                              手动结束
+                            </button>
+                            <button
+                              class="menu-item danger"
+                              type="button"
+                              @click.stop="handleDeleteFeed(view)"
+                            >
+                              删除观点
+                            </button>
+                          </template>
+                          <button
+                            v-else
+                            class="menu-item"
+                            type="button"
+                            @click.stop="handleHideFeed(view)"
+                          >
+                            不看这条
+                          </button>
+                        </div>
                       </div>
                     </div>
                     <div class="thread-meta">
@@ -176,8 +220,8 @@
           </div>
 
           <div v-else-if="activeResultTab === 'feed'">
-            <div v-if="feedResults.length" class="feed">
-              <div v-for="view in feedResults" :key="view.feed_id" class="thread">
+            <div v-if="visibleFeedResults.length" class="feed">
+              <div v-for="view in visibleFeedResults" :key="view.feed_id" class="thread">
                 <div class="thread-card" @click="goFeed(view.feed_id)">
                   <div class="thread-header">
                     <div class="header-left">
@@ -188,6 +232,50 @@
                       <span class="direction" :class="view.direction">
                         {{ view.directionLabel }}
                       </span>
+                    </div>
+                    <div class="more-wrap">
+                      <button
+                        class="more-btn"
+                        type="button"
+                        @click.stop="toggleMenu(view.feed_id)"
+                      >
+                        ...
+                      </button>
+                      <div v-if="activeMenuId === view.feed_id" class="more-menu">
+                        <template v-if="isAuthor(view)">
+                          <button
+                            v-if="canEditFeed(view)"
+                            class="menu-item"
+                            type="button"
+                            @click.stop="handleEditFeed(view)"
+                          >
+                            编辑观点
+                          </button>
+                          <button
+                            v-if="view.statusPhase !== 'ended'"
+                            class="menu-item"
+                            type="button"
+                            @click.stop="handleEndFeed(view)"
+                          >
+                            手动结束
+                          </button>
+                          <button
+                            class="menu-item danger"
+                            type="button"
+                            @click.stop="handleDeleteFeed(view)"
+                          >
+                            删除观点
+                          </button>
+                        </template>
+                        <button
+                          v-else
+                          class="menu-item"
+                          type="button"
+                          @click.stop="handleHideFeed(view)"
+                        >
+                          不看这条
+                        </button>
+                      </div>
                     </div>
                   </div>
                   <div class="thread-meta">
@@ -243,13 +331,14 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { searchUsersSupabase } from "../services/profile.js";
 import { searchStocksSupabase } from "../services/stocks.js";
+import { supabase } from "../services/supabase.js";
 import {
   addFeedLikeSupabase,
   fetchFeedLikesSupabase,
@@ -271,6 +360,8 @@ const suggestedStocks = ref([]);
 const isSuggesting = ref(false);
 const currentUserId = ref("");
 const likedIds = ref(new Set());
+const hiddenIds = ref(new Set());
+const activeMenuId = ref(null);
 const activeResultTab = ref("all");
 let suggestTimer = null;
 const route = useRoute();
@@ -353,6 +444,7 @@ const runSearch = async (q, preferredTab = activeResultTab.value) => {
     const author = view.users?.nickname || "用户";
     return {
       ...view,
+      statusPhase: phase,
       author,
       authorAvatar: view.users?.avatar_url || "",
       authorInitial: getInitials(author),
@@ -365,6 +457,7 @@ const runSearch = async (q, preferredTab = activeResultTab.value) => {
   });
   userResults.value = users;
   activeResultTab.value = getAvailableTab(preferredTab);
+  activeMenuId.value = null;
   await loadFeedLikes();
 };
 
@@ -372,6 +465,21 @@ const getInitials = (name) => {
   if (!name) return "";
   return name.trim().slice(0, 1);
 };
+
+const isAuthor = (view) => currentUserId.value && view.user_id === currentUserId.value;
+
+const canEditFeed = (view) => {
+  if (!currentUserId.value || view.user_id !== currentUserId.value) {
+    return false;
+  }
+  const createdAt = new Date(view.created_at).getTime();
+  if (Number.isNaN(createdAt)) return false;
+  return Date.now() - createdAt <= 10 * 60 * 1000;
+};
+
+const visibleFeedResults = computed(() =>
+  feedResults.value.filter((view) => !hiddenIds.value.has(view.feed_id))
+);
 
 const normalizeTab = (tab) => {
   if (tab === "stock" || tab === "feed" || tab === "user" || tab === "all") {
@@ -386,6 +494,73 @@ const getAvailableTab = (preferred) => {
   if (tab === "feed" && !feedResults.value.length) return "all";
   if (tab === "user" && !userResults.value.length) return "all";
   return tab;
+};
+
+const loadHiddenIds = () => {
+  try {
+    const raw = localStorage.getItem("twsvp_feed_hidden");
+    const ids = raw ? JSON.parse(raw) : [];
+    hiddenIds.value = new Set(ids);
+  } catch (error) {
+    hiddenIds.value = new Set();
+  }
+};
+
+const saveHiddenIds = () => {
+  localStorage.setItem("twsvp_feed_hidden", JSON.stringify([...hiddenIds.value]));
+};
+
+const toggleMenu = (feedId) => {
+  activeMenuId.value = activeMenuId.value === feedId ? null : feedId;
+};
+
+const closeMenu = () => {
+  activeMenuId.value = null;
+};
+
+const handleHideFeed = (view) => {
+  hiddenIds.value.add(view.feed_id);
+  saveHiddenIds();
+  closeMenu();
+};
+
+const refreshFeedResults = async () => {
+  const q = submittedQuery.value || query.value.trim();
+  if (!q) return;
+  await runSearch(q, activeResultTab.value);
+};
+
+const handleDeleteFeed = async (view) => {
+  const confirmed = window.confirm("确定删除这条观点吗？");
+  if (!confirmed) return;
+  await supabase
+    .from("feeds")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("feed_id", view.feed_id);
+  await refreshFeedResults();
+  closeMenu();
+};
+
+const handleEndFeed = async (view) => {
+  const confirmed = window.confirm("确定结束这条观点吗？");
+  if (!confirmed) return;
+  await supabase
+    .from("feeds")
+    .update({ status: "expired", expires_at: new Date().toISOString() })
+    .eq("feed_id", view.feed_id);
+  await refreshFeedResults();
+  closeMenu();
+};
+
+const handleEditFeed = async (view) => {
+  const nextContent = window.prompt("编辑观点内容", view.content || "");
+  if (!nextContent) return;
+  await supabase
+    .from("feeds")
+    .update({ content: nextContent.trim() })
+    .eq("feed_id", view.feed_id);
+  await refreshFeedResults();
+  closeMenu();
 };
 
 const buildSearchQuery = () => {
@@ -472,6 +647,7 @@ const loadUser = async () => {
 };
 
 onMounted(loadUser);
+onMounted(loadHiddenIds);
 onMounted(async () => {
   const q = typeof route.query.q === "string" ? route.query.q.trim() : "";
   if (!q) return;
@@ -750,7 +926,7 @@ watch(
 
 .feed {
   display: grid;
-  gap: 12px;
+  gap: 16px;
 }
 
 .thread {
@@ -775,13 +951,15 @@ watch(
 }
 
 .stock {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 6px;
+  font-weight: 600;
 }
 
 .stock-name {
   font-size: 14px;
+  font-weight: 600;
 }
 
 .stock-code {
@@ -790,6 +968,7 @@ watch(
 }
 
 .summary {
+  color: var(--ink);
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -813,8 +992,52 @@ watch(
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  font-weight: 600;
+  gap: 12px;
+}
+
+.more-wrap {
+  position: relative;
+}
+
+.more-btn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.more-menu {
+  position: absolute;
+  right: 0;
+  top: 18px;
+  min-width: 120px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  display: grid;
+  z-index: 4;
+  overflow: hidden;
+}
+
+.menu-item {
+  border: 0;
+  background: transparent;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.menu-item + .menu-item {
+  border-top: 1px solid var(--border);
+}
+
+.menu-item.danger {
+  color: var(--negative);
 }
 
 .thread-meta {
@@ -826,7 +1049,7 @@ watch(
 }
 
 .direction {
-  padding: 4px 10px;
+  padding: 2px 8px;
   border-radius: 999px;
   font-size: 12px;
   border: 1px solid var(--border);
@@ -849,7 +1072,7 @@ watch(
 }
 
 .author {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
@@ -864,7 +1087,6 @@ watch(
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  font-weight: 600;
   background: var(--panel);
   color: var(--ink);
   overflow: hidden;

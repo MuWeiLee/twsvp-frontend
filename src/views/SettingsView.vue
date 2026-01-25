@@ -120,7 +120,7 @@
           <button class="btn-danger" @click="handleLogout">退出</button>
         </div>
 
-        <p class="legal">TWSVP 不提供投资建议，所有观点仅用于记录与回溯。</p>
+        <p class="legal">任何观点仅作为记录与回溯，不作为预测价格与投资建议。</p>
       </section>
 
     </div>
