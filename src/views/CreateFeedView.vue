@@ -2,7 +2,17 @@
   <div class="app-shell">
     <div class="phone-frame">
       <nav class="nav">
-        <router-link class="nav-link" to="/feed">关闭</router-link>
+        <router-link class="nav-btn" to="/feed" aria-label="关闭">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M6 6l12 12M18 6l-12 12"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+        </router-link>
         <div class="nav-title">我的观点</div>
         <button class="nav-link ghost" type="button" @click="saveDraft">保存草稿</button>
       </nav>
@@ -256,7 +266,7 @@ onMounted(loadDraft);
 .nav {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   height: 64px;
   padding: 0 16px;
@@ -276,9 +286,27 @@ onMounted(loadDraft);
 .nav-title {
   font-weight: 500;
   font-size: 20px;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  margin-right: auto;
+}
+
+.nav-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 10px;
+  height: 32px;
+  width: 32px;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .nav-link {

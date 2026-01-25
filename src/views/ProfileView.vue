@@ -6,12 +6,12 @@
           <img :src="logoUrl" alt="TWSVP" />
         </router-link>
         <div class="nav-title">个人中心</div>
-        <button class="nav-btn" @click="goSettings">设置</button>
+        <button class="nav-action" @click="goSettings">设置</button>
       </nav>
 
       <section class="profile">
         <div class="user-card">
-          <div class="avatar">{{ user.initials }}</div>
+          <div class="profile-avatar">{{ user.initials }}</div>
           <div class="user-info">
             <div class="name-row">
               <div class="name">{{ user.name }}</div>
@@ -355,7 +355,7 @@ onMounted(loadProfile);
 .nav {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   height: 64px;
   padding: 0 16px;
@@ -375,12 +375,10 @@ onMounted(loadProfile);
 .nav-title {
   font-weight: 500;
   font-size: 20px;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  margin-right: auto;
 }
 
-.nav-btn {
+.nav-action {
   border: 1px solid var(--border);
   background: var(--surface);
   border-radius: 10px;
@@ -442,14 +440,17 @@ onMounted(loadProfile);
   gap: 10px;
 }
 
-.avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: var(--panel);
+.profile-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+  border: 1px solid var(--border);
+  box-shadow: 0 6px 14px rgba(15, 20, 25, 0.08);
   display: grid;
   place-items: center;
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--ink);
 }
 
 .name {

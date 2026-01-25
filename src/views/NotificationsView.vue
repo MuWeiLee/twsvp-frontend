@@ -212,7 +212,7 @@ onMounted(loadNotifications);
 .nav {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   height: 64px;
   padding: 0 16px;
@@ -232,9 +232,7 @@ onMounted(loadNotifications);
 .nav-title {
   font-weight: 500;
   font-size: 20px;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  margin-right: auto;
 }
 
 .nav-btn {
@@ -242,14 +240,14 @@ onMounted(loadNotifications);
   background: var(--surface);
   border-radius: 10px;
   height: 32px;
-  padding: 0 10px;
-  font-size: 12px;
-  font-weight: 600;
+  width: 32px;
+  padding: 0;
   cursor: pointer;
   text-decoration: none;
   color: var(--ink);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
 }
 
 .nav-logo {
@@ -272,7 +270,7 @@ onMounted(loadNotifications);
 }
 
 .nav-space {
-  width: 32px;
+  margin-left: auto;
 }
 
 .tabs {

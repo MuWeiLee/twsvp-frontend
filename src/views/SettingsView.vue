@@ -2,7 +2,18 @@
   <div class="app-shell">
     <div class="phone-frame fade-in">
       <nav class="nav slide-in">
-        <router-link class="nav-btn" to="/profile">返回</router-link>
+        <router-link class="nav-btn" to="/profile" aria-label="返回">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M15 18l-6-6 6-6"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </router-link>
         <div class="nav-title">设置</div>
         <span class="nav-space" aria-hidden="true"></span>
       </nav>
@@ -49,7 +60,6 @@
         <div class="setting-item">
           <div class="setting-meta">
             <strong>涨跌颜色</strong>
-            <span>看多默认红涨，看空默认绿跌</span>
           </div>
           <div class="option-group">
             <button
@@ -183,7 +193,7 @@ onMounted(loadPreferences);
 .nav {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   height: 64px;
   padding: 0 16px;
@@ -203,6 +213,7 @@ onMounted(loadPreferences);
 .nav-title {
   font-weight: 500;
   font-size: 20px;
+  margin-right: auto;
 }
 
 .nav-btn {
@@ -210,18 +221,23 @@ onMounted(loadPreferences);
   background: var(--surface);
   border-radius: 10px;
   height: 32px;
-  padding: 0 10px;
-  font-size: 12px;
-  font-weight: 600;
+  width: 32px;
+  padding: 0;
   cursor: pointer;
   text-decoration: none;
   color: var(--ink);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+}
+
+.nav-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .nav-space {
-  width: 32px;
+  margin-left: auto;
 }
 
 .title {
@@ -259,22 +275,27 @@ onMounted(loadPreferences);
 
 .option-group {
   display: inline-flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--panel);
 }
 
 .option-btn {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  border-radius: 999px;
-  padding: 6px 12px;
+  border: 0;
+  background: transparent;
+  padding: 6px 14px;
   font-size: 12px;
   cursor: pointer;
   color: var(--muted);
 }
 
+.option-btn + .option-btn {
+  border-left: 1px solid var(--border);
+}
+
 .option-btn.active {
-  border-color: var(--ink);
+  background: var(--surface);
   color: var(--ink);
 }
 

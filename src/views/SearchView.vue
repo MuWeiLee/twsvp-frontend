@@ -52,6 +52,13 @@
           <div class="tabs result-tabs">
             <button
               class="tab-btn"
+              :class="{ active: activeResultTab === 'all' }"
+              @click="activeResultTab = 'all'"
+            >
+              全部 {{ stockResults.length + feedResults.length + userResults.length }}
+            </button>
+            <button
+              class="tab-btn"
               :class="{ active: activeResultTab === 'stock' }"
               @click="activeResultTab = 'stock'"
             >
@@ -73,7 +80,87 @@
             </button>
           </div>
 
-          <div v-if="activeResultTab === 'stock'">
+          <div v-if="activeResultTab === 'all'">
+            <div class="result-section">
+              <div class="result-title">股票</div>
+              <div v-if="stockResults.length" class="list">
+                <div
+                  v-for="item in stockResults"
+                  :key="item.stock_id"
+                  class="list-item"
+                  @click="goStock(item.stock_id)"
+                >
+                  <strong>{{ item.stock_id }} {{ item.name }}</strong>
+                  <span>{{ item.market }}</span>
+                </div>
+              </div>
+              <div v-else class="empty">暂无相关股票</div>
+            </div>
+
+            <div class="result-section">
+              <div class="result-title">观点</div>
+              <div v-if="feedResults.length" class="feed">
+                <div v-for="view in feedResults" :key="view.feed_id" class="thread">
+                  <div class="thread-card" @click="goFeed(view.feed_id)">
+                    <div class="thread-header">
+                      <div class="header-left">
+                        <div class="stock" @click.stop="goStock(view.target_symbol)">
+                          <span class="stock-name">{{ view.target_name }}</span>
+                          <span class="stock-code">{{ view.target_symbol }}</span>
+                        </div>
+                        <span class="direction" :class="view.direction">
+                          {{ view.directionLabel }}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="thread-meta">
+                      <div class="author" @click.stop="goProfile(view)">
+                        <span class="avatar" :class="{ empty: !view.authorAvatar }">
+                          <img v-if="view.authorAvatar" :src="view.authorAvatar" alt="" />
+                          <span v-else>{{ view.authorInitial }}</span>
+                        </span>
+                        <span class="author-name">{{ view.author }}</span>
+                      </div>
+                      <span class="status">{{ view.statusDisplay }}</span>
+                    </div>
+                    <div class="summary" @click.stop="goFeed(view.feed_id)">
+                      {{ view.content }}
+                    </div>
+                    <div class="thread-footer">
+                      <span class="created-at">{{ view.createdDateLabel }}</span>
+                      <button
+                        class="like-btn"
+                        type="button"
+                        :class="{ active: view.isLiked }"
+                        @click.stop="toggleLike(view)"
+                      >
+                        👍 {{ view.like_count }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="empty">暂无相关观点</div>
+            </div>
+
+            <div class="result-section">
+              <div class="result-title">用户</div>
+              <div v-if="userResults.length" class="user-list">
+                <div
+                  v-for="user in userResults"
+                  :key="user.user_id"
+                  class="user-card"
+                  @click="goUser(user)"
+                >
+                  <strong>{{ user.nickname || "用户" }}</strong>
+                  <span>{{ user.bio || "暂无简介" }}</span>
+                </div>
+              </div>
+              <div v-else class="empty">暂无相关用户</div>
+            </div>
+          </div>
+
+          <div v-else-if="activeResultTab === 'stock'">
             <div v-if="stockResults.length" class="list">
               <div
                 v-for="item in stockResults"
@@ -156,8 +243,8 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
 import { getCurrentUserSupabase } from "../services/auth.js";
@@ -184,8 +271,9 @@ const suggestedStocks = ref([]);
 const isSuggesting = ref(false);
 const currentUserId = ref("");
 const likedIds = ref(new Set());
-const activeResultTab = ref("stock");
+const activeResultTab = ref("all");
 let suggestTimer = null;
+const route = useRoute();
 const router = useRouter();
 
 const handleInput = () => {
@@ -198,7 +286,8 @@ const handleInput = () => {
     suggestedStocks.value = [];
     isSuggesting.value = false;
     clearTimeout(suggestTimer);
-    activeResultTab.value = "stock";
+    activeResultTab.value = "all";
+    router.replace({ path: "/search" });
   } else if (submittedQuery.value) {
     submittedQuery.value = "";
   }
@@ -234,6 +323,25 @@ const handleSearch = async () => {
   suggestedStocks.value = [];
   isSuggesting.value = false;
   submittedQuery.value = q;
+  await runSearch(q);
+  router.replace({ path: "/search", query: { q, tab: activeResultTab.value } });
+};
+
+const clearSearch = () => {
+  query.value = "";
+  submittedQuery.value = "";
+  stockResults.value = [];
+  feedResults.value = [];
+  userResults.value = [];
+  suggestedStocks.value = [];
+  isSuggesting.value = false;
+  clearTimeout(suggestTimer);
+  likedIds.value = new Set();
+  activeResultTab.value = "all";
+  router.replace({ path: "/search" });
+};
+
+const runSearch = async (q, preferredTab = activeResultTab.value) => {
   const [stocks, feeds, users] = await Promise.all([
     searchStocksSupabase(q, 8),
     searchFeedsSupabase(q, 15),
@@ -256,33 +364,34 @@ const handleSearch = async () => {
     };
   });
   userResults.value = users;
-  activeResultTab.value = getDefaultTab();
+  activeResultTab.value = getAvailableTab(preferredTab);
   await loadFeedLikes();
-};
-
-const clearSearch = () => {
-  query.value = "";
-  submittedQuery.value = "";
-  stockResults.value = [];
-  feedResults.value = [];
-  userResults.value = [];
-  suggestedStocks.value = [];
-  isSuggesting.value = false;
-  clearTimeout(suggestTimer);
-  likedIds.value = new Set();
-  activeResultTab.value = "stock";
-};
-
-const getDefaultTab = () => {
-  if (stockResults.value.length) return "stock";
-  if (feedResults.value.length) return "feed";
-  if (userResults.value.length) return "user";
-  return "stock";
 };
 
 const getInitials = (name) => {
   if (!name) return "";
   return name.trim().slice(0, 1);
+};
+
+const normalizeTab = (tab) => {
+  if (tab === "stock" || tab === "feed" || tab === "user" || tab === "all") {
+    return tab;
+  }
+  return "all";
+};
+
+const getAvailableTab = (preferred) => {
+  const tab = normalizeTab(preferred);
+  if (tab === "stock" && !stockResults.value.length) return "all";
+  if (tab === "feed" && !feedResults.value.length) return "all";
+  if (tab === "user" && !userResults.value.length) return "all";
+  return tab;
+};
+
+const buildSearchQuery = () => {
+  const q = submittedQuery.value || query.value.trim();
+  if (!q) return {};
+  return { from: "search", q, tab: activeResultTab.value };
 };
 
 const loadFeedLikes = async (list = feedResults.value) => {
@@ -300,21 +409,21 @@ const loadFeedLikes = async (list = feedResults.value) => {
 
 const goFeed = (feedId) => {
   if (!feedId) return;
-  router.push(`/feed/${feedId}`);
+  router.push({ path: `/feed/${feedId}`, query: buildSearchQuery() });
 };
 
 const goStock = (symbol) => {
   if (!symbol) return;
-  router.push(`/stock/${symbol}`);
+  router.push({ path: `/stock/${symbol}`, query: buildSearchQuery() });
 };
 
 const goProfile = (view) => {
   const userId = view?.user_id;
   if (!userId) return;
   if (currentUserId.value && userId === currentUserId.value) {
-    router.push("/profile");
+    router.push({ path: "/profile", query: buildSearchQuery() });
   } else {
-    router.push(`/user/${userId}`);
+    router.push({ path: `/user/${userId}`, query: buildSearchQuery() });
   }
 };
 
@@ -322,9 +431,9 @@ const goUser = (user) => {
   const userId = user?.user_id;
   if (!userId) return;
   if (currentUserId.value && userId === currentUserId.value) {
-    router.push("/profile");
+    router.push({ path: "/profile", query: buildSearchQuery() });
   } else {
-    router.push(`/user/${userId}`);
+    router.push({ path: `/user/${userId}`, query: buildSearchQuery() });
   }
 };
 
@@ -363,6 +472,27 @@ const loadUser = async () => {
 };
 
 onMounted(loadUser);
+onMounted(async () => {
+  const q = typeof route.query.q === "string" ? route.query.q.trim() : "";
+  if (!q) return;
+  query.value = q;
+  submittedQuery.value = q;
+  await runSearch(q, route.query.tab);
+});
+watch(
+  () => [route.query.q, route.query.tab],
+  async ([nextQuery, nextTab]) => {
+    const q = typeof nextQuery === "string" ? nextQuery.trim() : "";
+    if (!q) return;
+    if (q === submittedQuery.value) {
+      activeResultTab.value = getAvailableTab(nextTab);
+      return;
+    }
+    query.value = q;
+    submittedQuery.value = q;
+    await runSearch(q, nextTab);
+  }
+);
 </script>
 
 <style scoped>
@@ -386,7 +516,7 @@ onMounted(loadUser);
 .nav {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   height: 64px;
   padding: 0 16px;
@@ -406,9 +536,7 @@ onMounted(loadUser);
 .nav-title {
   font-weight: 500;
   font-size: 20px;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  margin-right: auto;
 }
 
 .nav-btn {
@@ -416,14 +544,14 @@ onMounted(loadUser);
   background: var(--surface);
   border-radius: 10px;
   height: 32px;
-  padding: 0 10px;
-  font-size: 12px;
-  font-weight: 600;
+  width: 32px;
+  padding: 0;
   cursor: pointer;
   text-decoration: none;
   color: var(--ink);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
 }
 
 .nav-logo {
@@ -446,7 +574,7 @@ onMounted(loadUser);
 }
 
 .nav-space {
-  width: 32px;
+  margin-left: auto;
 }
 
 .search {
@@ -667,6 +795,18 @@ onMounted(loadUser);
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.result-section {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.result-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
 }
 
 .thread-header {

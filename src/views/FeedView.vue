@@ -6,7 +6,25 @@
           <img :src="logoUrl" alt="TWSVP" />
         </button>
         <div class="nav-title">观点</div>
-        <router-link class="nav-btn" to="/search">搜索</router-link>
+        <router-link class="nav-btn" to="/search" aria-label="搜索">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle
+              cx="11"
+              cy="11"
+              r="7"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <path
+              d="M20 20l-4-4"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+        </router-link>
       </nav>
 
       <header class="slide-in">
@@ -422,7 +440,7 @@ watch([statusFilter, sortKey], loadFeeds);
 .nav {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   height: 64px;
   padding: 0 16px;
@@ -442,9 +460,7 @@ watch([statusFilter, sortKey], loadFeeds);
 .nav-title {
   font-weight: 500;
   font-size: 20px;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  margin-right: auto;
 }
 
 .nav-btn {
@@ -452,14 +468,19 @@ watch([statusFilter, sortKey], loadFeeds);
   background: var(--surface);
   border-radius: 10px;
   height: 32px;
-  padding: 0 10px;
-  font-size: 12px;
-  font-weight: 500;
+  width: 32px;
+  padding: 0;
   cursor: pointer;
   text-decoration: none;
   color: var(--ink);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+}
+
+.nav-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .nav-logo {

@@ -2,21 +2,34 @@
   <div class="app-shell">
     <div class="phone-frame">
       <nav class="nav">
-        <router-link class="nav-btn" to="/feed">返回</router-link>
+        <button class="nav-btn" type="button" aria-label="返回" @click="handleBack">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M15 18l-6-6 6-6"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
         <div class="nav-title">个人主页</div>
         <span class="nav-space" aria-hidden="true"></span>
       </nav>
 
       <section class="profile">
         <div class="user-card">
-          <div class="avatar">{{ user.initials }}</div>
-          <div>
-            <div class="name">{{ user.name }}</div>
-            <div class="meta">{{ user.bio }}</div>
-            <div class="tags">
-              <span v-for="tag in user.tags" :key="tag" class="tag">{{ tag }}</span>
+          <div class="profile-avatar">{{ user.initials }}</div>
+          <div class="user-info">
+            <div class="name-row">
+              <div class="name">{{ user.name }}</div>
             </div>
-            <div class="meta">加入于 {{ user.joined }}</div>
+            <div class="joined">加入于 {{ user.joined }}</div>
+            <div class="bio-row">
+              <span class="bio-label">个人简介</span>
+              <span class="bio-text">{{ user.bio }}</span>
+            </div>
           </div>
         </div>
 
@@ -253,6 +266,16 @@ const goProfile = (view) => {
   }
 };
 
+const handleBack = () => {
+  if (route.query.from === "search") {
+    const q = typeof route.query.q === "string" ? route.query.q : "";
+    const tab = typeof route.query.tab === "string" ? route.query.tab : "all";
+    router.push({ path: "/search", query: q ? { q, tab } : { tab } });
+    return;
+  }
+  router.push("/feed");
+};
+
 const loadLikedIds = async (list = feeds.value) => {
   if (!currentUserId.value || !list.length) {
     likedIds.value = new Set();
@@ -329,7 +352,7 @@ onMounted(loadProfile);
 .nav {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   height: 64px;
   padding: 0 16px;
@@ -349,6 +372,7 @@ onMounted(loadProfile);
 .nav-title {
   font-weight: 500;
   font-size: 20px;
+  margin-right: auto;
 }
 
 .nav-btn {
@@ -356,18 +380,23 @@ onMounted(loadProfile);
   background: var(--surface);
   border-radius: 10px;
   height: 32px;
-  padding: 0 10px;
-  font-size: 12px;
-  font-weight: 600;
+  width: 32px;
+  padding: 0;
   cursor: pointer;
   text-decoration: none;
   color: var(--ink);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+}
+
+.nav-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .nav-space {
-  width: 32px;
+  margin-left: auto;
 }
 
 .profile {
@@ -385,23 +414,52 @@ onMounted(loadProfile);
   padding: 14px;
 }
 
-.avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: var(--panel);
+.profile-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+  border: 1px solid var(--border);
+  box-shadow: 0 6px 14px rgba(15, 20, 25, 0.08);
   display: grid;
   place-items: center;
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.user-info {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .name {
   font-weight: 600;
 }
 
-.meta {
+.joined {
   font-size: 12px;
   color: var(--muted);
+}
+
+.bio-row {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.bio-label {
+  color: var(--muted);
+}
+
+.bio-text {
+  color: var(--ink);
 }
 
 .stats {

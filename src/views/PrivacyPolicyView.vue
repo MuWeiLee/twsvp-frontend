@@ -2,7 +2,18 @@
   <div class="app-shell">
     <div class="phone-frame">
       <nav class="nav">
-        <button class="nav-btn" type="button" @click="handleBack">返回</button>
+        <button class="nav-btn" type="button" aria-label="返回" @click="handleBack">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M15 18l-6-6 6-6"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
         <div class="nav-title">隐私政策</div>
         <span class="nav-space" aria-hidden="true"></span>
       </nav>
@@ -101,7 +112,7 @@ const handleBack = () => {
 .nav {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   height: 64px;
   padding: 0 16px;
@@ -121,6 +132,7 @@ const handleBack = () => {
 .nav-title {
   font-weight: 500;
   font-size: 20px;
+  margin-right: auto;
 }
 
 .nav-btn {
@@ -128,18 +140,23 @@ const handleBack = () => {
   background: var(--surface);
   border-radius: 10px;
   height: 32px;
-  padding: 0 10px;
-  font-size: 12px;
-  font-weight: 600;
+  width: 32px;
+  padding: 0;
   cursor: pointer;
   text-decoration: none;
   color: var(--ink);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+}
+
+.nav-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .nav-space {
-  width: 32px;
+  margin-left: auto;
 }
 
 .doc {

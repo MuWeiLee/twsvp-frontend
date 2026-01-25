@@ -2,7 +2,18 @@
   <div class="app-shell">
     <div class="phone-frame">
       <nav class="nav">
-        <router-link class="nav-btn" to="/feed">返回</router-link>
+        <button class="nav-btn" type="button" aria-label="返回" @click="handleBack">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M15 18l-6-6 6-6"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
         <div class="nav-title">观点详情</div>
         <span class="nav-space" aria-hidden="true"></span>
       </nav>
@@ -175,6 +186,16 @@ const goProfile = (view) => {
   }
 };
 
+const handleBack = () => {
+  if (route.query.from === "search") {
+    const q = typeof route.query.q === "string" ? route.query.q : "";
+    const tab = typeof route.query.tab === "string" ? route.query.tab : "all";
+    router.push({ path: "/search", query: q ? { q, tab } : { tab } });
+    return;
+  }
+  router.push("/feed");
+};
+
 onMounted(loadUser);
 onMounted(loadFeed);
 </script>
@@ -200,7 +221,7 @@ onMounted(loadFeed);
 .nav {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   height: 64px;
   padding: 0 16px;
@@ -220,6 +241,7 @@ onMounted(loadFeed);
 .nav-title {
   font-weight: 500;
   font-size: 20px;
+  margin-right: auto;
 }
 
 .nav-btn {
@@ -227,18 +249,23 @@ onMounted(loadFeed);
   background: var(--surface);
   border-radius: 10px;
   height: 32px;
-  padding: 0 10px;
-  font-size: 12px;
-  font-weight: 600;
+  width: 32px;
+  padding: 0;
   cursor: pointer;
   text-decoration: none;
   color: var(--ink);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+}
+
+.nav-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .nav-space {
-  width: 32px;
+  margin-left: auto;
 }
 
 .thread-card {
