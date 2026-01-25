@@ -113,7 +113,7 @@ import {
 
 const router = useRouter();
 const directions = ["看多", "中性", "看空"];
-const horizons = ["短期 5-20天", "中期 20-60天", "长期 60-180天"];
+const horizons = ["极短期 1-5天", "短期 5-20天", "中期 20-60天", "长期 60-180天"];
 
 const selectedDirection = ref(directions[0]);
 const selectedHorizon = ref(horizons[0]);

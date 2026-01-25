@@ -7,6 +7,7 @@ const DIRECTION_LABELS = {
 };
 
 const HORIZON_LABELS = {
+  ultra_short: "极短期 1-5天",
   short: "短期 5-20天",
   medium: "中期 20-60天",
   long: "长期 60-180天",
@@ -26,6 +27,7 @@ export const mapHorizonToLabel = (value) => HORIZON_LABELS[value] || value;
 export const mapLabelToHorizon = (label) => HORIZON_VALUES[label] || "short";
 
 export const HORIZON_RANGES = {
+  ultra_short: { min: 1, max: 5 },
   short: { min: 5, max: 20 },
   medium: { min: 20, max: 60 },
   long: { min: 60, max: 180 },
@@ -68,6 +70,7 @@ export const getStatusDisplay = (view, phase) => {
 };
 
 const horizonDays = {
+  ultra_short: 5,
   short: 20,
   medium: 60,
   long: 180,

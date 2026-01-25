@@ -21,7 +21,7 @@ create table if not exists public.feeds (
   deleted_at timestamptz,
   constraint chk_feed_target_type check (target_type in ('stock', 'sector')),
   constraint chk_feed_direction check (direction in ('long', 'short', 'neutral')),
-  constraint chk_feed_horizon check (horizon in ('short', 'medium', 'long')),
+  constraint chk_feed_horizon check (horizon in ('ultra_short', 'short', 'medium', 'long')),
   constraint chk_feed_status check (status in ('active', 'expired', 'verified', 'deleted')),
   constraint chk_feed_visibility check (visibility in ('public', 'private')),
   constraint chk_feed_target_symbol check (
