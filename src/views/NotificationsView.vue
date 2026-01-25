@@ -55,6 +55,8 @@
         <div v-if="!isLoading && !filteredItems.length" class="empty">暂无通知</div>
       </section>
 
+      <p class="legal">任何观点仅作为记录与回溯，不作为预测价格与投资建议。</p>
+
       <BottomTabbar />
     </div>
   </div>
@@ -317,6 +319,21 @@ onMounted(loadNotifications);
   cursor: pointer;
 }
 
+.legal {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  width: min(375px, 100%);
+  padding: 6px 16px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+  background: var(--bg);
+  z-index: 4;
+}
+
 .item-main {
   display: flex;
   gap: 12px;
@@ -393,7 +410,7 @@ onMounted(loadNotifications);
 
 @media (max-width: 480px) {
   .phone-frame {
-    padding: 68px 16px 88px;
+    padding: 68px 16px 140px;
   }
 }
 </style>

@@ -429,7 +429,7 @@ watch([statusFilter, sortKey], loadFeeds);
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: 76px 16px 96px;
+  padding: 76px 16px 140px;
   position: relative;
 }
 
@@ -738,10 +738,18 @@ watch([statusFilter, sortKey], loadFeeds);
 }
 
 .legal {
-  margin-top: 16px;
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  width: min(375px, 100%);
+  padding: 6px 16px;
+  margin: 0;
   font-size: 12px;
   color: var(--muted);
   line-height: 1.5;
+  background: var(--bg);
+  z-index: 4;
 }
 
 .empty {
@@ -781,7 +789,7 @@ watch([statusFilter, sortKey], loadFeeds);
 
 @media (max-width: 480px) {
   .phone-frame {
-    padding: 68px 16px 88px;
+    padding: 68px 16px 140px;
   }
 
   .composer-meta {

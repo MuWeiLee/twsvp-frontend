@@ -36,6 +36,28 @@
         </label>
 
         <div class="field">
+          <span>系统语言</span>
+          <div class="option-group">
+            <button
+              class="option-btn"
+              :class="{ active: language === 'zh-Hans' }"
+              type="button"
+              @click="setLanguage('zh-Hans')"
+            >
+              简体
+            </button>
+            <button
+              class="option-btn"
+              :class="{ active: language === 'zh-Hant' }"
+              type="button"
+              @click="setLanguage('zh-Hant')"
+            >
+              繁体
+            </button>
+          </div>
+        </div>
+
+        <div class="field">
           <span>感兴趣行业（最多 3 个）</span>
           <div class="tag-grid">
             <button
@@ -65,6 +87,7 @@
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { getCurrentUserSupabase, signOutSupabase } from "../services/auth.js";
+import { applyLanguagePreference, getLanguagePreference } from "../services/preferences.js";
 import {
   getIndustryGroupsSupabase,
   getProfileSupabase,
@@ -79,9 +102,11 @@ const bio = ref("");
 const email = ref("");
 const groups = ref([]);
 const selectedGroupIds = ref([]);
+const language = ref(getLanguagePreference());
 const isLoading = ref(false);
 const error = ref("");
 const userId = ref(null);
+const profileCompleted = ref(false);
 
 const fallbackGroups = [
   { group_id: 1, name: "半导体与电子" },
@@ -115,6 +140,10 @@ onMounted(async () => {
   if (profile) {
     nickname.value = profile.nickname || "";
     bio.value = profile.bio || "";
+    language.value = applyLanguagePreference(
+      profile.language || getLanguagePreference()
+    );
+    profileCompleted.value = Boolean(profile.profile_completed_at);
   }
 
   const usableGroups = groupList.length ? groupList : fallbackGroups;
@@ -148,10 +177,12 @@ const handleSave = async () => {
   error.value = "";
   isLoading.value = true;
 
+  const selectedLanguage = applyLanguagePreference(language.value);
   const profile = await upsertProfileSupabase({
     userId: userId.value,
     nickname: nickname.value.trim(),
     bio: bio.value.trim(),
+    language: selectedLanguage,
     completed: true,
   });
 
@@ -169,12 +200,20 @@ const handleSave = async () => {
 };
 
 const handleBack = async () => {
+  if (profileCompleted.value) {
+    router.back();
+    return;
+  }
   const success = await signOutSupabase();
   if (success) {
     router.replace("/login");
     return;
   }
   error.value = "退出失败，请稍后重试。";
+};
+
+const setLanguage = (value) => {
+  language.value = applyLanguagePreference(value);
 };
 </script>
 
@@ -297,6 +336,28 @@ const handleBack = async () => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.option-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.option-btn {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.option-btn.active {
+  border-color: var(--ink);
+  color: var(--ink);
+  background: var(--surface);
 }
 
 .tag-btn {

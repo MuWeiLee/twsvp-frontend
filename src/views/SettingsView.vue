@@ -73,6 +73,32 @@
           </div>
         </div>
 
+        <div class="section-title">系统语言</div>
+        <div class="setting-item">
+          <div class="setting-meta">
+            <strong>界面语言</strong>
+            <span>简体/繁体</span>
+          </div>
+          <div class="option-group">
+            <button
+              class="option-btn"
+              :class="{ active: language === 'zh-Hans' }"
+              type="button"
+              @click="setLanguage('zh-Hans')"
+            >
+              简体
+            </button>
+            <button
+              class="option-btn"
+              :class="{ active: language === 'zh-Hant' }"
+              type="button"
+              @click="setLanguage('zh-Hant')"
+            >
+              繁体
+            </button>
+          </div>
+        </div>
+
         <div class="section-title">协议与隐私</div>
         <div class="setting-item">
           <div class="setting-meta">
@@ -131,7 +157,13 @@
 import { onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { getCurrentUserSupabase, signOutSupabase } from "../services/auth.js";
-import { applyPriceScheme, getPriceScheme } from "../services/preferences.js";
+import { getProfileSupabase, upsertProfileSupabase } from "../services/profile.js";
+import {
+  applyLanguagePreference,
+  applyPriceScheme,
+  getLanguagePreference,
+  getPriceScheme,
+} from "../services/preferences.js";
 
 const router = useRouter();
 
@@ -144,6 +176,8 @@ const preferences = reactive({
 });
 
 const priceScheme = ref("red_up");
+const language = ref(getLanguagePreference());
+const currentUserId = ref("");
 
 const toggle = (key) => {
   preferences[key] = !preferences[key];
@@ -156,6 +190,13 @@ const setPriceScheme = (scheme) => {
 const loadAccount = async () => {
   const user = await getCurrentUserSupabase();
   account.email = user?.email || "—";
+  currentUserId.value = user?.id || "";
+  if (currentUserId.value) {
+    const profile = await getProfileSupabase(currentUserId.value);
+    if (profile?.language) {
+      language.value = applyLanguagePreference(profile.language);
+    }
+  }
 };
 
 const handleLogout = async () => {
@@ -180,6 +221,13 @@ const loadPreferences = () => {
 
 onMounted(loadAccount);
 onMounted(loadPreferences);
+
+const setLanguage = async (value) => {
+  const next = applyLanguagePreference(value);
+  language.value = next;
+  if (!currentUserId.value) return;
+  await upsertProfileSupabase({ userId: currentUserId.value, language: next });
+};
 </script>
 
 <style scoped>

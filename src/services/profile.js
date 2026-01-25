@@ -6,7 +6,7 @@ export async function getProfileSupabase(userId) {
   }
   const { data, error } = await supabase
     .from("users")
-    .select("user_id, nickname, bio, avatar_url, profile_completed_at, created_at")
+    .select("user_id, nickname, bio, avatar_url, language, profile_completed_at, created_at")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -20,7 +20,7 @@ export async function getProfileSupabase(userId) {
 
   const { data: legacy, error: legacyError } = await supabase
     .from("profiles")
-    .select("user_id, nickname, bio, avatar_url, profile_completed_at, created_at")
+    .select("user_id, nickname, bio, avatar_url, language, profile_completed_at, created_at")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -96,16 +96,22 @@ export async function getUserGroupsSupabase(userId) {
   return data || [];
 }
 
-export async function upsertProfileSupabase({ userId, nickname, bio, avatarUrl, completed }) {
+export async function upsertProfileSupabase({
+  userId,
+  nickname,
+  bio,
+  avatarUrl,
+  language,
+  completed,
+}) {
   if (!userId) {
     return null;
   }
-  const payload = {
-    user_id: userId,
-    nickname,
-    bio: bio || null,
-    avatar_url: avatarUrl || null,
-  };
+  const payload = { user_id: userId };
+  if (nickname !== undefined) payload.nickname = nickname;
+  if (bio !== undefined) payload.bio = bio ? bio : null;
+  if (avatarUrl !== undefined) payload.avatar_url = avatarUrl ? avatarUrl : null;
+  if (language !== undefined) payload.language = language || null;
 
   if (completed) {
     payload.profile_completed_at = new Date().toISOString();
