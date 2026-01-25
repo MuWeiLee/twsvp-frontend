@@ -5,10 +5,10 @@
         <img class="logo" :src="logoUrl" alt="TWSVP" />
         <div>
           <div>TWSVP</div>
-          <div style="font-size: 12px; color: var(--muted)">让你观点的价值被看见</div>
+          <div style="font-size: 12px; color: var(--muted)">让每一个观点的价值被看见</div>
         </div>
       </div>
-      <h1 class="title">欢迎使用TWSVP</h1>
+      <h1 class="title">准备进入TWSVP...</h1>
     </header>
 
     <section class="login-card slide-in">
