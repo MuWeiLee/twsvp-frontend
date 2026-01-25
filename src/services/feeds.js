@@ -86,7 +86,7 @@ export async function fetchFeedsSupabase({ status = "all", sort = "time", userId
   let query = supabase
     .from("feeds")
     .select(
-      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, users(nickname, avatar_url)"
+      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, users!feeds_user_id_fkey(nickname, avatar_url)"
     )
     .is("deleted_at", null);
 
@@ -123,7 +123,7 @@ export async function fetchFeedByIdSupabase(feedId) {
   const { data, error } = await supabase
     .from("feeds")
     .select(
-      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, users(nickname, avatar_url)"
+      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, users!feeds_user_id_fkey(nickname, avatar_url)"
     )
     .eq("feed_id", feedId)
     .maybeSingle();
@@ -156,7 +156,7 @@ export async function searchFeedsSupabase(query, limit = 15) {
   const { data, error } = await supabase
     .from("feeds")
     .select(
-      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, users(nickname, avatar_url)"
+      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, users!feeds_user_id_fkey(nickname, avatar_url)"
     )
     .is("deleted_at", null)
     .or(
