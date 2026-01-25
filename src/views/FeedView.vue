@@ -73,7 +73,9 @@
                   <span class="stock-name">{{ view.target_name }}</span>
                   <span class="stock-code">{{ view.target_symbol }}</span>
                 </div>
-                <span class="direction">{{ view.directionLabel }}</span>
+                <span class="direction" :class="view.direction">
+                  {{ view.directionLabel }}
+                </span>
               </div>
               <div class="more-wrap">
                 <button class="more-btn" type="button" @click.stop="toggleMenu(view.feed_id)">
@@ -158,11 +160,14 @@ import { useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { getProfileSupabase } from "../services/profile.js";
 import {
+  addFeedLikeSupabase,
   fetchFeedsSupabase,
+  fetchFeedLikesSupabase,
   getRemainingDays,
   getStatusDisplay,
   getStatusPhase,
   mapDirectionToLabel,
+  removeFeedLikeSupabase,
   updateFeedLikeCountSupabase,
 } from "../services/feeds.js";
 import { supabase } from "../services/supabase.js";
@@ -226,6 +231,7 @@ const loadUser = async () => {
     (supabaseUser.email ? supabaseUser.email.split("@")[0] : "");
 
   user.value.initials = getInitials(nickname);
+  await loadLikedIds();
 };
 
 const formatDateTime = (value) => {
@@ -259,6 +265,15 @@ const canEditFeed = (view) => {
   return Date.now() - createdAt <= 10 * 60 * 1000;
 };
 
+const loadLikedIds = async (list = feeds.value) => {
+  if (!currentUserId.value) {
+    likedIds.value = new Set();
+    return;
+  }
+  const feedIds = list.map((view) => view.feed_id);
+  likedIds.value = await fetchFeedLikesSupabase(currentUserId.value, feedIds);
+};
+
 const loadFeeds = async () => {
   isLoading.value = true;
   const data = await fetchFeedsSupabase({
@@ -266,26 +281,13 @@ const loadFeeds = async () => {
     sort: sortKey.value,
   });
   feeds.value = data;
+  await loadLikedIds(data);
   isLoading.value = false;
 };
 
 const refreshFeeds = async () => {
   await loadFeeds();
   window.scrollTo({ top: 0, behavior: "smooth" });
-};
-
-const loadLikedIds = () => {
-  try {
-    const raw = localStorage.getItem("twsvp_feed_likes");
-    const ids = raw ? JSON.parse(raw) : [];
-    likedIds.value = new Set(ids);
-  } catch (error) {
-    likedIds.value = new Set();
-  }
-};
-
-const saveLikedIds = () => {
-  localStorage.setItem("twsvp_feed_likes", JSON.stringify([...likedIds.value]));
 };
 
 const loadHiddenIds = () => {
@@ -350,17 +352,48 @@ const handleEditFeed = async (view) => {
 };
 
 const toggleLike = async (view) => {
+  if (!currentUserId.value) {
+    router.replace("/login");
+    return;
+  }
   const alreadyLiked = likedIds.value.has(view.feed_id);
   const delta = alreadyLiked ? -1 : 1;
   const nextCount = Math.max(0, (view.like_count || 0) + delta);
   view.like_count = nextCount;
-  if (alreadyLiked) {
-    likedIds.value.delete(view.feed_id);
-  } else {
-    likedIds.value.add(view.feed_id);
+  view.isLiked = !alreadyLiked;
+  const feedIndex = feeds.value.findIndex((item) => item.feed_id === view.feed_id);
+  if (feedIndex !== -1) {
+    feeds.value[feedIndex] = {
+      ...feeds.value[feedIndex],
+      like_count: nextCount,
+    };
   }
-  saveLikedIds();
-  await updateFeedLikeCountSupabase(view.feed_id, delta);
+  if (alreadyLiked) {
+    const nextIds = new Set(likedIds.value);
+    nextIds.delete(view.feed_id);
+    likedIds.value = nextIds;
+  } else {
+    const nextIds = new Set(likedIds.value);
+    nextIds.add(view.feed_id);
+    likedIds.value = nextIds;
+  }
+  const ok = alreadyLiked
+    ? await removeFeedLikeSupabase(currentUserId.value, view.feed_id)
+    : await addFeedLikeSupabase(currentUserId.value, view.feed_id);
+  if (ok) {
+    await updateFeedLikeCountSupabase(view.feed_id, delta);
+  } else {
+    const revertCount = Math.max(0, (view.like_count || 0) - delta);
+    view.like_count = revertCount;
+    view.isLiked = alreadyLiked;
+    if (feedIndex !== -1) {
+      feeds.value[feedIndex] = {
+        ...feeds.value[feedIndex],
+        like_count: revertCount,
+      };
+    }
+    await loadLikedIds();
+  }
 };
 
 const goFeed = (feedId) => {
@@ -385,7 +418,6 @@ const goProfile = (view) => {
 
 onMounted(loadUser);
 onMounted(loadFeeds);
-onMounted(loadLikedIds);
 onMounted(loadHiddenIds);
 watch([statusFilter, sortKey], loadFeeds);
 </script>
@@ -568,6 +600,21 @@ watch([statusFilter, sortKey], loadFeeds);
   border: 1px solid var(--border);
   font-size: 12px;
   color: var(--ink);
+}
+
+.direction.long {
+  color: var(--price-up);
+  border-color: var(--price-up);
+}
+
+.direction.short {
+  color: var(--price-down);
+  border-color: var(--price-down);
+}
+
+.direction.neutral {
+  color: var(--muted);
+  border-color: var(--border);
 }
 
 .more-btn {

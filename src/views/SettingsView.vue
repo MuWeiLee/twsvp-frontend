@@ -45,6 +45,32 @@
           ></div>
         </div>
 
+        <div class="section-title">涨跌设置</div>
+        <div class="setting-item">
+          <div class="setting-meta">
+            <strong>涨跌颜色</strong>
+            <span>看多默认红涨，看空默认绿跌</span>
+          </div>
+          <div class="option-group">
+            <button
+              class="option-btn"
+              :class="{ active: priceScheme === 'red_up' }"
+              type="button"
+              @click="setPriceScheme('red_up')"
+            >
+              红涨绿跌
+            </button>
+            <button
+              class="option-btn"
+              :class="{ active: priceScheme === 'green_up' }"
+              type="button"
+              @click="setPriceScheme('green_up')"
+            >
+              绿涨红跌
+            </button>
+          </div>
+        </div>
+
         <div class="section-title">协议与隐私</div>
         <div class="setting-item">
           <div class="setting-meta">
@@ -78,9 +104,10 @@
 </template>
 
 <script setup>
-import { onMounted, reactive } from "vue";
+import { onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { getCurrentUserSupabase, signOutSupabase } from "../services/auth.js";
+import { applyPriceScheme, getPriceScheme } from "../services/preferences.js";
 
 const router = useRouter();
 
@@ -92,6 +119,8 @@ const preferences = reactive({
   settlementNotice: true,
 });
 
+const priceScheme = ref("red_up");
+
 const toggle = (key) => {
   preferences[key] = !preferences[key];
 };
@@ -100,6 +129,9 @@ const handleAccount = () => {
   alert("账号管理示例：跳转到 Google 账户设置。");
 };
 
+const setPriceScheme = (scheme) => {
+  priceScheme.value = applyPriceScheme(scheme);
+};
 
 const loadAccount = async () => {
   const user = await getCurrentUserSupabase();
@@ -121,7 +153,13 @@ const handleLogout = async () => {
   alert("退出失败，请稍后重试。");
 };
 
+const loadPreferences = () => {
+  priceScheme.value = getPriceScheme();
+  applyPriceScheme(priceScheme.value);
+};
+
 onMounted(loadAccount);
+onMounted(loadPreferences);
 </script>
 
 <style scoped>
@@ -217,6 +255,27 @@ onMounted(loadAccount);
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.option-group {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.option-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.option-btn.active {
+  border-color: var(--ink);
+  color: var(--ink);
 }
 
 .setting-meta {

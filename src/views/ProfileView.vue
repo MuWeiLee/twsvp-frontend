@@ -27,12 +27,12 @@
             <div class="stat-value">{{ performance.totalViews }}</div>
           </div>
           <div>
-            <div class="stat-label">已结束</div>
-            <div class="stat-value">{{ performance.closedViews }}</div>
+            <div class="stat-label">观点胜率</div>
+            <div class="stat-value">{{ performance.winRate }}</div>
           </div>
           <div>
-            <div class="stat-label">胜率</div>
-            <div class="stat-value">{{ performance.winRate }}</div>
+            <div class="stat-label">绩效表现</div>
+            <div class="stat-value">{{ performance.performance }}</div>
           </div>
         </div>
 
@@ -74,17 +74,40 @@
             class="view-item"
             @click="goFeed(view.feed_id)"
           >
-            <div class="thread-body">
-              <div class="view-header" @click.stop="goStock(view)">
-                <span>{{ view.target_symbol }} {{ view.target_name }}</span>
-                <span class="status">{{ view.statusLabel }}</span>
+            <div class="thread-card">
+              <div class="thread-header">
+                <div class="header-left">
+                  <div class="stock" @click.stop="goStock(view)">
+                    <span class="stock-name">{{ view.target_name }}</span>
+                    <span class="stock-code">{{ view.target_symbol }}</span>
+                  </div>
+                  <span class="direction" :class="view.direction">
+                    {{ view.directionLabel }}
+                  </span>
+                </div>
               </div>
-              <div class="view-meta">
-                <span class="direction">{{ view.directionLabel }}</span>
-                <span>剩余 {{ view.remainingDays }} 天</span>
-                <span>发布于 {{ view.createdLabel }}</span>
+              <div class="thread-meta">
+                <div class="author" @click.stop="goProfile(view)">
+                  <span class="avatar" :class="{ empty: !view.authorAvatar }">
+                    <img v-if="view.authorAvatar" :src="view.authorAvatar" alt="" />
+                    <span v-else>{{ view.authorInitial }}</span>
+                  </span>
+                  <span class="author-name">{{ view.author }}</span>
+                </div>
+                <span class="status">{{ view.statusDisplay }}</span>
               </div>
               <div class="summary" @click.stop="goStock(view)">{{ view.content }}</div>
+              <div class="thread-footer">
+                <span class="created-at">{{ view.createdDateLabel }}</span>
+                <button
+                  class="like-btn"
+                  type="button"
+                  :class="{ active: view.isLiked }"
+                  @click.stop="toggleLike(view)"
+                >
+                  👍 {{ view.like_count }}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -108,11 +131,16 @@ import { useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { getProfileSupabase } from "../services/profile.js";
 import {
+  addFeedLikeSupabase,
   fetchFeedsSupabase,
+  fetchFeedLikesSupabase,
   getRemainingDays,
   getStatusLabel,
+  getStatusDisplay,
   getStatusPhase,
   mapDirectionToLabel,
+  removeFeedLikeSupabase,
+  updateFeedLikeCountSupabase,
 } from "../services/feeds.js";
 
 const router = useRouter();
@@ -124,6 +152,8 @@ const user = ref({
   joined: "—",
 });
 const feeds = ref([]);
+const likedIds = ref(new Set());
+const currentUserId = ref("");
 
 const formatDate = (value) => {
   if (!value) return "—";
@@ -143,26 +173,30 @@ const getInitials = (name) => {
 const viewsWithStatus = computed(() =>
   feeds.value.map((view) => {
     const phase = getStatusPhase(view);
+    const author = view.users?.nickname || user.value.name || "用户";
     return {
       ...view,
       statusPhase: phase,
       statusLabel: getStatusLabel(phase),
+      statusDisplay: getStatusDisplay(view, phase),
       directionLabel: mapDirectionToLabel(view.direction),
       createdLabel: formatDate(view.created_at),
+      createdDateLabel: formatDate(view.created_at),
       remainingDays: getRemainingDays(view),
+      author,
+      authorAvatar: view.users?.avatar_url || "",
+      authorInitial: getInitials(author),
+      isLiked: likedIds.value.has(view.feed_id),
     };
   })
 );
 
 const performance = computed(() => {
   const totalViews = feeds.value.length;
-  const closedViews = viewsWithStatus.value.filter(
-    (view) => view.statusPhase === "ended"
-  ).length;
   return {
     totalViews,
-    closedViews,
     winRate: totalViews ? "待结算" : "—",
+    performance: totalViews ? "待结算" : "—",
   };
 });
 
@@ -179,6 +213,7 @@ const loadProfile = async () => {
     return;
   }
 
+  currentUserId.value = supabaseUser.id;
   const profile = await getProfileSupabase(supabaseUser.id);
 
   const nickname =
@@ -196,6 +231,7 @@ const loadProfile = async () => {
 
   const data = await fetchFeedsSupabase({ userId: supabaseUser.id });
   feeds.value = data;
+  await loadLikedIds(data);
 };
 
 const goFeed = (feedId) => {
@@ -206,6 +242,62 @@ const goStock = (view) => {
   const symbol = view?.target_symbol;
   if (!symbol) return;
   router.push(`/stock/${symbol}`);
+};
+
+const goProfile = () => {
+  router.push("/profile");
+};
+
+const loadLikedIds = async (list = feeds.value) => {
+  if (!currentUserId.value || !list.length) {
+    likedIds.value = new Set();
+    return;
+  }
+  const feedIds = list.map((view) => view.feed_id);
+  likedIds.value = await fetchFeedLikesSupabase(currentUserId.value, feedIds);
+};
+
+const toggleLike = async (view) => {
+  if (!currentUserId.value) {
+    router.replace("/login");
+    return;
+  }
+  const alreadyLiked = likedIds.value.has(view.feed_id);
+  const delta = alreadyLiked ? -1 : 1;
+  const nextCount = Math.max(0, (view.like_count || 0) + delta);
+  view.like_count = nextCount;
+  view.isLiked = !alreadyLiked;
+  const feedIndex = feeds.value.findIndex((item) => item.feed_id === view.feed_id);
+  if (feedIndex !== -1) {
+    feeds.value[feedIndex] = {
+      ...feeds.value[feedIndex],
+      like_count: nextCount,
+    };
+  }
+  const nextIds = new Set(likedIds.value);
+  if (alreadyLiked) {
+    nextIds.delete(view.feed_id);
+  } else {
+    nextIds.add(view.feed_id);
+  }
+  likedIds.value = nextIds;
+  const ok = alreadyLiked
+    ? await removeFeedLikeSupabase(currentUserId.value, view.feed_id)
+    : await addFeedLikeSupabase(currentUserId.value, view.feed_id);
+  if (ok) {
+    await updateFeedLikeCountSupabase(view.feed_id, delta);
+  } else {
+    const revertCount = Math.max(0, (view.like_count || 0) - delta);
+    view.like_count = revertCount;
+    view.isLiked = alreadyLiked;
+    if (feedIndex !== -1) {
+      feeds.value[feedIndex] = {
+        ...feeds.value[feedIndex],
+        like_count: revertCount,
+      };
+    }
+    await loadLikedIds();
+  }
 };
 
 const goSettings = () => {
@@ -229,7 +321,7 @@ onMounted(loadProfile);
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: 76px 16px 96px;
+  padding: 76px 16px 140px;
   position: relative;
 }
 
@@ -404,7 +496,7 @@ onMounted(loadProfile);
   cursor: pointer;
 }
 
-.thread-body {
+.thread-card {
   background: var(--surface);
   border-radius: var(--radius-card);
   border: 1px solid var(--border);
@@ -413,7 +505,7 @@ onMounted(loadProfile);
   gap: 8px;
 }
 
-.view-header {
+.thread-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -421,35 +513,90 @@ onMounted(loadProfile);
   font-weight: 600;
 }
 
-.view-meta {
+.header-left {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
   font-size: 12px;
-  color: var(--muted);
 }
 
-.tag {
-  padding: 2px 8px;
-  border-radius: 999px;
+.stock {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.stock-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.stock-code {
   font-size: 12px;
-  background: var(--panel);
-  color: var(--ink);
-  border: 1px solid var(--border);
+  color: var(--muted);
 }
 
 .direction {
   padding: 2px 8px;
   border-radius: 999px;
-  font-size: 12px;
   border: 1px solid var(--border);
+  font-size: 12px;
   color: var(--ink);
 }
 
-.status {
-  padding: 2px 8px;
-  border-radius: 999px;
+.direction.long {
+  color: var(--price-up);
+  border-color: var(--price-up);
+}
+
+.direction.short {
+  color: var(--price-down);
+  border-color: var(--price-down);
+}
+
+.direction.neutral {
+  color: var(--muted);
+  border-color: var(--border);
+}
+
+.thread-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.author {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--panel);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.status {
   font-size: 12px;
   color: var(--muted);
 }
@@ -463,11 +610,45 @@ onMounted(loadProfile);
   overflow: hidden;
 }
 
+.thread-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.created-at {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.like-btn {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.like-btn.active {
+  border-color: var(--ink);
+  background: var(--surface);
+}
+
 .legal {
-  margin-top: 4px;
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  width: min(375px, 100%);
+  padding: 6px 16px;
+  margin: 0;
   font-size: 12px;
   color: var(--muted);
   line-height: 1.5;
+  background: var(--bg);
+  z-index: 4;
 }
 
 .empty {

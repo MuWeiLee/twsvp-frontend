@@ -68,20 +68,39 @@
             <div v-for="view in feedResults" :key="view.feed_id" class="thread">
               <div class="thread-card" @click="goFeed(view.feed_id)">
                 <div class="thread-header">
-                  <div class="stock" @click.stop="goStock(view.target_symbol)">
-                    <span class="stock-name">{{ view.target_name }}</span>
-                    <span class="stock-code">{{ view.target_symbol }}</span>
+                  <div class="header-left">
+                    <div class="stock" @click.stop="goStock(view.target_symbol)">
+                      <span class="stock-name">{{ view.target_name }}</span>
+                      <span class="stock-code">{{ view.target_symbol }}</span>
+                    </div>
+                    <span class="direction" :class="view.direction">
+                      {{ view.directionLabel }}
+                    </span>
                   </div>
-                  <span class="tag">{{ view.directionLabel }}</span>
                 </div>
                 <div class="thread-meta">
-                  <button class="author-link" type="button" @click.stop="goProfile(view)">
-                    作者 {{ view.author }}
-                  </button>
-                  <span>{{ view.createdLabel }}</span>
+                  <div class="author" @click.stop="goProfile(view)">
+                    <span class="avatar" :class="{ empty: !view.authorAvatar }">
+                      <img v-if="view.authorAvatar" :src="view.authorAvatar" alt="" />
+                      <span v-else>{{ view.authorInitial }}</span>
+                    </span>
+                    <span class="author-name">{{ view.author }}</span>
+                  </div>
+                  <span class="status">{{ view.statusDisplay }}</span>
                 </div>
                 <div class="summary" @click.stop="goStock(view.target_symbol)">
                   {{ view.content }}
+                </div>
+                <div class="thread-footer">
+                  <span class="created-at">{{ view.createdDateLabel }}</span>
+                  <button
+                    class="like-btn"
+                    type="button"
+                    :class="{ active: view.isLiked }"
+                    @click.stop="toggleLike(view)"
+                  >
+                    👍 {{ view.like_count }}
+                  </button>
                 </div>
               </div>
             </div>
@@ -102,7 +121,16 @@ import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { searchStocksSupabase } from "../services/stocks.js";
-import { mapDirectionToLabel, searchFeedsSupabase } from "../services/feeds.js";
+import {
+  addFeedLikeSupabase,
+  fetchFeedLikesSupabase,
+  getStatusDisplay,
+  getStatusPhase,
+  mapDirectionToLabel,
+  removeFeedLikeSupabase,
+  searchFeedsSupabase,
+  updateFeedLikeCountSupabase,
+} from "../services/feeds.js";
 
 const query = ref("");
 const submittedQuery = ref("");
@@ -111,6 +139,7 @@ const feedResults = ref([]);
 const suggestedStocks = ref([]);
 const isSuggesting = ref(false);
 const currentUserId = ref("");
+const likedIds = ref(new Set());
 let suggestTimer = null;
 const router = useRouter();
 
@@ -163,12 +192,22 @@ const handleSearch = async () => {
     searchFeedsSupabase(q, 15),
   ]);
   stockResults.value = stocks;
-  feedResults.value = feeds.map((view) => ({
-    ...view,
-    author: view.users?.nickname || "用户",
-    directionLabel: mapDirectionToLabel(view.direction),
-    createdLabel: formatDate(view.created_at),
-  }));
+  feedResults.value = feeds.map((view) => {
+    const phase = getStatusPhase(view);
+    const author = view.users?.nickname || "用户";
+    return {
+      ...view,
+      author,
+      authorAvatar: view.users?.avatar_url || "",
+      authorInitial: getInitials(author),
+      directionLabel: mapDirectionToLabel(view.direction),
+      statusDisplay: getStatusDisplay(view, phase),
+      createdLabel: formatDate(view.created_at),
+      createdDateLabel: formatDate(view.created_at),
+      isLiked: false,
+    };
+  });
+  await loadFeedLikes();
 };
 
 const clearSearch = () => {
@@ -179,6 +218,7 @@ const clearSearch = () => {
   suggestedStocks.value = [];
   isSuggesting.value = false;
   clearTimeout(suggestTimer);
+  likedIds.value = new Set();
 };
 
 const formatDate = (value) => {
@@ -189,6 +229,24 @@ const formatDate = (value) => {
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
   const day = `${date.getDate()}`.padStart(2, "0");
   return `${year}/${month}/${day}`;
+};
+
+const getInitials = (name) => {
+  if (!name) return "";
+  return name.trim().slice(0, 1);
+};
+
+const loadFeedLikes = async (list = feedResults.value) => {
+  if (!currentUserId.value || !list.length) {
+    likedIds.value = new Set();
+    return;
+  }
+  const feedIds = list.map((view) => view.feed_id);
+  likedIds.value = await fetchFeedLikesSupabase(currentUserId.value, feedIds);
+  feedResults.value = feedResults.value.map((view) => ({
+    ...view,
+    isLiked: likedIds.value.has(view.feed_id),
+  }));
 };
 
 const goFeed = (feedId) => {
@@ -211,9 +269,38 @@ const goProfile = (view) => {
   }
 };
 
+const toggleLike = async (view) => {
+  if (!currentUserId.value) {
+    router.replace("/login");
+    return;
+  }
+  const alreadyLiked = likedIds.value.has(view.feed_id);
+  const delta = alreadyLiked ? -1 : 1;
+  view.like_count = Math.max(0, (view.like_count || 0) + delta);
+  view.isLiked = !alreadyLiked;
+  const nextIds = new Set(likedIds.value);
+  if (alreadyLiked) {
+    nextIds.delete(view.feed_id);
+  } else {
+    nextIds.add(view.feed_id);
+  }
+  likedIds.value = nextIds;
+  const ok = alreadyLiked
+    ? await removeFeedLikeSupabase(currentUserId.value, view.feed_id)
+    : await addFeedLikeSupabase(currentUserId.value, view.feed_id);
+  if (ok) {
+    await updateFeedLikeCountSupabase(view.feed_id, delta);
+  } else {
+    view.like_count = Math.max(0, (view.like_count || 0) - delta);
+    view.isLiked = alreadyLiked;
+    await loadFeedLikes();
+  }
+};
+
 const loadUser = async () => {
   const supabaseUser = await getCurrentUserSupabase();
   currentUserId.value = supabaseUser?.id || "";
+  await loadFeedLikes();
 };
 
 onMounted(loadUser);
@@ -479,6 +566,13 @@ onMounted(loadUser);
   cursor: pointer;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
 .stock {
   display: inline-flex;
   align-items: center;
@@ -512,29 +606,10 @@ onMounted(loadUser);
 
 .thread-meta {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
   font-size: 12px;
   color: var(--muted);
-}
-
-.author-link {
-  border: 0;
-  background: transparent;
-  font-family: inherit;
-  font-size: 12px;
-  color: inherit;
-  cursor: pointer;
-  padding: 0;
-}
-
-.tag {
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  background: var(--panel);
-  color: var(--ink);
-  border: 1px solid var(--border);
 }
 
 .direction {
@@ -543,6 +618,80 @@ onMounted(loadUser);
   font-size: 12px;
   border: 1px solid var(--border);
   color: var(--ink);
+}
+
+.direction.long {
+  color: var(--price-up);
+  border-color: var(--price-up);
+}
+
+.direction.short {
+  color: var(--price-down);
+  border-color: var(--price-down);
+}
+
+.direction.neutral {
+  color: var(--muted);
+  border-color: var(--border);
+}
+
+.author {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--panel);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.status {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.thread-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.created-at {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.like-btn {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.like-btn.active {
+  border-color: var(--ink);
+  background: var(--surface);
 }
 
 .btn-primary {

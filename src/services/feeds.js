@@ -220,6 +220,58 @@ export async function updateFeedLikeCountSupabase(feedId, delta) {
   return true;
 }
 
+export async function fetchFeedLikesSupabase(userId, feedIds = []) {
+  if (!userId || !feedIds.length) {
+    return new Set();
+  }
+  const { data, error } = await supabase
+    .from("feed_likes")
+    .select("feed_id")
+    .eq("user_id", userId)
+    .in("feed_id", feedIds);
+
+  if (error) {
+    console.error("读取 feed_likes 失败:", error);
+    return new Set();
+  }
+
+  return new Set((data || []).map((row) => row.feed_id));
+}
+
+export async function addFeedLikeSupabase(userId, feedId) {
+  if (!userId || !feedId) {
+    return false;
+  }
+  const { error } = await supabase
+    .from("feed_likes")
+    .upsert({ user_id: userId, feed_id: feedId }, { onConflict: "user_id,feed_id" });
+
+  if (error) {
+    console.error("新增 feed_like 失败:", error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function removeFeedLikeSupabase(userId, feedId) {
+  if (!userId || !feedId) {
+    return false;
+  }
+  const { error } = await supabase
+    .from("feed_likes")
+    .delete()
+    .eq("user_id", userId)
+    .eq("feed_id", feedId);
+
+  if (error) {
+    console.error("删除 feed_like 失败:", error);
+    return false;
+  }
+
+  return true;
+}
+
 export async function searchFeedsSupabase(query, limit = 15) {
   const q = query.trim();
   if (!q) return [];

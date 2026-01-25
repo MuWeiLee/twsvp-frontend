@@ -82,24 +82,44 @@
       </div>
 
       <section class="list">
-        <div
-          v-for="view in filteredViews"
-          :key="view.feed_id"
-          class="item"
-          @click="goFeed(view.feed_id)"
-        >
-          <div class="item-header">
-            <span class="direction">{{ view.directionLabel }}</span>
-            <span class="status">{{ view.statusLabel }}</span>
+        <div v-for="view in filteredViews" :key="view.feed_id" class="thread">
+          <div class="thread-card" @click="goFeed(view.feed_id)">
+            <div class="thread-header">
+              <div class="header-left">
+                <div class="stock" @click.stop="goStock(view.target_symbol)">
+                  <span class="stock-name">{{ view.target_name }}</span>
+                  <span class="stock-code">{{ view.target_symbol }}</span>
+                </div>
+                <span class="direction" :class="view.direction">
+                  {{ view.directionLabel }}
+                </span>
+              </div>
+            </div>
+            <div class="thread-meta">
+              <div class="author" @click.stop="goProfile(view)">
+                <span class="avatar" :class="{ empty: !view.authorAvatar }">
+                  <img v-if="view.authorAvatar" :src="view.authorAvatar" alt="" />
+                  <span v-else>{{ view.authorInitial }}</span>
+                </span>
+                <span class="author-name">{{ view.author }}</span>
+              </div>
+              <span class="status">{{ view.statusDisplay }}</span>
+            </div>
+            <div class="thread-summary" @click.stop="goStock(view.target_symbol)">
+              {{ view.summaryText }}
+            </div>
+            <div class="thread-footer">
+              <span class="created-at">{{ view.createdLabel }}</span>
+              <button
+                class="like-btn"
+                type="button"
+                :class="{ active: view.isLiked }"
+                @click.stop="toggleLike(view)"
+              >
+                👍 {{ view.like_count }}
+              </button>
+            </div>
           </div>
-          <div class="item-meta">
-            <button class="author-link" type="button" @click.stop="goProfile(view)">
-              {{ view.author }}
-            </button>
-            <span>{{ view.createdLabel }}</span>
-          </div>
-          <p class="content" @click.stop="goStock(view.target_symbol)">{{ view.summaryText }}</p>
-          <div class="meta">时效 {{ view.horizonLabel }} · 剩余 {{ view.remainingDays }} 天</div>
         </div>
         <div v-if="!isLoading && !filteredViews.length" class="empty">
           暂无观点
@@ -114,12 +134,17 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import {
+  addFeedLikeSupabase,
   fetchFeedsBySymbolSupabase,
+  fetchFeedLikesSupabase,
   getRemainingDays,
+  getStatusDisplay,
   getStatusLabel,
   getStatusPhase,
   mapDirectionToLabel,
   mapHorizonToLabel,
+  removeFeedLikeSupabase,
+  updateFeedLikeCountSupabase,
 } from "../services/feeds.js";
 import { fetchStockByIdSupabase } from "../services/stocks.js";
 
@@ -138,6 +163,7 @@ const stock = ref({
 const views = ref([]);
 const isLoading = ref(false);
 const currentUserId = ref("");
+const likedIds = ref(new Set());
 
 const formatDate = (value) => {
   if (!value) return "—";
@@ -152,16 +178,21 @@ const formatDate = (value) => {
 const buildViews = (list) =>
   list.map((view) => {
     const phase = getStatusPhase(view);
+    const author = view.users?.nickname || "用户";
     return {
       ...view,
       statusPhase: phase,
       statusLabel: getStatusLabel(phase),
+      statusDisplay: getStatusDisplay(view, phase),
       directionLabel: mapDirectionToLabel(view.direction),
       horizonLabel: mapHorizonToLabel(view.horizon),
       createdLabel: formatDate(view.created_at),
       remainingDays: getRemainingDays(view),
-      author: view.users?.nickname || "用户",
+      author,
+      authorAvatar: view.users?.avatar_url || "",
+      authorInitial: author ? author.trim().slice(0, 1) : "",
       summaryText: view.summary || view.content || "",
+      isLiked: likedIds.value.has(view.feed_id),
     };
   });
 
@@ -204,12 +235,14 @@ const loadData = async () => {
     ...counts,
   };
   views.value = nextViews;
+  await loadLikedIds(nextViews);
   isLoading.value = false;
 };
 
 const loadUser = async () => {
   const supabaseUser = await getCurrentUserSupabase();
   currentUserId.value = supabaseUser?.id || "";
+  await loadLikedIds();
 };
 
 const goFeed = (feedId) => {
@@ -229,6 +262,64 @@ const goProfile = (view) => {
     router.push("/profile");
   } else {
     router.push(`/user/${userId}`);
+  }
+};
+
+const loadLikedIds = async (list = views.value) => {
+  if (!currentUserId.value || !list.length) {
+    likedIds.value = new Set();
+    return;
+  }
+  const feedIds = list.map((view) => view.feed_id);
+  likedIds.value = await fetchFeedLikesSupabase(currentUserId.value, feedIds);
+  views.value = views.value.map((view) => ({
+    ...view,
+    isLiked: likedIds.value.has(view.feed_id),
+  }));
+};
+
+const toggleLike = async (view) => {
+  if (!currentUserId.value) {
+    router.replace("/login");
+    return;
+  }
+  const alreadyLiked = likedIds.value.has(view.feed_id);
+  const delta = alreadyLiked ? -1 : 1;
+  const nextCount = Math.max(0, (view.like_count || 0) + delta);
+  view.like_count = nextCount;
+  view.isLiked = !alreadyLiked;
+  const feedIndex = views.value.findIndex((item) => item.feed_id === view.feed_id);
+  if (feedIndex !== -1) {
+    views.value[feedIndex] = {
+      ...views.value[feedIndex],
+      like_count: nextCount,
+      isLiked: !alreadyLiked,
+    };
+  }
+  const nextIds = new Set(likedIds.value);
+  if (alreadyLiked) {
+    nextIds.delete(view.feed_id);
+  } else {
+    nextIds.add(view.feed_id);
+  }
+  likedIds.value = nextIds;
+  const ok = alreadyLiked
+    ? await removeFeedLikeSupabase(currentUserId.value, view.feed_id)
+    : await addFeedLikeSupabase(currentUserId.value, view.feed_id);
+  if (ok) {
+    await updateFeedLikeCountSupabase(view.feed_id, delta);
+  } else {
+    const revertCount = Math.max(0, (view.like_count || 0) - delta);
+    view.like_count = revertCount;
+    view.isLiked = alreadyLiked;
+    if (feedIndex !== -1) {
+      views.value[feedIndex] = {
+        ...views.value[feedIndex],
+        like_count: revertCount,
+        isLiked: alreadyLiked,
+      };
+    }
+    await loadLikedIds();
   }
 };
 
@@ -378,7 +469,7 @@ watch(() => route.params.symbol, loadData);
   gap: 12px;
 }
 
-.item {
+.thread-card {
   background: var(--surface);
   border-radius: var(--radius-card);
   padding: 12px;
@@ -388,28 +479,35 @@ watch(() => route.params.symbol, loadData);
   cursor: pointer;
 }
 
-.item-header {
+.thread-header {
   display: flex;
-  gap: 8px;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.item-meta {
+.header-left {
   display: flex;
-  gap: 8px;
   align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.stock {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.stock-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.stock-code {
   font-size: 12px;
   color: var(--muted);
-}
-
-.author-link {
-  border: 0;
-  background: transparent;
-  font-family: inherit;
-  font-size: 12px;
-  color: inherit;
-  cursor: pointer;
-  padding: 0;
 }
 
 .direction {
@@ -420,20 +518,92 @@ watch(() => route.params.symbol, loadData);
   color: var(--ink);
 }
 
+.direction.long {
+  color: var(--price-up);
+  border-color: var(--price-up);
+}
+
+.direction.short {
+  color: var(--price-down);
+  border-color: var(--price-down);
+}
+
+.direction.neutral {
+  color: var(--muted);
+  border-color: var(--border);
+}
+
+.thread-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.author {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--panel);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .status {
   font-size: 12px;
   color: var(--muted);
 }
 
-.content {
+.thread-summary {
   margin: 0;
   font-size: 14px;
   line-height: 1.5;
 }
 
-.meta {
+.thread-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.created-at {
   font-size: 12px;
   color: var(--muted);
+}
+
+.like-btn {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.like-btn.active {
+  border-color: var(--ink);
+  background: var(--surface);
 }
 
 .empty {
