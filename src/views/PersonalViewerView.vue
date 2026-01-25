@@ -124,6 +124,10 @@
         </div>
         <div v-if="!filteredViews.length" class="empty">暂无观点</div>
       </section>
+
+      <p class="legal">
+        任何观点仅作为记录与回溯，不作为预测价格与投资建议。
+      </p>
     </div>
   </div>
 </template>
@@ -656,6 +660,13 @@ onMounted(loadProfile);
   text-align: center;
   font-size: 12px;
   color: var(--muted);
+}
+
+.legal {
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 .tags {

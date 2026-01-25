@@ -157,11 +157,11 @@
         </div>
       </section>
 
+      <BottomTabbar />
+
       <p class="legal">
         任何观点仅作为记录与回溯，不作为预测价格与投资建议。
       </p>
-
-      <BottomTabbar />
     </div>
   </div>
 </template>
