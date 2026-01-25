@@ -33,108 +33,33 @@
           <button class="btn-primary" type="button" @click="handleSearch">搜索</button>
         </div>
 
-        <div class="tabs">
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'feed' }"
-            @click="activeTab = 'feed'"
-          >
-            观点
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'stock' }"
-            @click="activeTab = 'stock'"
-          >
-            个股
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'sector' }"
-            @click="activeTab = 'sector'"
-          >
-            话题
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'user' }"
-            @click="activeTab = 'user'"
-          >
-            用户
-          </button>
-        </div>
-
-        <div class="section-title">热门标的</div>
-        <div class="pill-group">
-          <span v-for="item in trendingStocks" :key="item" class="pill">{{ item }}</span>
-        </div>
-
-        <div class="section-title">热议话题</div>
-        <div class="pill-group">
-          <span v-for="item in trendingTags" :key="item" class="pill">{{ item }}</span>
-        </div>
-
-        <section v-if="!submittedQuery">
-          <div class="section-title">为你推荐</div>
-          <div class="list">
-            <div v-for="item in matchedSuggestions" :key="item.label" class="list-item">
-              <strong>{{ item.label }}</strong>
-              <span>{{ item.type }}</span>
+        <section v-if="submittedQuery">
+          <div class="section-title">股票</div>
+          <div v-if="stockResults.length" class="list">
+            <div v-for="item in stockResults" :key="item.stock_id" class="list-item">
+              <strong>{{ item.stock_id }} {{ item.name }}</strong>
+              <span>{{ item.market }}</span>
             </div>
           </div>
-          <div class="empty" v-if="!matchedSuggestions.length">没有匹配结果</div>
-        </section>
+          <div v-else class="empty">暂无相关股票</div>
 
-        <section v-else>
-          <div class="section-title">搜索结果</div>
-          <div v-if="activeTab === 'feed'">
-            <div v-if="filteredViews.length" class="feed">
-              <div v-for="view in filteredViews" :key="view.id" class="thread">
-                <div class="thread-dot" aria-hidden="true"></div>
-                <div class="thread-card">
-                  <div class="thread-header">
-                    <span>{{ view.asset }}</span>
-                    <span class="tag">{{ view.horizon }}</span>
-                  </div>
-                  <div class="thread-meta">
-                    <span class="direction">{{ view.direction }}</span>
-                    <span>作者 {{ view.author }}</span>
-                    <span>{{ view.date }}</span>
-                  </div>
-                  <div class="summary">{{ view.content }}</div>
+          <div class="section-title">观点</div>
+          <div v-if="feedResults.length" class="feed">
+            <div v-for="view in feedResults" :key="view.feed_id" class="thread">
+              <div class="thread-card" @click="goFeed(view.feed_id)">
+                <div class="thread-header">
+                  <span>{{ view.target_name }} {{ view.target_symbol }}</span>
+                  <span class="tag">{{ view.directionLabel }}</span>
                 </div>
+                <div class="thread-meta">
+                  <span>作者 {{ view.author }}</span>
+                  <span>{{ view.createdLabel }}</span>
+                </div>
+                <div class="summary">{{ view.content }}</div>
               </div>
             </div>
-            <div v-else class="empty">暂无相关观点</div>
           </div>
-          <div v-else-if="activeTab === 'stock'">
-            <div v-if="filteredStocks.length" class="list">
-              <div v-for="item in filteredStocks" :key="item.symbol" class="list-item">
-                <strong>{{ item.symbol }} {{ item.name }}</strong>
-                <span>个股</span>
-              </div>
-            </div>
-            <div v-else class="empty">暂无相关个股</div>
-          </div>
-          <div v-else-if="activeTab === 'sector'">
-            <div v-if="filteredSectors.length" class="list">
-              <div v-for="item in filteredSectors" :key="item.name" class="list-item">
-                <strong>{{ item.name }}</strong>
-                <span>话题</span>
-              </div>
-            </div>
-            <div v-else class="empty">暂无相关话题</div>
-          </div>
-          <div v-else>
-            <div v-if="isUserLoading" class="empty">正在加载用户...</div>
-            <div v-else-if="filteredUsers.length" class="list">
-              <div v-for="item in filteredUsers" :key="item.user_id" class="list-item">
-                <strong>{{ item.nickname }}</strong>
-                <span>{{ item.meta }}</span>
-              </div>
-            </div>
-            <div v-else class="empty">暂无相关用户</div>
-          </div>
+          <div v-else class="empty">暂无相关观点</div>
         </section>
       </section>
 
@@ -144,68 +69,52 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from "vue";
+import { ref } from "vue";
+import { useRouter } from "vue-router";
 import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
-import { searchUsersSupabase } from "../services/profile.js";
+import { searchStocksSupabase } from "../services/stocks.js";
+import { mapDirectionToLabel, searchFeedsSupabase } from "../services/feeds.js";
 
 const query = ref("");
 const submittedQuery = ref("");
-const activeTab = ref("feed");
-const trendingStocks = ref(["2330 台积电", "2454 联发科", "2382 广达"]);
-const trendingTags = ref(["#AI概念股", "#台积电法说", "#降息预期"]);
-const suggestions = ref([
-  { label: "2330 台积电", type: "股票" },
-  { label: "2454 联发科", type: "股票" },
-  { label: "2603 长荣", type: "股票" },
-  { label: "#AI概念股", type: "话题" },
-  { label: "#台积电法说", type: "话题" },
-  { label: "#降息预期", type: "话题" },
-]);
-const views = ref([
-  {
-    id: 1,
-    asset: "2330 台积电",
-    direction: "看多",
-    horizon: "10 个交易日",
-    author: "林可心",
-    date: "刚刚",
-    content: "法说会后动能持续，关注外资回补与量能变化。",
-    keywords: ["2330", "台积电", "AI"],
-  },
-  {
-    id: 2,
-    asset: "2454 联发科",
-    direction: "中性",
-    horizon: "5 个交易日",
-    author: "陈映帆",
-    date: "10 分钟前",
-    content: "区间震荡为主，等待新一轮催化确定方向。",
-    keywords: ["2454", "联发科"],
-  },
-  {
-    id: 3,
-    asset: "2603 长荣",
-    direction: "看空",
-    horizon: "20 个交易日",
-    author: "张以安",
-    date: "1 小时前",
-    content: "运价回落压力增大，短期风险偏高。",
-    keywords: ["2603", "长荣"],
-  },
-]);
-const stocks = ref([
-  { symbol: "2330", name: "台积电" },
-  { symbol: "2454", name: "联发科" },
-  { symbol: "2603", name: "长荣" },
-]);
-const sectors = ref([
-  { name: "AI 供应链" },
-  { name: "半导体" },
-  { name: "航运" },
-]);
-const users = ref([]);
-const isUserLoading = ref(false);
+const stockResults = ref([]);
+const feedResults = ref([]);
+const router = useRouter();
+
+const handleInput = () => {
+  if (!query.value.trim()) {
+    submittedQuery.value = "";
+    stockResults.value = [];
+    feedResults.value = [];
+  } else if (submittedQuery.value) {
+    submittedQuery.value = "";
+  }
+};
+
+const handleSearch = async () => {
+  const q = query.value.trim();
+  if (!q) return;
+  submittedQuery.value = q;
+  const [stocks, feeds] = await Promise.all([
+    searchStocksSupabase(q, 8),
+    searchFeedsSupabase(q, 15),
+  ]);
+  stockResults.value = stocks;
+  feedResults.value = feeds.map((view) => ({
+    ...view,
+    author: view.users?.nickname || "用户",
+    directionLabel: mapDirectionToLabel(view.direction),
+    createdLabel: formatDate(view.created_at),
+  }));
+};
+
+const clearSearch = () => {
+  query.value = "";
+  submittedQuery.value = "";
+  stockResults.value = [];
+  feedResults.value = [];
+};
 
 const formatDate = (value) => {
   if (!value) return "—";
@@ -217,88 +126,10 @@ const formatDate = (value) => {
   return `${year}/${month}/${day}`;
 };
 
-const matchedSuggestions = computed(() => {
-  const q = query.value.trim().toLowerCase();
-  if (!q) return [];
-  return suggestions.value.filter((item) =>
-    item.label.toLowerCase().includes(q)
-  );
-});
-
-const filteredViews = computed(() => {
-  const q = submittedQuery.value.trim().toLowerCase();
-  if (!q) return [];
-  return views.value.filter((view) => {
-    const text = `${view.asset} ${view.content}`.toLowerCase();
-    return (
-      text.includes(q) ||
-      view.keywords.some((keyword) => keyword.toLowerCase().includes(q))
-    );
-  });
-});
-
-const filteredStocks = computed(() => {
-  const q = submittedQuery.value.trim().toLowerCase();
-  if (!q) return [];
-  return stocks.value.filter((item) => {
-    const text = `${item.symbol} ${item.name}`.toLowerCase();
-    return text.includes(q);
-  });
-});
-
-const filteredSectors = computed(() => {
-  const q = submittedQuery.value.trim().toLowerCase();
-  if (!q) return [];
-  return sectors.value.filter((item) => item.name.toLowerCase().includes(q));
-});
-
-const filteredUsers = computed(() => {
-  return users.value;
-});
-
-const handleInput = () => {
-  if (!query.value.trim()) {
-    submittedQuery.value = "";
-  } else if (submittedQuery.value) {
-    submittedQuery.value = "";
-  }
+const goFeed = (feedId) => {
+  if (!feedId) return;
+  router.push(`/feed/${feedId}`);
 };
-
-const handleSearch = () => {
-  const q = query.value.trim();
-  if (!q) return;
-  submittedQuery.value = q;
-};
-
-const clearSearch = () => {
-  query.value = "";
-  submittedQuery.value = "";
-};
-
-const loadUserResults = async () => {
-  const q = submittedQuery.value.trim();
-  if (!q || activeTab.value !== "user") {
-    users.value = [];
-    isUserLoading.value = false;
-    return;
-  }
-
-  isUserLoading.value = true;
-  const result = await searchUsersSupabase(q);
-  users.value = result.map((item) => {
-    const completed = Boolean(item.profile_completed_at);
-    const dateLabel = formatDate(item.created_at);
-    const statusLabel = completed ? "资料已完善" : "资料未完善";
-    return {
-      user_id: item.user_id,
-      nickname: item.nickname || "用户",
-      meta: dateLabel === "—" ? statusLabel : `${statusLabel} · 加入于 ${dateLabel}`,
-    };
-  });
-  isUserLoading.value = false;
-};
-
-watch([submittedQuery, activeTab], loadUserResults);
 </script>
 
 <style scoped>

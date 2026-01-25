@@ -7,9 +7,9 @@ const DIRECTION_LABELS = {
 };
 
 const HORIZON_LABELS = {
-  short: "短期 5-20 天",
-  medium: "中期 20-60 天",
-  long: "长期 60-180 天",
+  short: "短期 5-20天",
+  medium: "中期 20-60天",
+  long: "长期 60-180天",
 };
 
 const DIRECTION_VALUES = Object.fromEntries(
@@ -26,9 +26,9 @@ export const mapHorizonToLabel = (value) => HORIZON_LABELS[value] || value;
 export const mapLabelToHorizon = (label) => HORIZON_VALUES[label] || "short";
 
 const horizonDays = {
-  short: 10,
-  medium: 30,
-  long: 90,
+  short: 20,
+  medium: 60,
+  long: 180,
 };
 
 const getExpiresAt = (horizon) => {
@@ -86,7 +86,7 @@ export async function fetchFeedsSupabase({ status = "all", sort = "time", userId
   let query = supabase
     .from("feeds")
     .select(
-      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, users(nickname)"
+      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, users(nickname, avatar_url)"
     )
     .is("deleted_at", null);
 
@@ -123,7 +123,7 @@ export async function fetchFeedByIdSupabase(feedId) {
   const { data, error } = await supabase
     .from("feeds")
     .select(
-      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, users(nickname)"
+      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, users(nickname, avatar_url)"
     )
     .eq("feed_id", feedId)
     .maybeSingle();
@@ -148,4 +148,26 @@ export async function updateFeedLikeCountSupabase(feedId, delta) {
   }
 
   return true;
+}
+
+export async function searchFeedsSupabase(query, limit = 15) {
+  const q = query.trim();
+  if (!q) return [];
+  const { data, error } = await supabase
+    .from("feeds")
+    .select(
+      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, users(nickname, avatar_url)"
+    )
+    .is("deleted_at", null)
+    .or(
+      `content.ilike.%${q}%,summary.ilike.%${q}%,target_name.ilike.%${q}%,target_symbol.ilike.%${q}%`
+    )
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    return [];
+  }
+
+  return data || [];
 }

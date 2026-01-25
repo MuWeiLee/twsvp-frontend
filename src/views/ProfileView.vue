@@ -12,13 +12,12 @@
       <section class="profile">
         <div class="user-card">
           <div class="avatar">{{ user.initials }}</div>
-          <div>
-            <div class="name">{{ user.name }}</div>
-            <div class="meta">{{ user.bio }}</div>
-            <div class="tags">
-              <span v-for="tag in user.tags" :key="tag" class="tag">{{ tag }}</span>
+          <div class="user-info">
+            <div class="user-row">
+              <div class="name">{{ user.name }}</div>
+              <div class="joined">加入于 {{ user.joined }}</div>
             </div>
-            <div class="meta">加入于 {{ user.joined }}</div>
+            <div class="meta">{{ user.bio }}</div>
           </div>
         </div>
 
@@ -100,7 +99,7 @@ import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
 import { useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
-import { getProfileSupabase, getUserGroupNamesSupabase } from "../services/profile.js";
+import { getProfileSupabase } from "../services/profile.js";
 import { fetchFeedsSupabase, mapDirectionToLabel } from "../services/feeds.js";
 
 const router = useRouter();
@@ -109,7 +108,6 @@ const user = ref({
   initials: "",
   name: "",
   bio: "",
-  tags: [],
   joined: "—",
 });
 const feeds = ref([]);
@@ -170,10 +168,7 @@ const loadProfile = async () => {
     return;
   }
 
-  const [profile, tags] = await Promise.all([
-    getProfileSupabase(supabaseUser.id),
-    getUserGroupNamesSupabase(supabaseUser.id),
-  ]);
+  const profile = await getProfileSupabase(supabaseUser.id);
 
   const nickname =
     profile?.nickname ||
@@ -185,7 +180,6 @@ const loadProfile = async () => {
     initials: getInitials(nickname),
     name: nickname,
     bio: profile?.bio || "尚未填写简介",
-    tags,
     joined: formatDate(profile?.created_at || supabaseUser.created_at),
   };
 
@@ -266,20 +260,21 @@ onMounted(loadProfile);
 }
 
 .nav-logo {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--surface);
+  width: 28px;
+  height: 28px;
+  border-radius: 0;
+  background: transparent;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border);
+  border: 0;
   text-decoration: none;
+  padding: 0;
 }
 
 .nav-logo img {
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   display: block;
 }
 
@@ -298,6 +293,19 @@ onMounted(loadProfile);
   padding: 14px;
 }
 
+.user-info {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.user-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .avatar {
   width: 48px;
   height: 48px;
@@ -310,6 +318,11 @@ onMounted(loadProfile);
 
 .name {
   font-weight: 600;
+}
+
+.joined {
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .meta {
@@ -444,13 +457,6 @@ onMounted(loadProfile);
   text-align: center;
   font-size: 12px;
   color: var(--muted);
-}
-
-.tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 6px 0;
 }
 
 @media (max-width: 480px) {

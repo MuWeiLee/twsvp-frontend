@@ -8,13 +8,6 @@
       </nav>
 
       <header class="slide-in">
-        <div class="brand">
-          <img class="logo" :src="logoUrl" alt="TWSVP" />
-          <div>
-            <div>TWSVP</div>
-            <div style="font-size: 12px; color: var(--muted)">设置</div>
-          </div>
-        </div>
         <h1 class="title">个人设置</h1>
         <p class="subtitle">管理你的通知、隐私与账号安全偏好。</p>
       </header>
@@ -51,36 +44,6 @@
             aria-label="观点结算提醒"
           ></div>
         </div>
-        <div class="setting-item">
-          <div class="setting-meta">
-            <strong>热门话题提醒</strong>
-            <span>当关注话题变热时提醒</span>
-          </div>
-          <div
-            class="switch"
-            :class="{ active: preferences.trendingNotice }"
-            @click="toggle('trendingNotice')"
-            role="switch"
-            :aria-checked="preferences.trendingNotice"
-            aria-label="热门话题提醒"
-          ></div>
-        </div>
-
-        <div class="section-title">隐私与内容</div>
-        <div class="setting-item">
-          <div class="setting-meta">
-            <strong>观点展示范围</strong>
-            <span>{{ visibilityLabel }}</span>
-          </div>
-          <button class="btn-outline" @click="cycleVisibility">切换</button>
-        </div>
-        <div class="setting-item">
-          <div class="setting-meta">
-            <strong>屏蔽词管理</strong>
-            <span>已设置 {{ preferences.blockedKeywords.length }} 个关键词</span>
-          </div>
-          <button class="btn-outline" @click="handleBlocked">编辑</button>
-        </div>
 
         <div class="section-title">协议与隐私</div>
         <div class="setting-item">
@@ -115,8 +78,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive } from "vue";
-import logoUrl from "../assets/logo.png";
+import { onMounted, reactive } from "vue";
 import { useRouter } from "vue-router";
 import { getCurrentUserSupabase, signOutSupabase } from "../services/auth.js";
 
@@ -128,32 +90,16 @@ const account = reactive({
 
 const preferences = reactive({
   settlementNotice: true,
-  trendingNotice: false,
-  visibilityIndex: 0,
-  visibilityOptions: ["公开展示", "仅自己可见", "隐藏历史观点"],
-  blockedKeywords: ["荐股", "保证收益"],
 });
-
-const visibilityLabel = computed(
-  () => preferences.visibilityOptions[preferences.visibilityIndex]
-);
 
 const toggle = (key) => {
   preferences[key] = !preferences[key];
-};
-
-const cycleVisibility = () => {
-  const count = preferences.visibilityOptions.length;
-  preferences.visibilityIndex = (preferences.visibilityIndex + 1) % count;
 };
 
 const handleAccount = () => {
   alert("账号管理示例：跳转到 Google 账户设置。");
 };
 
-const handleBlocked = () => {
-  alert("屏蔽词管理示例：打开关键词编辑弹窗。");
-};
 
 const loadAccount = async () => {
   const user = await getCurrentUserSupabase();
@@ -238,22 +184,6 @@ onMounted(loadAccount);
 
 .nav-space {
   width: 32px;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.logo {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  object-fit: contain;
-  display: block;
 }
 
 .title {

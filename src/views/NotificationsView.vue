@@ -146,20 +146,21 @@ const filteredItems = computed(() => {
 }
 
 .nav-logo {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--surface);
+  width: 28px;
+  height: 28px;
+  border-radius: 0;
+  background: transparent;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border);
+  border: 0;
   text-decoration: none;
+  padding: 0;
 }
 
 .nav-logo img {
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   display: block;
 }
 

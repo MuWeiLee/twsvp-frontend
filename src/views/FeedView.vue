@@ -22,16 +22,24 @@
             <span class="divider">|</span>
             <button
               class="filter-btn"
-              :class="{ active: statusFilter === 'active' }"
-              @click="statusFilter = 'active'"
+              :class="{ active: statusFilter === 'pending' }"
+              @click="statusFilter = 'pending'"
             >
               未结束
             </button>
             <span class="divider">|</span>
             <button
               class="filter-btn"
-              :class="{ active: statusFilter === 'expired' }"
-              @click="statusFilter = 'expired'"
+              :class="{ active: statusFilter === 'active' }"
+              @click="statusFilter = 'active'"
+            >
+              进行中
+            </button>
+            <span class="divider">|</span>
+            <button
+              class="filter-btn"
+              :class="{ active: statusFilter === 'ended' }"
+              @click="statusFilter = 'ended'"
             >
               已结束
             </button>
@@ -67,7 +75,42 @@
                 </div>
                 <span class="direction">{{ view.directionLabel }}</span>
               </div>
-              <button class="more-btn" type="button" @click.stop>...</button>
+              <div class="more-wrap">
+                <button class="more-btn" type="button" @click.stop="toggleMenu(view.feed_id)">
+                  ...
+                </button>
+                <div v-if="activeMenuId === view.feed_id" class="more-menu">
+                  <template v-if="view.isAuthor">
+                    <button
+                      v-if="view.canEdit"
+                      class="menu-item"
+                      type="button"
+                      @click.stop="handleEditFeed(view)"
+                    >
+                      编辑观点
+                    </button>
+                    <button
+                      v-if="view.statusPhase !== 'ended'"
+                      class="menu-item"
+                      type="button"
+                      @click.stop="handleEndFeed(view)"
+                    >
+                      手动结束
+                    </button>
+                    <button class="menu-item danger" type="button" @click.stop="handleDeleteFeed(view)">
+                      删除观点
+                    </button>
+                  </template>
+                  <button
+                    v-else
+                    class="menu-item"
+                    type="button"
+                    @click.stop="handleHideFeed(view)"
+                  >
+                    不看这条
+                  </button>
+                </div>
+              </div>
             </div>
             <div class="thread-meta">
               <div class="author">
@@ -119,6 +162,7 @@ import {
   mapDirectionToLabel,
   updateFeedLikeCountSupabase,
 } from "../services/feeds.js";
+import { supabase } from "../services/supabase.js";
 
 const router = useRouter();
 const statusFilter = ref("all");
@@ -129,21 +173,35 @@ const user = ref({
 const feeds = ref([]);
 const isLoading = ref(false);
 const likedIds = ref(new Set());
+const hiddenIds = ref(new Set());
+const currentUserId = ref("");
+const activeMenuId = ref(null);
 
-const filteredViews = computed(() =>
-  feeds.value.map((view) => ({
-    ...view,
-    statusDisplay: getStatusDisplay(view),
-    directionLabel: mapDirectionToLabel(view.direction),
-    remainingDays: getRemainingDays(view.expires_at),
-    createdLabel: formatDateTime(view.created_at),
-    createdDateLabel: formatDate(view.created_at),
-    author: view.users?.nickname || "用户",
-    authorAvatar: view.users?.avatar_url || "",
-    authorInitial: getInitials(view.users?.nickname || "用户"),
-    isLiked: likedIds.value.has(view.feed_id),
-  }))
-);
+const filteredViews = computed(() => {
+  const list = feeds.value
+    .filter((view) => !hiddenIds.value.has(view.feed_id))
+    .map((view) => {
+      const phase = getStatusPhase(view);
+      return {
+        ...view,
+        statusPhase: phase,
+        statusDisplay: getStatusDisplay(view, phase),
+        directionLabel: mapDirectionToLabel(view.direction),
+        remainingDays: getRemainingDays(view),
+        createdLabel: formatDateTime(view.created_at),
+        createdDateLabel: formatDate(view.created_at),
+        author: view.users?.nickname || "用户",
+        authorAvatar: view.users?.avatar_url || "",
+        authorInitial: getInitials(view.users?.nickname || "用户"),
+        isLiked: likedIds.value.has(view.feed_id),
+        isAuthor: currentUserId.value && view.user_id === currentUserId.value,
+        canEdit: canEditFeed(view),
+      };
+    });
+
+  if (statusFilter.value === "all") return list;
+  return list.filter((view) => view.statusPhase === statusFilter.value);
+});
 
 const getInitials = (name) => {
   if (!name) return "";
@@ -155,6 +213,7 @@ const loadUser = async () => {
   if (!supabaseUser) {
     return;
   }
+  currentUserId.value = supabaseUser.id;
 
   const profile = await getProfileSupabase(supabaseUser.id);
   const nickname =
@@ -188,33 +247,55 @@ const formatDate = (value) => {
   return `${year}/${month}/${day}`;
 };
 
-const getStatusLabel = (view) => {
-  if (view.status === "verified") return "已验证";
-  if (view.status === "expired") return "已结束";
-  const remaining = getRemainingDays(view.expires_at);
-  return remaining === 0 ? "已结束" : "未结束";
+const HORIZON_RANGES = {
+  short: { min: 5, max: 20 },
+  medium: { min: 20, max: 60 },
+  long: { min: 60, max: 180 },
 };
 
-const getStatusDisplay = (view) => {
-  if (view.status === "expired") return "已结束";
-  const remaining = getRemainingDays(view.expires_at);
-  if (remaining <= 0) return "已结束";
-  return `剩余 ${remaining} 天 未结束`;
-};
-
-const getRemainingDays = (value) => {
+const getElapsedDays = (value) => {
   if (!value) return 0;
-  const expiresAt = new Date(value).getTime();
-  if (Number.isNaN(expiresAt)) return 0;
-  const diff = expiresAt - Date.now();
-  if (diff <= 0) return 0;
-  return Math.ceil(diff / (24 * 60 * 60 * 1000));
+  const createdAt = new Date(value).getTime();
+  if (Number.isNaN(createdAt)) return 0;
+  const diff = Date.now() - createdAt;
+  return Math.max(0, Math.floor(diff / (24 * 60 * 60 * 1000)));
+};
+
+const getRemainingDays = (view) => {
+  const range = HORIZON_RANGES[view.horizon] || { min: 5, max: 20 };
+  const elapsed = getElapsedDays(view.created_at);
+  return Math.max(0, range.max - elapsed);
+};
+
+const getStatusPhase = (view) => {
+  if (view.status === "expired") return "ended";
+  const range = HORIZON_RANGES[view.horizon] || { min: 5, max: 20 };
+  const elapsed = getElapsedDays(view.created_at);
+  if (elapsed < range.min) return "pending";
+  if (elapsed <= range.max) return "active";
+  return "ended";
+};
+
+const getStatusDisplay = (view, phase) => {
+  if (phase === "ended") return "已结束";
+  const remaining = getRemainingDays(view);
+  const label = phase === "active" ? "进行中" : "未结束";
+  return `剩余 ${remaining} 天 ${label}`;
+};
+
+const canEditFeed = (view) => {
+  if (!currentUserId.value || view.user_id !== currentUserId.value) {
+    return false;
+  }
+  const createdAt = new Date(view.created_at).getTime();
+  if (Number.isNaN(createdAt)) return false;
+  return Date.now() - createdAt <= 10 * 60 * 1000;
 };
 
 const loadFeeds = async () => {
   isLoading.value = true;
   const data = await fetchFeedsSupabase({
-    status: statusFilter.value,
+    status: "all",
     sort: sortKey.value,
   });
   feeds.value = data;
@@ -240,6 +321,67 @@ const saveLikedIds = () => {
   localStorage.setItem("twsvp_feed_likes", JSON.stringify([...likedIds.value]));
 };
 
+const loadHiddenIds = () => {
+  try {
+    const raw = localStorage.getItem("twsvp_feed_hidden");
+    const ids = raw ? JSON.parse(raw) : [];
+    hiddenIds.value = new Set(ids);
+  } catch (error) {
+    hiddenIds.value = new Set();
+  }
+};
+
+const saveHiddenIds = () => {
+  localStorage.setItem("twsvp_feed_hidden", JSON.stringify([...hiddenIds.value]));
+};
+
+const toggleMenu = (feedId) => {
+  activeMenuId.value = activeMenuId.value === feedId ? null : feedId;
+};
+
+const closeMenu = () => {
+  activeMenuId.value = null;
+};
+
+const handleHideFeed = (view) => {
+  hiddenIds.value.add(view.feed_id);
+  saveHiddenIds();
+  closeMenu();
+};
+
+const handleDeleteFeed = async (view) => {
+  const confirmed = window.confirm("确定删除这条观点吗？");
+  if (!confirmed) return;
+  await supabase
+    .from("feeds")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("feed_id", view.feed_id);
+  feeds.value = feeds.value.filter((item) => item.feed_id !== view.feed_id);
+  closeMenu();
+};
+
+const handleEndFeed = async (view) => {
+  const confirmed = window.confirm("确定结束这条观点吗？");
+  if (!confirmed) return;
+  await supabase
+    .from("feeds")
+    .update({ status: "expired", expires_at: new Date().toISOString() })
+    .eq("feed_id", view.feed_id);
+  await loadFeeds();
+  closeMenu();
+};
+
+const handleEditFeed = async (view) => {
+  const nextContent = window.prompt("编辑观点内容", view.content || "");
+  if (!nextContent) return;
+  await supabase
+    .from("feeds")
+    .update({ content: nextContent.trim() })
+    .eq("feed_id", view.feed_id);
+  await loadFeeds();
+  closeMenu();
+};
+
 const toggleLike = async (view) => {
   const alreadyLiked = likedIds.value.has(view.feed_id);
   const delta = alreadyLiked ? -1 : 1;
@@ -261,6 +403,7 @@ const goFeed = (feedId) => {
 onMounted(loadUser);
 onMounted(loadFeeds);
 onMounted(loadLikedIds);
+onMounted(loadHiddenIds);
 watch([statusFilter, sortKey], loadFeeds);
 </script>
 
@@ -451,6 +594,42 @@ watch([statusFilter, sortKey], loadFeeds);
   font-size: 16px;
   cursor: pointer;
   color: var(--muted);
+}
+
+.more-wrap {
+  position: relative;
+}
+
+.more-menu {
+  position: absolute;
+  right: 0;
+  top: 18px;
+  min-width: 120px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  display: grid;
+  z-index: 4;
+  overflow: hidden;
+}
+
+.menu-item {
+  border: 0;
+  background: transparent;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.menu-item + .menu-item {
+  border-top: 1px solid var(--border);
+}
+
+.menu-item.danger {
+  color: var(--negative);
 }
 
 .thread-meta {
