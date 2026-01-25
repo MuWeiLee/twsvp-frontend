@@ -16,3 +16,19 @@ export const searchStocksSupabase = async (query, limit = 8) => {
 
   return data || [];
 };
+
+export const fetchStockByIdSupabase = async (stockId) => {
+  const id = String(stockId || "").trim();
+  if (!id) return null;
+  const { data, error } = await supabase
+    .from("stocks")
+    .select("stock_id,name,market")
+    .eq("stock_id", id)
+    .maybeSingle();
+
+  if (error) {
+    return null;
+  }
+
+  return data || null;
+};

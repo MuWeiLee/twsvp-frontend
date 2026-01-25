@@ -11,6 +11,7 @@
         <div class="stock-header">
           <strong>{{ stock.symbol }}</strong>
           <span>{{ stock.name }}</span>
+          <span v-if="stock.market" class="market">{{ stock.market }}</span>
         </div>
         <div class="summary">
           近期观点：看多 {{ stock.bullish }} / 看空 {{ stock.bearish }} / 中性
@@ -28,15 +29,15 @@
         </button>
         <button
           class="tab-btn"
-          :class="{ active: filter === 'bullish' }"
-          @click="filter = 'bullish'"
+          :class="{ active: filter === 'long' }"
+          @click="filter = 'long'"
         >
           看多
         </button>
         <button
           class="tab-btn"
-          :class="{ active: filter === 'bearish' }"
-          @click="filter = 'bearish'"
+          :class="{ active: filter === 'short' }"
+          @click="filter = 'short'"
         >
           看空
         </button>
@@ -49,14 +50,59 @@
         </button>
       </div>
 
+      <div class="status-tabs">
+        <button
+          class="status-btn"
+          :class="{ active: statusFilter === 'all' }"
+          @click="statusFilter = 'all'"
+        >
+          全部
+        </button>
+        <button
+          class="status-btn"
+          :class="{ active: statusFilter === 'pending' }"
+          @click="statusFilter = 'pending'"
+        >
+          未结束
+        </button>
+        <button
+          class="status-btn"
+          :class="{ active: statusFilter === 'active' }"
+          @click="statusFilter = 'active'"
+        >
+          进行中
+        </button>
+        <button
+          class="status-btn"
+          :class="{ active: statusFilter === 'ended' }"
+          @click="statusFilter = 'ended'"
+        >
+          已结束
+        </button>
+      </div>
+
       <section class="list">
-        <div v-for="view in filteredViews" :key="view.id" class="item">
+        <div
+          v-for="view in filteredViews"
+          :key="view.feed_id"
+          class="item"
+          @click="goFeed(view.feed_id)"
+        >
           <div class="item-header">
-            <span class="direction">{{ view.direction }}</span>
-            <span class="status">{{ view.horizon }}</span>
+            <span class="direction">{{ view.directionLabel }}</span>
+            <span class="status">{{ view.statusLabel }}</span>
           </div>
-          <p class="content">{{ view.summary }}</p>
-          <div class="meta">发布于 {{ view.createdAt }}</div>
+          <div class="item-meta">
+            <button class="author-link" type="button" @click.stop="goProfile(view)">
+              {{ view.author }}
+            </button>
+            <span>{{ view.createdLabel }}</span>
+          </div>
+          <p class="content" @click.stop="goStock(view.target_symbol)">{{ view.summaryText }}</p>
+          <div class="meta">时效 {{ view.horizonLabel }} · 剩余 {{ view.remainingDays }} 天</div>
+        </div>
+        <div v-if="!isLoading && !filteredViews.length" class="empty">
+          暂无观点
         </div>
       </section>
     </div>
@@ -64,50 +110,131 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { getCurrentUserSupabase } from "../services/auth.js";
+import {
+  fetchFeedsBySymbolSupabase,
+  getRemainingDays,
+  getStatusLabel,
+  getStatusPhase,
+  mapDirectionToLabel,
+  mapHorizonToLabel,
+} from "../services/feeds.js";
+import { fetchStockByIdSupabase } from "../services/stocks.js";
 
-const stock = {
-  symbol: "2330",
-  name: "台积电",
-  bullish: 6,
-  bearish: 2,
-  neutral: 3,
+const route = useRoute();
+const router = useRouter();
+const filter = ref("all");
+const statusFilter = ref("all");
+const stock = ref({
+  symbol: "",
+  name: "—",
+  market: "",
+  bullish: 0,
+  bearish: 0,
+  neutral: 0,
+});
+const views = ref([]);
+const isLoading = ref(false);
+const currentUserId = ref("");
+
+const formatDate = (value) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}/${month}/${day}`;
 };
 
-const filter = ref("all");
-const views = ref([
-  {
-    id: 1,
-    direction: "看多",
-    horizon: "10 个交易日",
-    summary: "法说会后动能持续，关注外资回补与量能变化。",
-    createdAt: "刚刚",
-    key: "bullish",
-  },
-  {
-    id: 2,
-    direction: "中性",
-    horizon: "5 个交易日",
-    summary: "区间震荡为主，等待下一轮催化。",
-    createdAt: "1 小时前",
-    key: "neutral",
-  },
-  {
-    id: 3,
-    direction: "看空",
-    horizon: "20 个交易日",
-    summary: "短期估值偏高，注意风险控制。",
-    createdAt: "昨天",
-    key: "bearish",
-  },
-]);
+const buildViews = (list) =>
+  list.map((view) => {
+    const phase = getStatusPhase(view);
+    return {
+      ...view,
+      statusPhase: phase,
+      statusLabel: getStatusLabel(phase),
+      directionLabel: mapDirectionToLabel(view.direction),
+      horizonLabel: mapHorizonToLabel(view.horizon),
+      createdLabel: formatDate(view.created_at),
+      remainingDays: getRemainingDays(view),
+      author: view.users?.nickname || "用户",
+      summaryText: view.summary || view.content || "",
+    };
+  });
 
 const filteredViews = computed(() => {
-  if (filter.value === "all") {
-    return views.value;
+  let list = views.value;
+  if (filter.value !== "all") {
+    list = list.filter((item) => item.direction === filter.value);
   }
-  return views.value.filter((item) => item.key === filter.value);
+  if (statusFilter.value !== "all") {
+    list = list.filter((item) => item.statusPhase === statusFilter.value);
+  }
+  return list;
 });
+
+const loadData = async () => {
+  const symbolParam = route.params.symbol;
+  if (!symbolParam || Array.isArray(symbolParam)) {
+    return;
+  }
+  const symbol = String(symbolParam);
+  isLoading.value = true;
+  const [stockInfo, feeds] = await Promise.all([
+    fetchStockByIdSupabase(symbol),
+    fetchFeedsBySymbolSupabase(symbol),
+  ]);
+  const nextViews = buildViews(feeds);
+  const counts = nextViews.reduce(
+    (acc, view) => {
+      if (view.direction === "long") acc.bullish += 1;
+      else if (view.direction === "short") acc.bearish += 1;
+      else acc.neutral += 1;
+      return acc;
+    },
+    { bullish: 0, bearish: 0, neutral: 0 }
+  );
+  stock.value = {
+    symbol,
+    name: stockInfo?.name || symbol,
+    market: stockInfo?.market || "",
+    ...counts,
+  };
+  views.value = nextViews;
+  isLoading.value = false;
+};
+
+const loadUser = async () => {
+  const supabaseUser = await getCurrentUserSupabase();
+  currentUserId.value = supabaseUser?.id || "";
+};
+
+const goFeed = (feedId) => {
+  if (!feedId) return;
+  router.push(`/feed/${feedId}`);
+};
+
+const goStock = (symbol) => {
+  if (!symbol) return;
+  router.push(`/stock/${symbol}`);
+};
+
+const goProfile = (view) => {
+  const userId = view?.user_id;
+  if (!userId) return;
+  if (currentUserId.value && userId === currentUserId.value) {
+    router.push("/profile");
+  } else {
+    router.push(`/user/${userId}`);
+  }
+};
+
+onMounted(loadUser);
+onMounted(loadData);
+watch(() => route.params.symbol, loadData);
 </script>
 
 <style scoped>
@@ -185,11 +312,18 @@ const filteredViews = computed(() => {
   display: inline-flex;
   gap: 8px;
   font-weight: 600;
+  flex-wrap: wrap;
 }
 
 .summary {
   font-size: 12px;
   color: var(--muted);
+}
+
+.market {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
 }
 
 .tabs {
@@ -216,6 +350,28 @@ const filteredViews = computed(() => {
   border-color: var(--ink);
 }
 
+.status-tabs {
+  margin-top: 8px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.status-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.status-btn.active {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
 .list {
   margin-top: 12px;
   display: grid;
@@ -229,12 +385,31 @@ const filteredViews = computed(() => {
   border: 1px solid var(--border);
   display: grid;
   gap: 8px;
+  cursor: pointer;
 }
 
 .item-header {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.item-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.author-link {
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12px;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
 }
 
 .direction {
@@ -257,6 +432,13 @@ const filteredViews = computed(() => {
 }
 
 .meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.empty {
+  text-align: center;
+  padding: 12px;
   font-size: 12px;
   color: var(--muted);
 }

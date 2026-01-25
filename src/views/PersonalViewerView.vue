@@ -45,15 +45,22 @@
           </button>
           <button
             class="tab-btn"
-            :class="{ active: mode === 'active' }"
-            @click="mode = 'active'"
+            :class="{ active: mode === 'pending' }"
+            @click="mode = 'pending'"
           >
             未结束
           </button>
           <button
             class="tab-btn"
-            :class="{ active: mode === 'closed' }"
-            @click="mode = 'closed'"
+            :class="{ active: mode === 'active' }"
+            @click="mode = 'active'"
+          >
+            进行中
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: mode === 'ended' }"
+            @click="mode = 'ended'"
           >
             已结束
           </button>
@@ -67,7 +74,7 @@
             @click="goFeed(view.feed_id)"
           >
             <div class="thread-body">
-              <div class="view-header">
+              <div class="view-header" @click.stop="goStock(view)">
                 <span>{{ view.target_symbol }} {{ view.target_name }}</span>
                 <span class="status">{{ view.statusLabel }}</span>
               </div>
@@ -76,7 +83,7 @@
                 <span>剩余 {{ view.remainingDays }} 天</span>
                 <span>发布于 {{ view.createdLabel }}</span>
               </div>
-              <div class="summary">{{ view.content }}</div>
+              <div class="summary" @click.stop="goStock(view)">{{ view.content }}</div>
             </div>
           </div>
         </div>
@@ -90,7 +97,13 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getProfileSupabase, getUserGroupNamesSupabase } from "../services/profile.js";
-import { fetchFeedsSupabase, mapDirectionToLabel } from "../services/feeds.js";
+import {
+  fetchFeedsSupabase,
+  getRemainingDays,
+  getStatusLabel,
+  getStatusPhase,
+  mapDirectionToLabel,
+} from "../services/feeds.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -114,23 +127,30 @@ const formatDate = (value) => {
   return `${year}/${month}/${day}`;
 };
 
-const getRemainingDays = (value) => {
-  if (!value) return 0;
-  const expiresAt = new Date(value).getTime();
-  if (Number.isNaN(expiresAt)) return 0;
-  const diff = expiresAt - Date.now();
-  if (diff <= 0) return 0;
-  return Math.ceil(diff / (24 * 60 * 60 * 1000));
-};
-
 const getInitials = (name) => {
   if (!name) return "";
   return name.trim().slice(0, 1);
 };
 
+const viewsWithStatus = computed(() =>
+  feeds.value.map((view) => {
+    const phase = getStatusPhase(view);
+    return {
+      ...view,
+      statusPhase: phase,
+      statusLabel: getStatusLabel(phase),
+      directionLabel: mapDirectionToLabel(view.direction),
+      createdLabel: formatDate(view.created_at),
+      remainingDays: getRemainingDays(view),
+    };
+  })
+);
+
 const stats = computed(() => {
   const totalViews = feeds.value.length;
-  const closedViews = feeds.value.filter((view) => view.status !== "active").length;
+  const closedViews = viewsWithStatus.value.filter(
+    (view) => view.statusPhase === "ended"
+  ).length;
   return {
     totalViews,
     closedViews,
@@ -139,18 +159,9 @@ const stats = computed(() => {
 });
 
 const filteredViews = computed(() => {
-  const filtered = feeds.value.filter((view) => {
-    if (mode.value === "all") return true;
-    if (mode.value === "active") return view.status === "active";
-    return view.status !== "active";
-  });
-  return filtered.map((view) => ({
-    ...view,
-    statusLabel: view.status === "active" ? "未结束" : "已结束",
-    directionLabel: mapDirectionToLabel(view.direction),
-    createdLabel: formatDate(view.created_at),
-    remainingDays: getRemainingDays(view.expires_at),
-  }));
+  const list = viewsWithStatus.value;
+  if (mode.value === "all") return list;
+  return list.filter((view) => view.statusPhase === mode.value);
 });
 
 const loadProfile = async () => {
@@ -181,6 +192,12 @@ const loadProfile = async () => {
 const goFeed = (feedId) => {
   if (!feedId) return;
   router.push(`/feed/${feedId}`);
+};
+
+const goStock = (view) => {
+  const symbol = view?.target_symbol;
+  if (!symbol) return;
+  router.push(`/stock/${symbol}`);
 };
 
 onMounted(loadProfile);

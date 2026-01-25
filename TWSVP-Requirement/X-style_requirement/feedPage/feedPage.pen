@@ -1,0 +1,768 @@
+{
+  "version": "2.6",
+  "children": [
+    {
+      "type": "frame",
+      "id": "bi8Au",
+      "x": 0,
+      "y": 0,
+      "name": "Frame",
+      "clip": true,
+      "width": 375,
+      "height": 812,
+      "fill": "#efefefff",
+      "layout": "none",
+      "children": [
+        {
+          "type": "group",
+          "id": "Qt324",
+          "x": 0,
+          "y": 0,
+          "name": "navigation",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "gvwON",
+              "x": 0,
+              "y": 0,
+              "name": "background",
+              "fill": "#ffffffff",
+              "width": 375,
+              "height": 64
+            },
+            {
+              "type": "text",
+              "id": "Vvx6L",
+              "x": 56,
+              "y": 20,
+              "name": "{pageTitle}",
+              "fill": "#000000",
+              "content": "{pageTitle}",
+              "fontFamily": "Inter",
+              "fontSize": 20,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "rectangle",
+              "id": "fO2DZ",
+              "x": 327,
+              "y": 16,
+              "name": "search",
+              "fill": "#CCCCCC",
+              "width": 32,
+              "height": 32
+            },
+            {
+              "type": "rectangle",
+              "id": "MsWSQ",
+              "x": 16,
+              "y": 16,
+              "name": "logo",
+              "fill": "#CCCCCC",
+              "width": 32,
+              "height": 32
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "id": "sog8p",
+          "x": 16,
+          "y": 76,
+          "name": "postButton",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "lswk6",
+              "x": 0,
+              "y": 0,
+              "name": "background",
+              "fill": "#ffffffff",
+              "width": 343,
+              "height": 72
+            },
+            {
+              "type": "text",
+              "id": "JrNVU",
+              "x": 68,
+              "y": 37,
+              "fill": "#000000",
+              "content": "写下你的观点...",
+              "fontFamily": "Inter",
+              "fontSize": 16,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "8moQt",
+              "x": 68,
+              "y": 12,
+              "fill": "#000000",
+              "content": "{userName}",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "rectangle",
+              "id": "boM7A",
+              "x": 12,
+              "y": 12,
+              "name": "personalCover",
+              "fill": "#CCCCCC",
+              "width": 44,
+              "height": 44
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "WXnhk",
+          "x": 16,
+          "y": 160,
+          "fill": "#000000",
+          "content": "全部 ｜ 未结束 ｜ 已结束",
+          "fontFamily": "Inter",
+          "fontSize": 14,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "text",
+          "id": "7ghtH",
+          "x": 281,
+          "y": 160,
+          "fill": "#000000",
+          "content": "时间 ｜ 热度",
+          "textAlign": "right",
+          "fontFamily": "Inter",
+          "fontSize": 14,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "group",
+          "id": "FjRh5",
+          "x": 16,
+          "y": 194,
+          "name": "feedCard",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "ldCzO",
+              "x": 0,
+              "y": 0,
+              "fill": "#ffffffff",
+              "width": 343,
+              "height": 173
+            },
+            {
+              "type": "text",
+              "id": "iyRu9",
+              "x": 12,
+              "y": 69,
+              "fill": "#000000",
+              "textGrowth": "fixed-width-height",
+              "width": 319,
+              "height": 60,
+              "content": "{content\n这是观点内容，可以写很多，也支持换行，最多3行内容，超过3行的内容用...缩略}",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "lYc5e",
+              "x": 233,
+              "y": 38,
+              "fill": "#000000",
+              "content": "{lastNumDay}",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "ypo49",
+              "x": 82,
+              "y": 38,
+              "fill": "#000000",
+              "content": "{postDateTime}",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "OpZxf",
+              "x": 12,
+              "y": 38,
+              "fill": "#000000",
+              "content": "{postUser}",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "5BXPY",
+              "x": 180,
+              "y": 38,
+              "fill": "#000000",
+              "content": "{status}",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "szjTL",
+              "x": 36,
+              "y": 145,
+              "fill": "#000000",
+              "content": "8",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "rectangle",
+              "id": "0tWNu",
+              "x": 12,
+              "y": 145,
+              "name": "like",
+              "fill": "#CCCCCC",
+              "width": 16,
+              "height": 16
+            },
+            {
+              "type": "text",
+              "id": "jEpfS",
+              "x": 12,
+              "y": 12,
+              "fill": "#000000",
+              "content": "{stockCode}",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "d3BAz",
+              "x": 104,
+              "y": 12,
+              "fill": "#000000",
+              "content": "{stockName}",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "1h2jX",
+              "x": 199,
+              "y": 12,
+              "fill": "#000000",
+              "content": "{direction}",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "rectangle",
+              "id": "I7sxe",
+              "x": 315,
+              "y": 12,
+              "name": "more",
+              "fill": "#CCCCCC",
+              "width": 16,
+              "height": 16
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "id": "iKOUi",
+          "x": 16,
+          "y": 379,
+          "name": "feedCard",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "hLoHg",
+              "x": 0,
+              "y": 0,
+              "fill": "#ffffffff",
+              "width": 343,
+              "height": 173
+            },
+            {
+              "type": "text",
+              "id": "gybdC",
+              "x": 12,
+              "y": 69,
+              "fill": "#000000",
+              "textGrowth": "fixed-width-height",
+              "width": 319,
+              "height": 60,
+              "content": "{content\n这是观点内容，可以写很多，也支持换行，最多3行内容，超过3行的内容用...缩略}",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "YK50j",
+              "x": 208,
+              "y": 36,
+              "fill": "#000000",
+              "content": "还有 1 天",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "pwJtK",
+              "x": 56,
+              "y": 38,
+              "fill": "#000000",
+              "content": "2026/01/25 15:30",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "8ChoM",
+              "x": 12,
+              "y": 38,
+              "fill": "#000000",
+              "content": "mumu",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "4VFXV",
+              "x": 163,
+              "y": 36,
+              "fill": "#000000",
+              "content": "未结束",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "MHGRU",
+              "x": 36,
+              "y": 145,
+              "fill": "#000000",
+              "content": "8",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "rectangle",
+              "id": "TiEt6",
+              "x": 12,
+              "y": 145,
+              "name": "like",
+              "fill": "#CCCCCC",
+              "width": 16,
+              "height": 16
+            },
+            {
+              "type": "text",
+              "id": "frtmD",
+              "x": 12,
+              "y": 12,
+              "fill": "#000000",
+              "content": "2330.TW",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "5eaKB",
+              "x": 82,
+              "y": 11,
+              "fill": "#000000",
+              "content": "台积电",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "8ZArp",
+              "x": 132,
+              "y": 11,
+              "fill": "#000000",
+              "content": "看多",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "rectangle",
+              "id": "zneWL",
+              "x": 315,
+              "y": 12,
+              "name": "more",
+              "fill": "#CCCCCC",
+              "width": 16,
+              "height": 16
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "id": "gaHQC",
+          "x": 16,
+          "y": 564,
+          "name": "feedCard",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "pZswO",
+              "x": 0,
+              "y": 0,
+              "fill": "#ffffffff",
+              "width": 343,
+              "height": 173
+            },
+            {
+              "type": "text",
+              "id": "rwLgH",
+              "x": 12,
+              "y": 69,
+              "fill": "#000000",
+              "textGrowth": "fixed-width-height",
+              "width": 319,
+              "height": 60,
+              "content": "{content\n这是观点内容，可以写很多，也支持换行，最多3行内容，超过3行的内容用...缩略}",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "R12J1",
+              "x": 208,
+              "y": 36,
+              "fill": "#000000",
+              "content": "还有 1 天",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "EW2CZ",
+              "x": 56,
+              "y": 38,
+              "fill": "#000000",
+              "content": "2026/01/25 15:30",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "sU6o8",
+              "x": 12,
+              "y": 38,
+              "fill": "#000000",
+              "content": "mumu",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "U3ZED",
+              "x": 163,
+              "y": 36,
+              "fill": "#000000",
+              "content": "未结束",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "CuHKB",
+              "x": 36,
+              "y": 145,
+              "fill": "#000000",
+              "content": "8",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "rectangle",
+              "id": "w6vgG",
+              "x": 12,
+              "y": 145,
+              "name": "like",
+              "fill": "#CCCCCC",
+              "width": 16,
+              "height": 16
+            },
+            {
+              "type": "text",
+              "id": "JmVdU",
+              "x": 12,
+              "y": 12,
+              "fill": "#000000",
+              "content": "2330.TW",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "iSNpR",
+              "x": 82,
+              "y": 11,
+              "fill": "#000000",
+              "content": "台积电",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "uZpxl",
+              "x": 132,
+              "y": 11,
+              "fill": "#000000",
+              "content": "看多",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "rectangle",
+              "id": "Rs9iw",
+              "x": 315,
+              "y": 12,
+              "name": "more",
+              "fill": "#CCCCCC",
+              "width": 16,
+              "height": 16
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "VPFCa",
+          "x": 16,
+          "y": 736,
+          "fill": "#ffffffff",
+          "width": 343,
+          "height": 64
+        },
+        {
+          "type": "group",
+          "id": "rV8Mx",
+          "x": 16,
+          "y": 736,
+          "name": "tabButton",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "iUJUb",
+              "x": 0,
+              "y": 0,
+              "name": "background",
+              "fill": "#ffffffff",
+              "width": 64,
+              "height": 64
+            },
+            {
+              "type": "text",
+              "id": "w7fVM",
+              "x": 15,
+              "y": 32.5,
+              "fill": "#000000",
+              "content": "观点",
+              "fontFamily": "Inter",
+              "fontSize": 16,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "id": "FJMJJ",
+          "x": 295,
+          "y": 736.5,
+          "name": "tabButton",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "RcFgs",
+              "x": 0,
+              "y": 0,
+              "name": "background",
+              "fill": "#ffffffff",
+              "width": 64,
+              "height": 64
+            },
+            {
+              "type": "text",
+              "id": "HE8p6",
+              "x": 15,
+              "y": 32,
+              "fill": "#000000",
+              "content": "我的",
+              "fontFamily": "Inter",
+              "fontSize": 16,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "id": "mza8c",
+          "x": 226,
+          "y": 736.5,
+          "name": "tabButton",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "FDZzz",
+              "x": 0,
+              "y": 0,
+              "name": "background",
+              "fill": "#ffffffff",
+              "width": 64,
+              "height": 64
+            },
+            {
+              "type": "text",
+              "id": "JUHoB",
+              "x": 15,
+              "y": 32,
+              "fill": "#000000",
+              "content": "通知",
+              "fontFamily": "Inter",
+              "fontSize": 16,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "id": "Mwt5j",
+          "x": 156,
+          "y": 736.5,
+          "name": "tabButton",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "gC4KR",
+              "x": 0,
+              "y": 0,
+              "name": "background",
+              "fill": "#ffffffff",
+              "width": 64,
+              "height": 64
+            },
+            {
+              "type": "text",
+              "id": "yahn4",
+              "x": 15,
+              "y": 32,
+              "fill": "#000000",
+              "content": "发布",
+              "fontFamily": "Inter",
+              "fontSize": 16,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "id": "oB6qX",
+          "x": 87,
+          "y": 736.5,
+          "name": "tabButton",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "9jvTt",
+              "x": 0,
+              "y": 0,
+              "name": "background",
+              "fill": "#ffffffff",
+              "width": 64,
+              "height": 64
+            },
+            {
+              "type": "text",
+              "id": "VWukG",
+              "x": 15,
+              "y": 32,
+              "fill": "#000000",
+              "content": "搜索",
+              "fontFamily": "Inter",
+              "fontSize": 16,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "l3T2H",
+          "x": 36,
+          "y": 744,
+          "fill": "#CCCCCC",
+          "width": 24,
+          "height": 24
+        },
+        {
+          "type": "rectangle",
+          "id": "Nxmiu",
+          "x": 107,
+          "y": 744,
+          "fill": "#CCCCCC",
+          "width": 24,
+          "height": 24
+        },
+        {
+          "type": "rectangle",
+          "id": "q2xVW",
+          "x": 176,
+          "y": 745,
+          "fill": "#CCCCCC",
+          "width": 24,
+          "height": 24
+        },
+        {
+          "type": "rectangle",
+          "id": "r7oa3",
+          "x": 246,
+          "y": 745,
+          "fill": "#CCCCCC",
+          "width": 24,
+          "height": 24
+        },
+        {
+          "type": "rectangle",
+          "id": "KFcJL",
+          "x": 315,
+          "y": 745,
+          "fill": "#CCCCCC",
+          "width": 24,
+          "height": 24
+        }
+      ]
+    }
+  ]
+}

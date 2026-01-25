@@ -25,25 +25,29 @@
 
         <div class="section">
           <div class="section-title">标的</div>
-          <input
-            v-model="targetInput"
-            class="text-input"
-            type="text"
-            placeholder="请输入标的"
-          />
-          <div v-if="isStockLoading" class="search-tip">正在搜索...</div>
-          <div v-if="stockResults.length" class="search-results">
-            <button
-              v-for="stock in stockResults"
-              :key="stock.stock_id"
-              type="button"
-              class="search-item"
-              @click="selectStock(stock)"
-            >
-              <span class="search-code">{{ stock.stock_id }}</span>
-              <span class="search-name">{{ stock.name }}</span>
-              <span class="search-market">{{ stock.market }}</span>
-            </button>
+          <div class="search-field">
+            <input
+              v-model="targetInput"
+              class="text-input"
+              type="text"
+              placeholder="请输入标的"
+            />
+            <div v-if="isStockLoading && !stockResults.length" class="search-tip">
+              正在搜索...
+            </div>
+            <div v-if="stockResults.length" class="search-results">
+              <button
+                v-for="stock in stockResults"
+                :key="stock.stock_id"
+                type="button"
+                class="search-item"
+                @click="selectStock(stock)"
+              >
+                <span class="search-code">{{ stock.stock_id }}</span>
+                <span class="search-name">{{ stock.name }}</span>
+                <span class="search-market">{{ stock.market }}</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -354,6 +358,10 @@ onMounted(loadDraft);
   resize: vertical;
 }
 
+.search-field {
+  position: relative;
+}
+
 .text-input {
   width: 100%;
   border: 1px solid var(--border);
@@ -365,18 +373,25 @@ onMounted(loadDraft);
 }
 
 .search-tip {
-  margin-top: 6px;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
   font-size: 12px;
   color: var(--muted);
 }
 
 .search-results {
-  margin-top: 8px;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
   display: grid;
   overflow: hidden;
+  z-index: 6;
+  box-shadow: var(--shadow);
 }
 
 .search-item {

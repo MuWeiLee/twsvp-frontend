@@ -25,6 +25,48 @@ export const mapLabelToDirection = (label) => DIRECTION_VALUES[label] || "neutra
 export const mapHorizonToLabel = (value) => HORIZON_LABELS[value] || value;
 export const mapLabelToHorizon = (label) => HORIZON_VALUES[label] || "short";
 
+export const HORIZON_RANGES = {
+  short: { min: 5, max: 20 },
+  medium: { min: 20, max: 60 },
+  long: { min: 60, max: 180 },
+};
+
+export const getElapsedDays = (value) => {
+  if (!value) return 0;
+  const createdAt = new Date(value).getTime();
+  if (Number.isNaN(createdAt)) return 0;
+  const diff = Date.now() - createdAt;
+  return Math.max(0, Math.floor(diff / (24 * 60 * 60 * 1000)));
+};
+
+export const getRemainingDays = (view) => {
+  const range = HORIZON_RANGES[view.horizon] || { min: 5, max: 20 };
+  const elapsed = getElapsedDays(view.created_at);
+  return Math.max(0, range.max - elapsed);
+};
+
+export const getStatusPhase = (view) => {
+  if (view.status === "expired") return "ended";
+  const range = HORIZON_RANGES[view.horizon] || { min: 5, max: 20 };
+  const elapsed = getElapsedDays(view.created_at);
+  if (elapsed < range.min) return "pending";
+  if (elapsed <= range.max) return "active";
+  return "ended";
+};
+
+export const getStatusLabel = (phase) => {
+  if (phase === "ended") return "已结束";
+  if (phase === "active") return "进行中";
+  return "未结束";
+};
+
+export const getStatusDisplay = (view, phase) => {
+  if (phase === "ended") return "已结束";
+  const remaining = getRemainingDays(view);
+  const label = phase === "active" ? "进行中" : "未结束";
+  return `剩余 ${remaining} 天 ${label}`;
+};
+
 const horizonDays = {
   short: 20,
   medium: 60,
@@ -97,6 +139,34 @@ export async function fetchFeedsSupabase({ status = "all", sort = "time", userId
   if (status && status !== "all") {
     query = query.eq("status", status);
   }
+
+  if (sort === "hot") {
+    query = query.order("like_count", { ascending: false }).order("created_at", {
+      ascending: false,
+    });
+  } else {
+    query = query.order("created_at", { ascending: false });
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("读取 feeds 失败:", error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function fetchFeedsBySymbolSupabase(symbol, { sort = "time" } = {}) {
+  const targetSymbol = String(symbol || "").trim();
+  if (!targetSymbol) return [];
+  let query = supabase
+    .from("feeds")
+    .select(
+      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, users!feeds_user_id_fkey(nickname, avatar_url)"
+    )
+    .is("deleted_at", null)
+    .eq("target_symbol", targetSymbol);
 
   if (sort === "hot") {
     query = query.order("like_count", { ascending: false }).order("created_at", {

@@ -69,7 +69,7 @@
           <div class="thread-card" @click="goFeed(view.feed_id)">
             <div class="thread-header">
               <div class="header-left">
-                <div class="stock">
+                <div class="stock" @click.stop="goStock(view)">
                   <span class="stock-name">{{ view.target_name }}</span>
                   <span class="stock-code">{{ view.target_symbol }}</span>
                 </div>
@@ -113,7 +113,7 @@
               </div>
             </div>
             <div class="thread-meta">
-              <div class="author">
+              <div class="author" @click.stop="goProfile(view)">
                 <span class="avatar" :class="{ empty: !view.authorAvatar }">
                   <img v-if="view.authorAvatar" :src="view.authorAvatar" alt="" />
                   <span v-else>{{ view.authorInitial }}</span>
@@ -122,7 +122,7 @@
               </div>
               <span class="status">{{ view.statusDisplay }}</span>
             </div>
-            <div class="summary">{{ view.content }}</div>
+            <div class="summary" @click.stop="goStock(view)">{{ view.content }}</div>
             <div class="thread-footer">
               <span class="created-at">{{ view.createdDateLabel }}</span>
               <button
@@ -159,6 +159,9 @@ import { getCurrentUserSupabase } from "../services/auth.js";
 import { getProfileSupabase } from "../services/profile.js";
 import {
   fetchFeedsSupabase,
+  getRemainingDays,
+  getStatusDisplay,
+  getStatusPhase,
   mapDirectionToLabel,
   updateFeedLikeCountSupabase,
 } from "../services/feeds.js";
@@ -245,42 +248,6 @@ const formatDate = (value) => {
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
   const day = `${date.getDate()}`.padStart(2, "0");
   return `${year}/${month}/${day}`;
-};
-
-const HORIZON_RANGES = {
-  short: { min: 5, max: 20 },
-  medium: { min: 20, max: 60 },
-  long: { min: 60, max: 180 },
-};
-
-const getElapsedDays = (value) => {
-  if (!value) return 0;
-  const createdAt = new Date(value).getTime();
-  if (Number.isNaN(createdAt)) return 0;
-  const diff = Date.now() - createdAt;
-  return Math.max(0, Math.floor(diff / (24 * 60 * 60 * 1000)));
-};
-
-const getRemainingDays = (view) => {
-  const range = HORIZON_RANGES[view.horizon] || { min: 5, max: 20 };
-  const elapsed = getElapsedDays(view.created_at);
-  return Math.max(0, range.max - elapsed);
-};
-
-const getStatusPhase = (view) => {
-  if (view.status === "expired") return "ended";
-  const range = HORIZON_RANGES[view.horizon] || { min: 5, max: 20 };
-  const elapsed = getElapsedDays(view.created_at);
-  if (elapsed < range.min) return "pending";
-  if (elapsed <= range.max) return "active";
-  return "ended";
-};
-
-const getStatusDisplay = (view, phase) => {
-  if (phase === "ended") return "已结束";
-  const remaining = getRemainingDays(view);
-  const label = phase === "active" ? "进行中" : "未结束";
-  return `剩余 ${remaining} 天 ${label}`;
 };
 
 const canEditFeed = (view) => {
@@ -398,6 +365,22 @@ const toggleLike = async (view) => {
 
 const goFeed = (feedId) => {
   router.push(`/feed/${feedId}`);
+};
+
+const goStock = (view) => {
+  const symbol = view?.target_symbol;
+  if (!symbol) return;
+  router.push(`/stock/${symbol}`);
+};
+
+const goProfile = (view) => {
+  const userId = view?.user_id;
+  if (!userId) return;
+  if (currentUserId.value && userId === currentUserId.value) {
+    router.push("/profile");
+  } else {
+    router.push(`/user/${userId}`);
+  }
 };
 
 onMounted(loadUser);
