@@ -29,50 +29,52 @@
 
       <header class="slide-in">
         <div class="tabs tab-row">
-          <button
-            class="tab-btn"
-            :class="{ active: statusFilter === 'all' }"
-            @click="statusFilter = 'all'"
-          >
-            全部
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: statusFilter === 'pending' }"
-            @click="statusFilter = 'pending'"
-          >
-            未结束
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: statusFilter === 'active' }"
-            @click="statusFilter = 'active'"
-          >
-            进行中
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: statusFilter === 'ended' }"
-            @click="statusFilter = 'ended'"
-          >
-            已结束
-          </button>
-        </div>
-        <div class="tabs tab-row secondary-tabs">
-          <button
-            class="tab-btn"
-            :class="{ active: sortKey === 'time' }"
-            @click="sortKey = 'time'"
-          >
-            时间
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: sortKey === 'hot' }"
-            @click="sortKey = 'hot'"
-          >
-            热度
-          </button>
+          <div class="tab-group">
+            <button
+              class="tab-btn"
+              :class="{ active: statusFilter === 'all' }"
+              @click="statusFilter = 'all'"
+            >
+              全部
+            </button>
+            <button
+              class="tab-btn"
+              :class="{ active: statusFilter === 'pending' }"
+              @click="statusFilter = 'pending'"
+            >
+              未结束
+            </button>
+            <button
+              class="tab-btn"
+              :class="{ active: statusFilter === 'active' }"
+              @click="statusFilter = 'active'"
+            >
+              进行中
+            </button>
+            <button
+              class="tab-btn"
+              :class="{ active: statusFilter === 'ended' }"
+              @click="statusFilter = 'ended'"
+            >
+              已结束
+            </button>
+          </div>
+          <div class="tab-group tab-group-right">
+            <button
+              class="tab-btn"
+              :class="{ active: sortKey === 'time' }"
+              @click="sortKey = 'time'"
+            >
+              时间
+            </button>
+            <button
+              class="tab-btn"
+              :class="{ active: sortKey === 'hot' }"
+              @click="sortKey = 'hot'"
+            >
+              热度
+            </button>
+          </div>
         </div>
       </header>
 
@@ -506,10 +508,17 @@ watch([statusFilter, sortKey], loadFeeds);
 
 .tab-row {
   align-items: center;
+  justify-content: space-between;
 }
 
-.secondary-tabs {
-  margin-top: 6px;
+.tab-group {
+  display: inline-flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.tab-group-right {
+  margin-left: auto;
 }
 
 .tab-btn {
