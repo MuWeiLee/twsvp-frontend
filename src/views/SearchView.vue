@@ -11,15 +11,26 @@
 
       <section class="search">
         <div class="search-bar">
-          <input
-            class="search-input"
-            type="text"
-            placeholder="搜索股票、话题或作者"
-            v-model="query"
-            @input="handleInput"
-          />
-          <button class="btn-primary" @click="handleSearch">搜索</button>
-          <button class="btn-ghost" @click="clearSearch">清除</button>
+          <div class="search-input-wrap">
+            <input
+              class="search-input"
+              type="text"
+              placeholder="搜索股票、代码、话题或作者"
+              v-model="query"
+              @input="handleInput"
+              @keyup.enter="handleSearch"
+            />
+            <button
+              v-if="query"
+              class="clear-btn"
+              type="button"
+              aria-label="清除搜索"
+              @click="clearSearch"
+            >
+              ×
+            </button>
+          </div>
+          <button class="btn-primary" type="button" @click="handleSearch">搜索</button>
         </div>
 
         <div class="tabs">
@@ -357,20 +368,21 @@ watch([submittedQuery, activeTab], loadUserResults);
 }
 
 .nav-logo {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--surface);
+  width: 28px;
+  height: 28px;
+  border-radius: 0;
+  background: transparent;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border);
+  border: 0;
   text-decoration: none;
+  padding: 0;
 }
 
 .nav-logo img {
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   display: block;
 }
 
@@ -384,12 +396,14 @@ watch([submittedQuery, activeTab], loadUserResults);
 }
 
 .search-bar {
-  display: grid;
+  display: flex;
   gap: 10px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  background: var(--surface);
+  align-items: center;
+}
+
+.search-input-wrap {
+  position: relative;
+  flex: 1;
 }
 
 .tabs {
@@ -418,11 +432,26 @@ watch([submittedQuery, activeTab], loadUserResults);
 
 .search-input {
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 12px;
+  border-radius: 10px;
+  padding: 10px 32px 10px 12px;
   font-family: inherit;
   font-size: 14px;
-  background: var(--panel);
+  background: var(--surface);
+  width: 100%;
+}
+
+.clear-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
 }
 
 .section-title {
@@ -543,16 +572,6 @@ watch([submittedQuery, activeTab], loadUserResults);
   font-size: 14px;
   font-weight: 600;
   padding: 10px 16px;
-  border-radius: 10px;
-  cursor: pointer;
-}
-
-.btn-ghost {
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--muted);
-  font-size: 12px;
-  padding: 8px 12px;
   border-radius: 10px;
   cursor: pointer;
 }

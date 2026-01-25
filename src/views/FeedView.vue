@@ -2,9 +2,9 @@
   <div class="app-shell">
     <div class="phone-frame fade-in">
       <nav class="nav slide-in">
-        <router-link class="nav-logo" to="/feed" aria-label="TWSVP">
+        <button class="nav-logo" type="button" aria-label="刷新观点" @click="refreshFeeds">
           <img :src="logoUrl" alt="TWSVP" />
-        </router-link>
+        </button>
         <div class="nav-title">观点</div>
         <router-link class="nav-btn" to="/search">搜索</router-link>
       </nav>
@@ -201,6 +201,11 @@ const loadFeeds = async () => {
   isLoading.value = false;
 };
 
+const refreshFeeds = async () => {
+  await loadFeeds();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
 const loadLikedIds = () => {
   try {
     const raw = localStorage.getItem("twsvp_feed_likes");
@@ -301,20 +306,22 @@ watch([statusFilter, sortKey], loadFeeds);
 }
 
 .nav-logo {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  background: var(--surface);
+  width: 28px;
+  height: 28px;
+  border-radius: 0;
+  background: transparent;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border);
+  border: 0;
   text-decoration: none;
+  padding: 0;
+  cursor: pointer;
 }
 
 .nav-logo img {
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   display: block;
 }
 

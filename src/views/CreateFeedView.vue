@@ -2,26 +2,35 @@
   <div class="app-shell">
     <div class="phone-frame">
       <nav class="nav">
-        <router-link class="nav-btn" to="/feed">关闭</router-link>
-        <div class="nav-title">发布观点</div>
-        <span class="nav-space" aria-hidden="true"></span>
+        <router-link class="nav-link" to="/feed">关闭</router-link>
+        <div class="nav-title">我的观点</div>
+        <button class="nav-link ghost" type="button" @click="saveDraft">保存草稿</button>
       </nav>
 
       <section class="card">
         <div class="section">
-          <div class="section-title">标的</div>
-          <div class="pill-group">
-            <button
-              v-for="asset in assets"
-              :key="asset"
-              class="pill"
-              :class="{ active: selectedAsset === asset }"
-              @click="selectedAsset = asset"
-              type="button"
-            >
-              {{ asset }}
-            </button>
+          <div class="section-title">
+            <span>观点内容</span>
+            <span v-if="overLimitCount" class="limit-alert">{{ overLimitCount }}</span>
           </div>
+          <textarea
+            v-model="content"
+            class="content-input"
+            placeholder="用一句话说明你的核心判断
+你的判断依据
+关于观点的风险提示..."
+          ></textarea>
+          <div class="helper">每个观点最少 20 字</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">标的</div>
+          <input
+            v-model="targetInput"
+            class="text-input"
+            type="text"
+            placeholder="请输入标的"
+          />
         </div>
 
         <div class="section">
@@ -55,23 +64,17 @@
             </button>
           </div>
         </div>
-
-        <div class="section">
-          <div class="section-title">观点内容</div>
-          <textarea
-            v-model="content"
-            class="content-input"
-            placeholder="用一句话说明你的核心判断
-你的判断依据
-关于观点的风险提示..."
-          ></textarea>
-          <div class="helper">至少 20 字，最多 1000 字</div>
-        </div>
-
-        <button class="btn-primary" :disabled="!isValid || isSubmitting" @click="handlePublish">
-          发布
-        </button>
       </section>
+
+      <div class="bottom-actions">
+        <button
+          class="btn-primary btn-fixed"
+          :disabled="!isValid || isSubmitting"
+          @click="handlePublish"
+        >
+          发布观点
+        </button>
+      </div>
 
       <nav class="tabbar">
         <router-link class="tab-item" active-class="active" to="/feed">观点</router-link>
@@ -85,7 +88,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import {
@@ -95,25 +98,61 @@ import {
 } from "../services/feeds.js";
 
 const router = useRouter();
-const assets = ["2330 台积电", "2454 联发科", "2603 长荣", "0050 台股 ETF"];
-const directions = ["看多", "看空", "中性"];
-const horizons = ["短期 5-20 天", "中期 20-60 天", "长期 60-180 天"];
+const directions = ["看多", "中性", "看空"];
+const horizons = ["短期 5-20天", "中期 20-60天", "长期 60-180天"];
 
-const selectedAsset = ref(assets[0]);
 const selectedDirection = ref(directions[0]);
 const selectedHorizon = ref(horizons[0]);
 const content = ref("");
+const targetInput = ref("");
 const isSubmitting = ref(false);
+const DRAFT_KEY = "twsvp_feed_draft";
 
 const isValid = computed(() => {
   const length = content.value.trim().length;
-  return length >= 20 && length <= 1000;
+  return length >= 20 && length <= 1000 && targetInput.value.trim().length > 0;
 });
 
-const parseAsset = (value) => {
-  const parts = value.trim().split(/\s+/);
-  const symbol = parts.shift() || "";
-  const name = parts.join(" ") || value.trim();
+const overLimitCount = computed(() => {
+  const length = content.value.trim().length;
+  return length > 1000 ? length - 1000 : 0;
+});
+
+const parseTarget = (value) => {
+  const trimmed = value.trim();
+  if (!trimmed) return { symbol: "", name: "" };
+  const parts = trimmed.split(/\s+/);
+  if (parts.length >= 2) {
+    const symbol = parts.shift() || "";
+    const name = parts.join(" ");
+    return { symbol, name };
+  }
+  return { symbol: trimmed, name: trimmed };
+};
+
+const saveDraft = () => {
+  const draft = {
+    content: content.value,
+    targetInput: targetInput.value,
+    selectedDirection: selectedDirection.value,
+    selectedHorizon: selectedHorizon.value,
+  };
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+};
+
+const loadDraft = () => {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return;
+    const draft = JSON.parse(raw);
+    content.value = draft.content || content.value;
+    targetInput.value = draft.targetInput || targetInput.value;
+    selectedDirection.value = draft.selectedDirection || selectedDirection.value;
+    selectedHorizon.value = draft.selectedHorizon || selectedHorizon.value;
+  } catch (error) {
+    localStorage.removeItem(DRAFT_KEY);
+  }
+};
   return { symbol, name };
 };
 
@@ -128,7 +167,11 @@ const handlePublish = async () => {
     return;
   }
 
-  const { symbol, name } = parseAsset(selectedAsset.value);
+  if (!targetInput.value.trim()) {
+    return;
+  }
+
+  const { symbol, name } = parseTarget(targetInput.value);
   const direction = mapLabelToDirection(selectedDirection.value);
   const horizon = mapLabelToHorizon(selectedHorizon.value);
 
@@ -142,6 +185,7 @@ const handlePublish = async () => {
       horizon,
       content: content.value.trim(),
     });
+    localStorage.removeItem(DRAFT_KEY);
     router.replace("/feed");
   } catch (error) {
     alert("发布失败，请稍后重试。");
@@ -149,6 +193,8 @@ const handlePublish = async () => {
     isSubmitting.value = false;
   }
 };
+
+onMounted(loadDraft);
 </script>
 
 <style scoped>
@@ -165,7 +211,7 @@ const handlePublish = async () => {
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: 76px 16px 96px;
+  padding: 76px 16px 170px;
   position: relative;
 }
 
@@ -192,9 +238,12 @@ const handlePublish = async () => {
 .nav-title {
   font-weight: 500;
   font-size: 20px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
-.nav-btn {
+.nav-link {
   border: 1px solid var(--border);
   background: var(--surface);
   border-radius: 10px;
@@ -209,8 +258,9 @@ const handlePublish = async () => {
   align-items: center;
 }
 
-.nav-space {
-  width: 32px;
+.nav-link.ghost {
+  border-color: transparent;
+  background: transparent;
 }
 
 .card {
@@ -223,9 +273,18 @@ const handlePublish = async () => {
 }
 
 .section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 14px;
   font-weight: 600;
   margin-bottom: 8px;
+}
+
+.limit-alert {
+  color: var(--negative);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .pill-group {
@@ -261,10 +320,33 @@ const handlePublish = async () => {
   resize: vertical;
 }
 
+.text-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  background: var(--surface);
+}
+
 .helper {
   font-size: 12px;
   color: var(--muted);
   margin-top: 6px;
+}
+
+.bottom-actions {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 64px;
+  width: 100%;
+  max-width: 375px;
+  margin: 0 auto;
+  padding: 12px 16px;
+  background: linear-gradient(0deg, var(--bg) 70%, rgba(239, 239, 239, 0));
+  z-index: 4;
 }
 
 .btn-primary {
@@ -276,6 +358,10 @@ const handlePublish = async () => {
   padding: 12px 16px;
   border-radius: 10px;
   cursor: pointer;
+}
+
+.btn-fixed {
+  width: 100%;
 }
 
 .btn-primary:disabled {
