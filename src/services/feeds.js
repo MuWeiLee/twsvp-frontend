@@ -7,7 +7,7 @@ const DIRECTION_LABELS = {
 };
 
 const HORIZON_LABELS = {
-  ultra_short: "极短期 1-5天",
+  ultra_short: "极短期 5天内",
   short: "短期 5-20天",
   medium: "中期 20-60天",
   long: "长期 60-180天",
@@ -58,7 +58,7 @@ export const formatFeedTimestamp = (value) => {
 };
 
 export const HORIZON_RANGES = {
-  ultra_short: { min: 1, max: 5 },
+  ultra_short: { min: 0, max: 5 },
   short: { min: 5, max: 20 },
   medium: { min: 20, max: 60 },
   long: { min: 60, max: 180 },
@@ -90,14 +90,13 @@ export const getStatusPhase = (view) => {
 export const getStatusLabel = (phase) => {
   if (phase === "ended") return "已结束";
   if (phase === "active") return "进行中";
-  return "未结束";
+  return "未开始";
 };
 
 export const getStatusDisplay = (view, phase) => {
   if (phase === "ended") return "已结束";
-  const remaining = getRemainingDays(view);
-  const label = phase === "active" ? "进行中" : "未结束";
-  return `剩余 ${remaining} 天 ${label}`;
+  if (phase === "active") return "进行中";
+  return "未开始";
 };
 
 const horizonDays = {

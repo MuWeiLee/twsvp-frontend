@@ -70,7 +70,7 @@
             :class="{ active: mode === 'pending' }"
             @click="mode = 'pending'"
           >
-            未结束
+            未开始
           </button>
           <button
             class="tab-btn"
