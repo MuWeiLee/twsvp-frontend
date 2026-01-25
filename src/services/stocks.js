@@ -32,3 +32,20 @@ export const fetchStockByIdSupabase = async (stockId) => {
 
   return data || null;
 };
+
+export const fetchStockPricesSupabase = async (stockId, limit = 60) => {
+  const id = String(stockId || "").trim();
+  if (!id) return [];
+  const { data, error } = await supabase
+    .from("stock_prices")
+    .select("trade_date,open,high,low,close,average,volume,turnover")
+    .eq("stock_id", id)
+    .order("trade_date", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    return [];
+  }
+
+  return (data || []).reverse();
+};

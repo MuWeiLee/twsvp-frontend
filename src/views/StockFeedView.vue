@@ -14,19 +14,70 @@
             />
           </svg>
         </button>
-        <div class="nav-title">标的观点</div>
+        <div class="nav-title">
+          <span class="company-name">{{ stock.name || "—" }}</span>
+          <span class="company-code">{{ stock.symbol }}</span>
+        </div>
         <span class="nav-space" aria-hidden="true"></span>
       </nav>
 
-      <section class="card">
-        <div class="stock-header">
-          <strong>{{ stock.symbol }}</strong>
-          <span>{{ stock.name }}</span>
-          <span v-if="stock.market" class="market">{{ stock.market }}</span>
+      <section class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">日K 行情</div>
+          <div v-if="activePrice" class="hint-card">
+            <div class="hint-row">
+              <span class="hint-date">{{ activePrice.dateLabel }}</span>
+              <span class="hint-meta">观点数量：{{ activePrice.feedCount }} 条</span>
+            </div>
+            <div class="hint-grid">
+              <div>收盘价：{{ formatPrice(activePrice.close) }}元</div>
+              <div>涨跌幅：{{ formatPercent(activePrice.changePct) }}</div>
+              <div>开盘价：{{ formatPrice(activePrice.open) }}元</div>
+              <div>振幅：{{ formatPercent(activePrice.amplitude) }}</div>
+              <div>最高：{{ formatPrice(activePrice.high) }}元</div>
+              <div>最低：{{ formatPrice(activePrice.low) }}元</div>
+            </div>
+          </div>
         </div>
-        <div class="summary">
-          近期观点：看多 {{ stock.bullish }} / 看空 {{ stock.bearish }} / 中性
-          {{ stock.neutral }}
+        <div class="chart-body">
+          <div v-if="chartPrices.length" class="candles">
+            <button
+              v-for="price in chartPrices"
+              :key="price.trade_date"
+              class="candle"
+              :class="price.direction"
+              type="button"
+              @mouseenter="hoveredPrice = price"
+              @mouseleave="hoveredPrice = null"
+              :style="{
+                '--wick-top': price.wickTop,
+                '--wick-bottom': price.wickBottom,
+                '--body-top': price.bodyTop,
+                '--body-bottom': price.bodyBottom,
+              }"
+            >
+              <span class="wick"></span>
+              <span class="body"></span>
+            </button>
+          </div>
+          <div v-else class="chart-empty">暂无行情数据</div>
+        </div>
+      </section>
+
+      <section class="sentiment-card">
+        <div class="sentiment-title">近 7 日观点统计</div>
+        <div class="sentiment-row">
+          <span>看多 {{ sevenDayStats.longPct }}%</span>
+          <span>中性 {{ sevenDayStats.neutralPct }}%</span>
+          <span>看空 {{ sevenDayStats.shortPct }}%</span>
+        </div>
+        <div class="sentiment-bar" aria-hidden="true">
+          <span class="segment long" :style="{ width: `${sevenDayStats.longPct}%` }"></span>
+          <span
+            class="segment neutral"
+            :style="{ width: `${sevenDayStats.neutralPct}%` }"
+          ></span>
+          <span class="segment short" :style="{ width: `${sevenDayStats.shortPct}%` }"></span>
         </div>
       </section>
 
@@ -149,6 +200,7 @@ import {
   fetchFeedsBySymbolSupabase,
   fetchFeedLikesSupabase,
   formatFeedTimestamp,
+  getElapsedDays,
   getRemainingDays,
   getStatusDisplay,
   getStatusLabel,
@@ -158,7 +210,7 @@ import {
   removeFeedLikeSupabase,
   updateFeedLikeCountSupabase,
 } from "../services/feeds.js";
-import { fetchStockByIdSupabase } from "../services/stocks.js";
+import { fetchStockByIdSupabase, fetchStockPricesSupabase } from "../services/stocks.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -173,9 +225,103 @@ const stock = ref({
   neutral: 0,
 });
 const views = ref([]);
+const feedRows = ref([]);
+const priceSeries = ref([]);
 const isLoading = ref(false);
 const currentUserId = ref("");
 const likedIds = ref(new Set());
+const hoveredPrice = ref(null);
+
+const formatDateKey = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const formatHintDate = (value) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}/${month}/${day}`;
+};
+
+const formatPrice = (value) => {
+  if (value === null || value === undefined) return "—";
+  const num = Number(value);
+  if (Number.isNaN(num)) return "—";
+  return num.toFixed(2);
+};
+
+const formatPercent = (value) => {
+  if (value === null || value === undefined) return "—";
+  const num = Number(value);
+  if (Number.isNaN(num)) return "—";
+  const sign = num > 0 ? "+" : "";
+  return `${sign}${num.toFixed(2)}%`;
+};
+
+const feedCountByDate = computed(() => {
+  const counts = {};
+  feedRows.value.forEach((feed) => {
+    const key = formatDateKey(feed.created_at);
+    if (!key) return;
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  return counts;
+});
+
+const chartPrices = computed(() => {
+  const list = priceSeries.value.slice();
+  if (!list.length) return [];
+  const highs = list.map((item) => Number(item.high ?? item.close ?? item.open ?? 0));
+  const lows = list.map((item) => Number(item.low ?? item.close ?? item.open ?? 0));
+  const max = Math.max(...highs);
+  const min = Math.min(...lows);
+  const range = max - min || 1;
+  return list.map((item) => {
+    const open = Number(item.open ?? item.close ?? 0);
+    const close = Number(item.close ?? item.open ?? 0);
+    const high = Number(item.high ?? Math.max(open, close));
+    const low = Number(item.low ?? Math.min(open, close));
+    const direction = close >= open ? "up" : "down";
+    const wickTop = (max - high) / range;
+    const wickBottom = (max - low) / range;
+    const bodyTop = (max - Math.max(open, close)) / range;
+    const bodyBottom = (max - Math.min(open, close)) / range;
+    const dateKey = formatDateKey(item.trade_date);
+    const feedCount = feedCountByDate.value[dateKey] || 0;
+    const changePct = open ? ((close - open) / open) * 100 : 0;
+    const amplitude = open ? ((high - low) / open) * 100 : 0;
+    return {
+      ...item,
+      open,
+      close,
+      high,
+      low,
+      direction,
+      wickTop,
+      wickBottom,
+      bodyTop,
+      bodyBottom,
+      dateLabel: formatHintDate(item.trade_date),
+      feedCount,
+      changePct,
+      amplitude,
+    };
+  });
+});
+
+const activePrice = computed(() => {
+  if (hoveredPrice.value) return hoveredPrice.value;
+  return chartPrices.value[chartPrices.value.length - 1] || null;
+});
 
 const buildViews = (list) =>
   list.map((view) => {
@@ -198,6 +344,22 @@ const buildViews = (list) =>
     };
   });
 
+const sevenDayStats = computed(() => {
+  const counts = { long: 0, neutral: 0, short: 0 };
+  feedRows.value.forEach((feed) => {
+    if (getElapsedDays(feed.created_at) > 7) return;
+    if (feed.direction === "long") counts.long += 1;
+    else if (feed.direction === "short") counts.short += 1;
+    else counts.neutral += 1;
+  });
+  const total = counts.long + counts.neutral + counts.short || 1;
+  return {
+    longPct: ((counts.long / total) * 100).toFixed(1),
+    neutralPct: ((counts.neutral / total) * 100).toFixed(1),
+    shortPct: ((counts.short / total) * 100).toFixed(1),
+  };
+});
+
 const filteredViews = computed(() => {
   let list = views.value;
   if (filter.value !== "all") {
@@ -216,10 +378,14 @@ const loadData = async () => {
   }
   const symbol = String(symbolParam);
   isLoading.value = true;
-  const [stockInfo, feeds] = await Promise.all([
+  const [stockInfo, feeds, prices] = await Promise.all([
     fetchStockByIdSupabase(symbol),
     fetchFeedsBySymbolSupabase(symbol),
+    fetchStockPricesSupabase(symbol, 60),
   ]);
+  feedRows.value = feeds;
+  priceSeries.value = prices;
+  hoveredPrice.value = null;
   const nextViews = buildViews(feeds);
   const counts = nextViews.reduce(
     (acc, view) => {
@@ -382,6 +548,9 @@ watch(() => route.params.symbol, loadData);
   font-weight: 500;
   font-size: 20px;
   margin-right: auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .nav-btn {
@@ -408,31 +577,173 @@ watch(() => route.params.symbol, loadData);
   margin-left: auto;
 }
 
-.card {
+.company-name {
+  font-weight: 600;
+}
+
+.company-code {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.chart-card {
   background: var(--surface);
   border-radius: var(--radius-card);
   padding: 16px;
   border: 1px solid var(--border);
   display: grid;
-  gap: 8px;
+  gap: 12px;
 }
 
-.stock-header {
-  display: inline-flex;
-  gap: 8px;
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.chart-title {
   font-weight: 600;
-  flex-wrap: wrap;
+  font-size: 14px;
 }
 
-.summary {
+.hint-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--ink);
+  display: grid;
+  gap: 8px;
 }
 
-.market {
+.hint-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-weight: 600;
+}
+
+.hint-date {
   font-size: 12px;
+}
+
+.hint-meta {
   color: var(--muted);
   font-weight: 500;
+}
+
+.hint-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  color: var(--muted);
+}
+
+.chart-body {
+  height: 220px;
+  position: relative;
+}
+
+.candles {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  height: 100%;
+}
+
+.candle {
+  flex: 1 1 0;
+  min-width: 6px;
+  position: relative;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.candle .wick {
+  position: absolute;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  top: calc(var(--wick-top) * 100%);
+  height: calc((var(--wick-bottom) - var(--wick-top)) * 100%);
+  background: currentColor;
+}
+
+.candle .body {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--body-top) * 100%);
+  height: calc((var(--body-bottom) - var(--body-top)) * 100%);
+  min-height: 2px;
+  background: currentColor;
+  border-radius: 2px;
+}
+
+.candle.up {
+  color: var(--price-up);
+}
+
+.candle.down {
+  color: var(--price-down);
+}
+
+.chart-empty {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.sentiment-card {
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+}
+
+.sentiment-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sentiment-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.sentiment-bar {
+  height: 8px;
+  background: var(--panel);
+  border-radius: 999px;
+  overflow: hidden;
+  display: flex;
+}
+
+.segment {
+  height: 100%;
+}
+
+.segment.long {
+  background: var(--price-up);
+}
+
+.segment.neutral {
+  background: var(--border);
+}
+
+.segment.short {
+  background: var(--price-down);
 }
 
 .tabs {
