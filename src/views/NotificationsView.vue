@@ -113,28 +113,48 @@ const buildItem = (row) => {
   const targetLabel = [feed.target_symbol, feed.target_name].filter(Boolean).join(" ");
   const summary = feed.summary || feed.content || "";
   const daysLeft = getDaysLeft(feed.expires_at);
-  let title = "通知";
-  let detail = "";
+  let title = row.title || "通知";
+  let detail = row.detail || "";
   let tab = row.type || "";
 
   if (row.type === "like") {
-    title = "有人点赞了你的观点";
-    detail = `${actorName}点赞了${targetLabel ? `「${targetLabel}」` : "你的观点"}`;
+    if (!row.title) {
+      title = "有人点赞了你的观点";
+    }
+    if (!row.detail) {
+      detail = `${actorName}点赞了${targetLabel ? `「${targetLabel}」` : "你的观点"}`;
+    }
   } else if (row.type === "bookmark") {
-    title = "观点被收藏";
-    detail = `${actorName}收藏了${targetLabel ? `「${targetLabel}」` : "你的观点"}`;
+    if (!row.title) {
+      title = "观点被收藏";
+    }
+    if (!row.detail) {
+      detail = `${actorName}收藏了${targetLabel ? `「${targetLabel}」` : "你的观点"}`;
+    }
     tab = "like";
   } else if (row.type === "share") {
-    title = "观点被分享";
-    detail = `${actorName}分享了${targetLabel ? `「${targetLabel}」` : "你的观点"}`;
+    if (!row.title) {
+      title = "观点被分享";
+    }
+    if (!row.detail) {
+      detail = `${actorName}分享了${targetLabel ? `「${targetLabel}」` : "你的观点"}`;
+    }
   } else if (row.type === "expire_soon") {
-    title = "观点即将到期";
     const suffix = daysLeft !== null ? `将在 ${daysLeft} 天后到期` : "即将到期";
-    detail = `你的观点${targetLabel ? `「${targetLabel}」` : ""}${suffix}`;
+    if (!row.title) {
+      title = "观点即将到期";
+    }
+    if (!row.detail) {
+      detail = `你的观点${targetLabel ? `「${targetLabel}」` : ""}${suffix}`;
+    }
     tab = "expire";
   } else if (row.type === "expired") {
-    title = "观点已到期";
-    detail = `你的观点${targetLabel ? `「${targetLabel}」` : ""}已到期`;
+    if (!row.title) {
+      title = "观点已到期";
+    }
+    if (!row.detail) {
+      detail = `你的观点${targetLabel ? `「${targetLabel}」` : ""}已到期`;
+    }
     tab = "expire";
   }
 
@@ -169,7 +189,9 @@ const loadNotifications = async () => {
   currentUserId.value = user.id;
   isLoading.value = true;
   const rows = await fetchNotificationsSupabase(user.id);
-  items.value = rows.filter((row) => row.feeds && !row.feeds.deleted_at).map(buildItem);
+  items.value = rows
+    .filter((row) => !row.feeds || !row.feeds.deleted_at)
+    .map(buildItem);
   isLoading.value = false;
 };
 
