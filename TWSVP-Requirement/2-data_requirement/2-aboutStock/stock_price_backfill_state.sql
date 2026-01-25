@@ -5,7 +5,7 @@ create table if not exists public.stock_price_backfill_state (
   dataset text not null,
   start_date date not null,
   end_date date not null,
-  current_date date not null,
+  cursor_date date not null,
   stock_offset integer not null default 0,
   max_stocks integer not null default 200,
   status text not null default 'running',

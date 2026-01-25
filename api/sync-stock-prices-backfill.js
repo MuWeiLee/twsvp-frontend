@@ -273,7 +273,7 @@ export default async function handler(req, res) {
         dataset,
         start_date: startDateParam,
         end_date: endDateParam,
-        current_date: startDateParam,
+        cursor_date: startDateParam,
         stock_offset: 0,
         max_stocks: maxStocks,
         status: "running",
@@ -301,7 +301,7 @@ export default async function handler(req, res) {
       }
     }
 
-    let currentDate = state.current_date;
+    let currentDate = state.cursor_date;
     let stockOffset = state.stock_offset || 0;
 
     if (currentDate > endDate) {
@@ -335,7 +335,7 @@ export default async function handler(req, res) {
       const status = currentDate > endDate ? (autoExtend ? "idle" : "completed") : "running";
       if (!dryRun) {
         state = await upsertState(supabase, state.state_id, {
-          current_date: currentDate,
+        cursor_date: currentDate,
           stock_offset: stockOffset,
           status,
           finished_at: status === "completed" ? new Date().toISOString() : null,
@@ -407,7 +407,7 @@ export default async function handler(req, res) {
     const status = nextDate > endDate ? (autoExtend ? "idle" : "completed") : "running";
     if (!dryRun) {
       state = await upsertState(supabase, state.state_id, {
-        current_date: nextDate,
+        cursor_date: nextDate,
         stock_offset: nextOffset,
         max_stocks: maxStocks,
         end_date: endDate,
