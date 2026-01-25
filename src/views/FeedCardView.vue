@@ -7,7 +7,7 @@
         <span class="nav-space" aria-hidden="true"></span>
       </nav>
 
-      <section class="thread-card detail" v-if="feed">
+      <section class="thread-card" v-if="feed">
         <div class="thread-header">
           <div class="header-left">
             <div class="stock" @click.stop="goStock(feed)">
@@ -29,7 +29,7 @@
           </div>
           <span class="status">{{ feed.statusDisplay }}</span>
         </div>
-        <div class="summary full">{{ feed.content }}</div>
+        <div class="summary">{{ feed.content }}</div>
         <div class="thread-footer">
           <span class="created-at">{{ feed.createdDateLabel }}</span>
           <button
@@ -42,7 +42,7 @@
           </button>
         </div>
       </section>
-      <section v-else class="thread-card detail empty">暂无该观点。</section>
+      <section v-else class="thread-card empty">暂无该观点。</section>
     </div>
   </div>
 </template>
@@ -269,10 +269,7 @@ onMounted(loadFeed);
   padding: 12px;
   display: grid;
   gap: 8px;
-}
-
-.thread-card.detail {
-  padding: 16px;
+  cursor: pointer;
 }
 
 .thread-header {
@@ -366,19 +363,23 @@ onMounted(loadFeed);
   object-fit: cover;
 }
 
+.author-name {
+  font-size: 12px;
+  color: var(--ink);
+}
+
 .status {
   font-size: 12px;
   color: var(--muted);
 }
 
 .summary {
-  line-height: 1.6;
   color: var(--ink);
-  white-space: pre-line;
-}
-
-.summary.full {
-  display: block;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .thread-footer {

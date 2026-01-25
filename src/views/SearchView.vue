@@ -49,63 +49,104 @@
         </div>
 
         <section v-if="submittedQuery">
-          <div class="section-title">股票</div>
-          <div v-if="stockResults.length" class="list">
-            <div
-              v-for="item in stockResults"
-              :key="item.stock_id"
-              class="list-item"
-              @click="goStock(item.stock_id)"
+          <div class="tabs result-tabs">
+            <button
+              class="tab-btn"
+              :class="{ active: activeResultTab === 'stock' }"
+              @click="activeResultTab = 'stock'"
             >
-              <strong>{{ item.stock_id }} {{ item.name }}</strong>
-              <span>{{ item.market }}</span>
-            </div>
+              股票 {{ stockResults.length }}
+            </button>
+            <button
+              class="tab-btn"
+              :class="{ active: activeResultTab === 'feed' }"
+              @click="activeResultTab = 'feed'"
+            >
+              观点 {{ feedResults.length }}
+            </button>
+            <button
+              class="tab-btn"
+              :class="{ active: activeResultTab === 'user' }"
+              @click="activeResultTab = 'user'"
+            >
+              用户 {{ userResults.length }}
+            </button>
           </div>
-          <div v-else class="empty">暂无相关股票</div>
 
-          <div class="section-title">观点</div>
-          <div v-if="feedResults.length" class="feed">
-            <div v-for="view in feedResults" :key="view.feed_id" class="thread">
-              <div class="thread-card" @click="goFeed(view.feed_id)">
-                <div class="thread-header">
-                  <div class="header-left">
-                    <div class="stock" @click.stop="goStock(view.target_symbol)">
-                      <span class="stock-name">{{ view.target_name }}</span>
-                      <span class="stock-code">{{ view.target_symbol }}</span>
+          <div v-if="activeResultTab === 'stock'">
+            <div v-if="stockResults.length" class="list">
+              <div
+                v-for="item in stockResults"
+                :key="item.stock_id"
+                class="list-item"
+                @click="goStock(item.stock_id)"
+              >
+                <strong>{{ item.stock_id }} {{ item.name }}</strong>
+                <span>{{ item.market }}</span>
+              </div>
+            </div>
+            <div v-else class="empty">暂无相关股票</div>
+          </div>
+
+          <div v-else-if="activeResultTab === 'feed'">
+            <div v-if="feedResults.length" class="feed">
+              <div v-for="view in feedResults" :key="view.feed_id" class="thread">
+                <div class="thread-card" @click="goFeed(view.feed_id)">
+                  <div class="thread-header">
+                    <div class="header-left">
+                      <div class="stock" @click.stop="goStock(view.target_symbol)">
+                        <span class="stock-name">{{ view.target_name }}</span>
+                        <span class="stock-code">{{ view.target_symbol }}</span>
+                      </div>
+                      <span class="direction" :class="view.direction">
+                        {{ view.directionLabel }}
+                      </span>
                     </div>
-                    <span class="direction" :class="view.direction">
-                      {{ view.directionLabel }}
-                    </span>
                   </div>
-                </div>
-                <div class="thread-meta">
-                  <div class="author" @click.stop="goProfile(view)">
-                    <span class="avatar" :class="{ empty: !view.authorAvatar }">
-                      <img v-if="view.authorAvatar" :src="view.authorAvatar" alt="" />
-                      <span v-else>{{ view.authorInitial }}</span>
-                    </span>
-                    <span class="author-name">{{ view.author }}</span>
+                  <div class="thread-meta">
+                    <div class="author" @click.stop="goProfile(view)">
+                      <span class="avatar" :class="{ empty: !view.authorAvatar }">
+                        <img v-if="view.authorAvatar" :src="view.authorAvatar" alt="" />
+                        <span v-else>{{ view.authorInitial }}</span>
+                      </span>
+                      <span class="author-name">{{ view.author }}</span>
+                    </div>
+                    <span class="status">{{ view.statusDisplay }}</span>
                   </div>
-                  <span class="status">{{ view.statusDisplay }}</span>
-                </div>
-                <div class="summary" @click.stop="goStock(view.target_symbol)">
-                  {{ view.content }}
-                </div>
-                <div class="thread-footer">
-                  <span class="created-at">{{ view.createdDateLabel }}</span>
-                  <button
-                    class="like-btn"
-                    type="button"
-                    :class="{ active: view.isLiked }"
-                    @click.stop="toggleLike(view)"
-                  >
-                    👍 {{ view.like_count }}
-                  </button>
+                  <div class="summary" @click.stop="goStock(view.target_symbol)">
+                    {{ view.content }}
+                  </div>
+                  <div class="thread-footer">
+                    <span class="created-at">{{ view.createdDateLabel }}</span>
+                    <button
+                      class="like-btn"
+                      type="button"
+                      :class="{ active: view.isLiked }"
+                      @click.stop="toggleLike(view)"
+                    >
+                      👍 {{ view.like_count }}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
+            <div v-else class="empty">暂无相关观点</div>
           </div>
-          <div v-else class="empty">暂无相关观点</div>
+
+          <div v-else>
+            <div v-if="userResults.length" class="user-list">
+              <div
+                v-for="user in userResults"
+                :key="user.user_id"
+                class="user-card"
+                @click="goUser(user)"
+              >
+                <strong>{{ user.nickname || "用户" }}</strong>
+                <span>{{ user.bio || "暂无简介" }}</span>
+              </div>
+            </div>
+            <div v-else class="empty">暂无相关用户</div>
+          </div>
         </section>
       </section>
 
@@ -120,6 +161,7 @@ import { useRouter } from "vue-router";
 import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
 import { getCurrentUserSupabase } from "../services/auth.js";
+import { searchUsersSupabase } from "../services/profile.js";
 import { searchStocksSupabase } from "../services/stocks.js";
 import {
   addFeedLikeSupabase,
@@ -136,10 +178,12 @@ const query = ref("");
 const submittedQuery = ref("");
 const stockResults = ref([]);
 const feedResults = ref([]);
+const userResults = ref([]);
 const suggestedStocks = ref([]);
 const isSuggesting = ref(false);
 const currentUserId = ref("");
 const likedIds = ref(new Set());
+const activeResultTab = ref("stock");
 let suggestTimer = null;
 const router = useRouter();
 
@@ -149,9 +193,11 @@ const handleInput = () => {
     submittedQuery.value = "";
     stockResults.value = [];
     feedResults.value = [];
+    userResults.value = [];
     suggestedStocks.value = [];
     isSuggesting.value = false;
     clearTimeout(suggestTimer);
+    activeResultTab.value = "stock";
   } else if (submittedQuery.value) {
     submittedQuery.value = "";
   }
@@ -187,9 +233,10 @@ const handleSearch = async () => {
   suggestedStocks.value = [];
   isSuggesting.value = false;
   submittedQuery.value = q;
-  const [stocks, feeds] = await Promise.all([
+  const [stocks, feeds, users] = await Promise.all([
     searchStocksSupabase(q, 8),
     searchFeedsSupabase(q, 15),
+    searchUsersSupabase(q, 12),
   ]);
   stockResults.value = stocks;
   feedResults.value = feeds.map((view) => {
@@ -207,6 +254,8 @@ const handleSearch = async () => {
       isLiked: false,
     };
   });
+  userResults.value = users;
+  activeResultTab.value = getDefaultTab();
   await loadFeedLikes();
 };
 
@@ -215,10 +264,12 @@ const clearSearch = () => {
   submittedQuery.value = "";
   stockResults.value = [];
   feedResults.value = [];
+  userResults.value = [];
   suggestedStocks.value = [];
   isSuggesting.value = false;
   clearTimeout(suggestTimer);
   likedIds.value = new Set();
+  activeResultTab.value = "stock";
 };
 
 const formatDate = (value) => {
@@ -229,6 +280,13 @@ const formatDate = (value) => {
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
   const day = `${date.getDate()}`.padStart(2, "0");
   return `${year}/${month}/${day}`;
+};
+
+const getDefaultTab = () => {
+  if (stockResults.value.length) return "stock";
+  if (feedResults.value.length) return "feed";
+  if (userResults.value.length) return "user";
+  return "stock";
 };
 
 const getInitials = (name) => {
@@ -261,6 +319,16 @@ const goStock = (symbol) => {
 
 const goProfile = (view) => {
   const userId = view?.user_id;
+  if (!userId) return;
+  if (currentUserId.value && userId === currentUserId.value) {
+    router.push("/profile");
+  } else {
+    router.push(`/user/${userId}`);
+  }
+};
+
+const goUser = (user) => {
+  const userId = user?.user_id;
   if (!userId) return;
   if (currentUserId.value && userId === currentUserId.value) {
     router.push("/profile");
@@ -413,6 +481,10 @@ onMounted(loadUser);
   margin-top: 8px;
 }
 
+.result-tabs {
+  margin-top: 12px;
+}
+
 .tab-btn {
   border: 0;
   background: transparent;
@@ -530,6 +602,26 @@ onMounted(loadUser);
   cursor: pointer;
 }
 
+.user-list {
+  display: grid;
+  gap: 12px;
+}
+
+.user-card {
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.user-card span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .empty {
   text-align: center;
   padding: 12px;
@@ -543,17 +635,7 @@ onMounted(loadUser);
 }
 
 .thread {
-  display: grid;
-  grid-template-columns: 16px 1fr;
-  gap: 12px;
-}
-
-.thread-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--ink);
-  margin-top: 6px;
+  display: block;
 }
 
 .thread-card {
