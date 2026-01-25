@@ -26,8 +26,8 @@ const chunkArray = (arr, size) => {
 };
 
 const buildRow = (item) => {
-  const stockId = item.stock_id || item.stockId || item.stock_code || item.symbol;
-  const name = item.stock_name || item.name || item.stock_name_full;
+  const stockId = `${item.stock_id || item.stockId || item.stock_code || item.symbol || ""}`.trim();
+  const name = `${item.stock_name || item.name || item.stock_name_full || ""}`.trim();
   const marketRaw = item.type || item.market || item.listing_type;
   const market = normalizeMarket(marketRaw);
   if (!stockId || !name || !market) {
@@ -40,6 +40,27 @@ const buildRow = (item) => {
     industry: item.industry_category || item.industry || null,
     is_active: true,
   };
+};
+
+const dedupeRows = (rows) => {
+  const map = new Map();
+  for (const row of rows) {
+    if (!row?.stock_id) continue;
+    const key = `${row.stock_id}`.trim();
+    if (!key) continue;
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, { ...row, stock_id: key });
+      continue;
+    }
+    const merged = { ...existing };
+    if (!merged.name && row.name) merged.name = row.name;
+    if (!merged.market && row.market) merged.market = row.market;
+    if (!merged.industry && row.industry) merged.industry = row.industry;
+    merged.is_active = true;
+    map.set(key, merged);
+  }
+  return Array.from(map.values());
 };
 
 export default async function handler(req, res) {
@@ -82,9 +103,10 @@ export default async function handler(req, res) {
       return;
     }
 
-    const rows = payload.data
+    const rawRows = payload.data
       .map(buildRow)
       .filter((row) => row && row.stock_id && row.name && row.market);
+    const rows = dedupeRows(rawRows);
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
