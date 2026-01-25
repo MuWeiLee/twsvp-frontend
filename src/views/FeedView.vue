@@ -61,22 +61,27 @@
           <div class="thread-card" @click="goFeed(view.feed_id)">
             <div class="thread-header">
               <div class="stock">
-                <strong>{{ view.target_symbol }}</strong>
-                <span>{{ view.target_name }}</span>
+                <span class="stock-name">{{ view.target_name }}</span>
+                <span class="stock-code">{{ view.target_symbol }}</span>
               </div>
-              <div class="header-meta">
-                <span class="pill">{{ view.directionLabel }}</span>
-                <span class="pill status">{{ view.statusLabel }}</span>
-                <span class="remain">还有: {{ view.remainingDays }} 天</span>
-                <button class="more-btn" type="button" @click.stop>更多</button>
+              <div class="header-actions">
+                <span class="direction">{{ view.directionLabel }}</span>
+                <button class="more-btn" type="button" @click.stop>...</button>
               </div>
             </div>
-            <div class="thread-sub">
-              <span>{{ view.author }}</span>
-              <span>{{ view.createdLabel }}</span>
+            <div class="thread-meta">
+              <div class="author">
+                <span class="avatar" :class="{ empty: !view.authorAvatar }">
+                  <img v-if="view.authorAvatar" :src="view.authorAvatar" alt="" />
+                  <span v-else>{{ view.authorInitial }}</span>
+                </span>
+                <span class="author-name">{{ view.author }}</span>
+              </div>
+              <span class="status">{{ view.statusLabel }}</span>
             </div>
             <div class="summary">{{ view.content }}</div>
             <div class="thread-footer">
+              <span class="created-at">发布时间 {{ view.createdDateLabel }}</span>
               <button
                 class="like-btn"
                 type="button"
@@ -132,7 +137,10 @@ const filteredViews = computed(() =>
     directionLabel: mapDirectionToLabel(view.direction),
     remainingDays: getRemainingDays(view.expires_at),
     createdLabel: formatDateTime(view.created_at),
+    createdDateLabel: formatDate(view.created_at),
     author: view.users?.nickname || "用户",
+    authorAvatar: view.users?.avatar_url || "",
+    authorInitial: getInitials(view.users?.nickname || "用户"),
     isLiked: likedIds.value.has(view.feed_id),
   }))
 );
@@ -168,6 +176,16 @@ const formatDateTime = (value) => {
   const hours = `${date.getHours()}`.padStart(2, "0");
   const minutes = `${date.getMinutes()}`.padStart(2, "0");
   return `${year}/${month}/${day} ${hours}:${minutes}`;
+};
+
+const formatDate = (value) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}/${month}/${day}`;
 };
 
 const getStatusLabel = (view) => {
@@ -370,64 +388,112 @@ watch([statusFilter, sortKey], loadFeeds);
   border: 1px solid var(--border);
   padding: 12px;
   display: grid;
-  gap: 10px;
+  gap: 8px;
   cursor: pointer;
 }
 
 .thread-header {
-  display: grid;
-  gap: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
 }
 
 .thread-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
 }
 
 .stock {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
   font-weight: 600;
 }
 
-.header-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
+.stock-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.stock-code {
   font-size: 12px;
   color: var(--muted);
 }
 
-.pill {
-  padding: 0;
-  border-radius: 0;
-  border: 0;
-  background: transparent;
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.direction {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 12px;
   color: var(--ink);
-}
-
-.pill.status {
-  color: var(--muted);
-}
-
-.remain {
-  color: var(--muted);
 }
 
 .more-btn {
   border: 0;
   background: transparent;
   padding: 0;
-  font-size: 12px;
+  font-size: 16px;
   cursor: pointer;
   color: var(--muted);
 }
 
-.thread-sub {
+.thread-meta {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  background: var(--panel);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.author-name {
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.status {
   font-size: 12px;
   color: var(--muted);
 }
@@ -454,6 +520,11 @@ watch([statusFilter, sortKey], loadFeeds);
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.created-at {
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .legal {

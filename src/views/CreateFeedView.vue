@@ -148,8 +148,6 @@ const loadDraft = () => {
     localStorage.removeItem(DRAFT_KEY);
   }
 };
-  return { symbol, name };
-};
 
 const handlePublish = async () => {
   if (!isValid.value || isSubmitting.value) {
