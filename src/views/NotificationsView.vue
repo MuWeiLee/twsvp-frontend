@@ -19,13 +19,6 @@
         </button>
         <button
           class="tab-btn"
-          :class="{ active: activeTab === 'share' }"
-          @click="activeTab = 'share'"
-        >
-          分享
-        </button>
-        <button
-          class="tab-btn"
           :class="{ active: activeTab === 'expire' }"
           @click="activeTab = 'expire'"
         >
@@ -191,6 +184,7 @@ const loadNotifications = async () => {
   isLoading.value = true;
   const rows = await fetchNotificationsSupabase(user.id);
   items.value = rows
+    .filter((row) => row.type !== "share")
     .filter((row) => !row.feeds || !row.feeds.deleted_at)
     .map(buildItem);
   isLoading.value = false;
