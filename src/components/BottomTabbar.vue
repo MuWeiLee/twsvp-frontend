@@ -96,7 +96,7 @@ onMounted(loadAvatar);
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  width: min(375px, 100%);
+  width: min(600px, 100%);
   bottom: 0;
   min-height: 64px;
   padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));

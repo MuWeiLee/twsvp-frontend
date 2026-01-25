@@ -247,7 +247,7 @@ onMounted(loadDraft);
 
 <style scoped>
 .app-shell {
-  max-width: 375px;
+  max-width: 600px;
   margin: 0 auto;
   background: var(--bg);
   min-height: 100vh;
@@ -275,7 +275,7 @@ onMounted(loadDraft);
   left: 0;
   right: 0;
   width: 100%;
-  max-width: 375px;
+  max-width: 600px;
   margin: 0 auto;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -464,7 +464,7 @@ onMounted(loadDraft);
   left: 50%;
   transform: translateX(-50%);
   bottom: 64px;
-  width: min(375px, 100%);
+  width: min(600px, 100%);
   padding: 12px 16px;
   background: linear-gradient(0deg, var(--bg) 70%, rgba(239, 239, 239, 0));
   z-index: 4;

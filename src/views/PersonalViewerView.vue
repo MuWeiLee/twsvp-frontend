@@ -336,7 +336,7 @@ onMounted(loadProfile);
 
 <style scoped>
 .app-shell {
-  max-width: 375px;
+  max-width: 600px;
   margin: 0 auto;
   background: var(--bg);
   min-height: 100vh;
@@ -364,7 +364,7 @@ onMounted(loadProfile);
   left: 0;
   right: 0;
   width: 100%;
-  max-width: 375px;
+  max-width: 600px;
   margin: 0 auto;
   background: var(--surface);
   border-bottom: 1px solid var(--border);

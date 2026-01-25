@@ -202,7 +202,7 @@ onMounted(loadNotifications);
 
 <style scoped>
 .app-shell {
-  max-width: 375px;
+  max-width: 600px;
   margin: 0 auto;
   background: var(--bg);
   min-height: 100vh;
@@ -230,7 +230,7 @@ onMounted(loadNotifications);
   left: 0;
   right: 0;
   width: 100%;
-  max-width: 375px;
+  max-width: 600px;
   margin: 0 auto;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -324,7 +324,7 @@ onMounted(loadNotifications);
   left: 50%;
   transform: translateX(-50%);
   bottom: calc(64px + env(safe-area-inset-bottom, 0px));
-  width: min(375px, 100%);
+  width: min(600px, 100%);
   padding: 6px 16px;
   margin: 0;
   font-size: 12px;
