@@ -30,14 +30,6 @@
             <strong>Google 账号</strong>
             <span>{{ account.email }}</span>
           </div>
-          <button class="btn-outline" @click="handleAccount">管理账号</button>
-        </div>
-        <div class="setting-item">
-          <div class="setting-meta">
-            <strong>登录验证</strong>
-            <span>仅允许 Google OAuth 登录</span>
-          </div>
-          <span class="tag">已锁定</span>
         </div>
 
         <div class="section-title">通知偏好</div>
@@ -87,14 +79,36 @@
             <strong>用户协议</strong>
             <span>了解平台服务条款</span>
           </div>
-          <router-link class="btn-outline" to="/agreement/user">查看</router-link>
+          <router-link class="btn-icon" to="/agreement/user" aria-label="用户协议">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M9 6l6 6-6 6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </router-link>
         </div>
         <div class="setting-item">
           <div class="setting-meta">
             <strong>隐私政策</strong>
             <span>了解信息如何被使用</span>
           </div>
-          <router-link class="btn-outline" to="/agreement/privacy">查看</router-link>
+          <router-link class="btn-icon" to="/agreement/privacy" aria-label="隐私政策">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M9 6l6 6-6 6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </router-link>
         </div>
 
         <div class="section-title">退出</div>
@@ -133,10 +147,6 @@ const priceScheme = ref("red_up");
 
 const toggle = (key) => {
   preferences[key] = !preferences[key];
-};
-
-const handleAccount = () => {
-  alert("账号管理示例：跳转到 Google 账户设置。");
 };
 
 const setPriceScheme = (scheme) => {
@@ -299,6 +309,23 @@ onMounted(loadPreferences);
   color: var(--ink);
 }
 
+.btn-icon {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.btn-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
 .setting-meta {
   display: grid;
   gap: 4px;
@@ -309,15 +336,6 @@ onMounted(loadPreferences);
 .setting-meta strong {
   font-size: 14px;
   color: var(--ink);
-}
-
-.tag {
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 12px;
-  background: var(--panel);
-  color: var(--ink);
-  border: 1px solid var(--border);
 }
 
 .switch {

@@ -62,7 +62,7 @@ router.beforeEach(async (to) => {
       return "/personal-setting";
     }
     if (completed && isPersonalSettingRoute) {
-      return "/feed";
+      return true;
     }
   }
 

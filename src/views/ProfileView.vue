@@ -107,6 +107,20 @@
                     {{ view.directionLabel }}
                   </span>
                 </div>
+                <div class="more-wrap">
+                  <button class="more-btn" type="button" @click.stop="toggleMenu(view.feed_id)">
+                    ...
+                  </button>
+                  <div v-if="activeMenuId === view.feed_id" class="more-menu">
+                    <button
+                      class="menu-item danger"
+                      type="button"
+                      @click.stop="handleDeleteFeed(view)"
+                    >
+                      删除观点
+                    </button>
+                  </div>
+                </div>
               </div>
               <div class="thread-meta">
                 <div class="author" @click.stop="goProfile(view)">
@@ -152,6 +166,7 @@ import BottomTabbar from "../components/BottomTabbar.vue";
 import { useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { getProfileSupabase } from "../services/profile.js";
+import { supabase } from "../services/supabase.js";
 import {
   addFeedLikeSupabase,
   fetchFeedsSupabase,
@@ -177,6 +192,7 @@ const user = ref({
 const feeds = ref([]);
 const likedIds = ref(new Set());
 const currentUserId = ref("");
+const activeMenuId = ref(null);
 
 const formatDate = (value) => {
   if (!value) return "—";
@@ -321,6 +337,25 @@ const toggleLike = async (view) => {
     }
     await loadLikedIds();
   }
+};
+
+const toggleMenu = (feedId) => {
+  activeMenuId.value = activeMenuId.value === feedId ? null : feedId;
+};
+
+const closeMenu = () => {
+  activeMenuId.value = null;
+};
+
+const handleDeleteFeed = async (view) => {
+  const confirmed = window.confirm("确定删除这条观点吗？");
+  if (!confirmed) return;
+  await supabase
+    .from("feeds")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("feed_id", view.feed_id);
+  feeds.value = feeds.value.filter((item) => item.feed_id !== view.feed_id);
+  closeMenu();
 };
 
 const goSettings = () => {
@@ -566,6 +601,54 @@ onMounted(loadProfile);
   justify-content: space-between;
   gap: 8px;
   font-weight: 600;
+}
+
+.more-wrap {
+  position: relative;
+}
+
+.more-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 10px;
+  width: 36px;
+  height: 28px;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.more-menu {
+  position: absolute;
+  right: 0;
+  top: 34px;
+  min-width: 120px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 10px 20px rgba(15, 20, 25, 0.12);
+  padding: 6px;
+  z-index: 3;
+}
+
+.menu-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--ink);
+  border-radius: 8px;
+}
+
+.menu-item:hover {
+  background: var(--panel);
+}
+
+.menu-item.danger {
+  color: #e03b2c;
 }
 
 .header-left {
