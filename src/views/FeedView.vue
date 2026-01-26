@@ -163,6 +163,14 @@
         {{ t("任何观点仅作为记录与回溯，不作为预测价格与投资建议。") }}
       </p>
     </div>
+
+    <FeedEditSheet
+      :open="isEditOpen"
+      :feed="editingFeed"
+      :saving="isEditSaving"
+      @close="closeEdit"
+      @save="saveEdit"
+    />
   </div>
 </template>
 
@@ -170,6 +178,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
+import FeedEditSheet from "../components/FeedEditSheet.vue";
 import { useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { getProfileSupabase } from "../services/profile.js";
@@ -200,6 +209,9 @@ const likedIds = ref(new Set());
 const hiddenIds = ref(new Set());
 const currentUserId = ref("");
 const activeMenuId = ref(null);
+const isEditOpen = ref(false);
+const isEditSaving = ref(false);
+const editingFeed = ref(null);
 
 const filteredViews = computed(() => {
   const list = feeds.value
@@ -335,14 +347,28 @@ const handleEndFeed = async (view) => {
 };
 
 const handleEditFeed = async (view) => {
-  const nextContent = window.prompt(t("编辑观点内容"), view.content || "");
+  editingFeed.value = { ...view };
+  isEditOpen.value = true;
+  closeMenu();
+};
+
+const closeEdit = () => {
+  isEditOpen.value = false;
+  editingFeed.value = null;
+};
+
+const saveEdit = async (content) => {
+  if (!editingFeed.value) return;
+  const nextContent = content.trim();
   if (!nextContent) return;
+  isEditSaving.value = true;
   await supabase
     .from("feeds")
-    .update({ content: nextContent.trim() })
-    .eq("feed_id", view.feed_id);
+    .update({ content: nextContent })
+    .eq("feed_id", editingFeed.value.feed_id);
   await loadFeeds();
-  closeMenu();
+  isEditSaving.value = false;
+  closeEdit();
 };
 
 const toggleLike = async (view) => {

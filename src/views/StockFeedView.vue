@@ -235,12 +235,21 @@
         </div>
       </section>
     </div>
+
+    <FeedEditSheet
+      :open="isEditOpen"
+      :feed="editingFeed"
+      :saving="isEditSaving"
+      @close="closeEdit"
+      @save="saveEdit"
+    />
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import FeedEditSheet from "../components/FeedEditSheet.vue";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import {
   addFeedLikeSupabase,
@@ -282,6 +291,9 @@ const likedIds = ref(new Set());
 const hiddenIds = ref(new Set());
 const activeMenuId = ref(null);
 const hoveredPrice = ref(null);
+const isEditOpen = ref(false);
+const isEditSaving = ref(false);
+const editingFeed = ref(null);
 
 const formatDateKey = (value) => {
   if (!value) return "";
@@ -547,14 +559,28 @@ const handleEndFeed = async (view) => {
 };
 
 const handleEditFeed = async (view) => {
-  const nextContent = window.prompt(t("编辑观点内容"), view.content || "");
+  editingFeed.value = { ...view };
+  isEditOpen.value = true;
+  closeMenu();
+};
+
+const closeEdit = () => {
+  isEditOpen.value = false;
+  editingFeed.value = null;
+};
+
+const saveEdit = async (content) => {
+  if (!editingFeed.value) return;
+  const nextContent = content.trim();
   if (!nextContent) return;
+  isEditSaving.value = true;
   await supabase
     .from("feeds")
-    .update({ content: nextContent.trim() })
-    .eq("feed_id", view.feed_id);
+    .update({ content: nextContent })
+    .eq("feed_id", editingFeed.value.feed_id);
   await loadData();
-  closeMenu();
+  isEditSaving.value = false;
+  closeEdit();
 };
 
 const loadLikedIds = async (list = views.value) => {
