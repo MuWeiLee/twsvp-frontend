@@ -29,6 +29,35 @@
               {{ feed.directionLabel }}
             </span>
           </div>
+          <div class="more-wrap">
+            <button class="more-btn" type="button" @click.stop="toggleMenu">...</button>
+            <div v-if="menuOpen" class="more-menu">
+              <template v-if="feed.isAuthor">
+                <button
+                  v-if="feed.canEdit"
+                  class="menu-item"
+                  type="button"
+                  @click.stop="handleEditFeed"
+                >
+                  {{ t("编辑观点") }}
+                </button>
+                <button
+                  v-if="feed.statusPhase !== 'ended'"
+                  class="menu-item"
+                  type="button"
+                  @click.stop="handleEndFeed"
+                >
+                  {{ t("手动结束") }}
+                </button>
+                <button class="menu-item danger" type="button" @click.stop="handleDeleteFeed">
+                  {{ t("删除观点") }}
+                </button>
+              </template>
+              <button v-else class="menu-item" type="button" @click.stop="handleHideFeed">
+                {{ t("不看这条") }}
+              </button>
+            </div>
+          </div>
         </div>
         <div class="thread-meta">
           <div class="author" @click.stop="goProfile(feed)">
@@ -63,6 +92,7 @@ import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { t } from "../services/i18n.js";
+import { supabase } from "../services/supabase.js";
 import {
   addFeedLikeSupabase,
   fetchFeedByIdSupabase,
@@ -80,6 +110,7 @@ const router = useRouter();
 const feed = ref(null);
 const likedIds = ref(new Set());
 const currentUserId = ref("");
+const menuOpen = ref(false);
 
 const getInitials = (name) => {
   if (!name) return "";
@@ -98,6 +129,15 @@ const loadLikedIds = async (feedId = feed.value?.feed_id) => {
   if (feed.value) {
     feed.value.isLiked = likedIds.value.has(feed.value.feed_id);
   }
+};
+
+const canEditFeed = (view) => {
+  if (!currentUserId.value || view.user_id !== currentUserId.value) {
+    return false;
+  }
+  const createdAt = new Date(view.created_at).getTime();
+  if (Number.isNaN(createdAt)) return false;
+  return Date.now() - createdAt <= 10 * 60 * 1000;
 };
 
 const toggleLike = async () => {
@@ -133,6 +173,66 @@ const toggleLike = async () => {
   }
 };
 
+const toggleMenu = () => {
+  menuOpen.value = !menuOpen.value;
+};
+
+const closeMenu = () => {
+  menuOpen.value = false;
+};
+
+const handleEditFeed = async () => {
+  if (!feed.value) return;
+  const nextContent = window.prompt(t("编辑观点内容"), feed.value.content || "");
+  if (!nextContent) return;
+  await supabase
+    .from("feeds")
+    .update({ content: nextContent.trim() })
+    .eq("feed_id", feed.value.feed_id);
+  await loadFeed();
+  closeMenu();
+};
+
+const handleEndFeed = async () => {
+  if (!feed.value) return;
+  const confirmed = window.confirm(t("确定结束这条观点吗？"));
+  if (!confirmed) return;
+  await supabase
+    .from("feeds")
+    .update({ status: "expired", expires_at: new Date().toISOString() })
+    .eq("feed_id", feed.value.feed_id);
+  await loadFeed();
+  closeMenu();
+};
+
+const handleDeleteFeed = async () => {
+  if (!feed.value) return;
+  const confirmed = window.confirm(t("确定删除这条观点吗？"));
+  if (!confirmed) return;
+  await supabase
+    .from("feeds")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("feed_id", feed.value.feed_id);
+  closeMenu();
+  handleBack();
+};
+
+const handleHideFeed = () => {
+  if (!feed.value) return;
+  try {
+    const raw = localStorage.getItem("twsvp_feed_hidden");
+    const ids = raw ? JSON.parse(raw) : [];
+    const nextIds = new Set(ids);
+    nextIds.add(feed.value.feed_id);
+    localStorage.setItem("twsvp_feed_hidden", JSON.stringify([...nextIds]));
+  } catch (error) {
+    return;
+  } finally {
+    closeMenu();
+    handleBack();
+  }
+};
+
 const loadUser = async () => {
   const supabaseUser = await getCurrentUserSupabase();
   currentUserId.value = supabaseUser?.id || "";
@@ -160,12 +260,15 @@ const loadFeed = async () => {
   feed.value = {
     ...data,
     statusDisplay: getStatusDisplay(data, phase),
+    statusPhase: phase,
     directionLabel: mapDirectionToLabel(data.direction),
     createdLabel: formatFeedTimestamp(data.created_at),
     createdDateLabel: formatFeedTimestamp(data.created_at),
     author: data.users?.nickname || t("用户"),
     authorAvatar: data.users?.avatar_url || "",
     authorInitial: getInitials(data.users?.nickname || t("用户")),
+    isAuthor: currentUserId.value && data.user_id === currentUserId.value,
+    canEdit: canEditFeed(data),
     isLiked: false,
   };
   await loadLikedIds(data.feed_id);
@@ -415,5 +518,50 @@ onMounted(loadFeed);
   text-align: center;
   color: var(--muted);
   font-size: 12px;
+}
+
+.more-btn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.more-wrap {
+  position: relative;
+}
+
+.more-menu {
+  position: absolute;
+  right: 0;
+  top: 18px;
+  min-width: 120px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  display: grid;
+  z-index: 4;
+  overflow: hidden;
+}
+
+.menu-item {
+  border: 0;
+  background: transparent;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.menu-item + .menu-item {
+  border-top: 1px solid var(--border);
+}
+
+.menu-item.danger {
+  color: var(--negative);
 }
 </style>
