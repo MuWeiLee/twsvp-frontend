@@ -20,7 +20,10 @@
 
       <section class="profile">
         <div class="user-card">
-          <div class="profile-avatar">{{ user.initials }}</div>
+          <div class="profile-avatar" :class="{ empty: !user.avatarUrl }">
+            <img v-if="user.avatarUrl" :src="user.avatarUrl" alt="" />
+            <span v-else>{{ user.initials }}</span>
+          </div>
           <div class="user-info">
             <div class="name-row">
               <div class="name">{{ user.name }}</div>
@@ -152,6 +155,7 @@ const user = ref({
   initials: "",
   name: "",
   bio: "",
+  avatarUrl: "",
   tags: [],
   joined: "—",
 });
@@ -228,11 +232,13 @@ const loadProfile = async () => {
   ]);
 
   const nickname = profile?.nickname || t("用户");
+  const avatarUrl = profile?.avatar_url || "";
 
   user.value = {
     initials: getInitials(nickname),
     name: nickname,
     bio: profile?.bio || t("尚未填写简介"),
+    avatarUrl,
     tags,
     joined: formatDate(profile?.created_at),
   };
@@ -422,6 +428,14 @@ onMounted(loadProfile);
   place-items: center;
   font-weight: 700;
   color: var(--ink);
+  overflow: hidden;
+}
+
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .user-info {
