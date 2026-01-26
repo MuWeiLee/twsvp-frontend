@@ -381,6 +381,7 @@ onMounted(loadNotifications);
 .summary {
   color: var(--ink);
   line-height: 1.5;
+  white-space: pre-line;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;

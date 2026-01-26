@@ -85,9 +85,9 @@
           </div>
 
           <div v-if="activeResultTab === 'all'">
-            <div class="result-section">
+            <div v-if="stockResults.length" class="result-section">
               <div class="result-title">{{ t("股票") }}</div>
-              <div v-if="stockResults.length" class="list">
+              <div class="list">
                 <div
                   v-for="item in stockResults"
                   :key="item.stock_id"
@@ -98,12 +98,11 @@
                   <span>{{ item.market }}</span>
                 </div>
               </div>
-              <div v-else class="empty">{{ t("暂无相关股票") }}</div>
             </div>
 
-            <div class="result-section">
+            <div v-if="visibleFeedResults.length" class="result-section">
               <div class="result-title">{{ t("观点") }}</div>
-              <div v-if="visibleFeedResults.length" class="feed">
+              <div class="feed">
                 <div v-for="view in visibleFeedResults" :key="view.feed_id" class="thread">
                   <div class="thread-card" @click="goFeed(view.feed_id)">
                     <div class="thread-header">
@@ -188,12 +187,11 @@
                   </div>
                 </div>
               </div>
-              <div v-else class="empty">{{ t("暂无相关观点") }}</div>
             </div>
 
-            <div class="result-section">
+            <div v-if="userResults.length" class="result-section">
               <div class="result-title">{{ t("用户") }}</div>
-              <div v-if="userResults.length" class="user-list">
+              <div class="user-list">
                 <div
                   v-for="user in userResults"
                   :key="user.user_id"
@@ -204,7 +202,13 @@
                   <span>{{ user.bio || t("暂无简介") }}</span>
                 </div>
               </div>
-              <div v-else class="empty">{{ t("暂无相关用户") }}</div>
+            </div>
+
+            <div
+              v-if="!stockResults.length && !visibleFeedResults.length && !userResults.length"
+              class="empty"
+            >
+              {{ t("暂无相关结果") }}
             </div>
           </div>
 
@@ -1005,8 +1009,9 @@ watch(
 .summary {
   color: var(--ink);
   line-height: 1.5;
+  white-space: pre-line;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

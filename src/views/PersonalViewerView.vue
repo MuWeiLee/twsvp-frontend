@@ -625,8 +625,9 @@ onMounted(loadProfile);
 .summary {
   color: var(--ink);
   line-height: 1.5;
+  white-space: pre-line;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
