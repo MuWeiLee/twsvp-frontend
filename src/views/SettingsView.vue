@@ -228,8 +228,9 @@ onMounted(loadPreferences);
 const setLanguage = async (value) => {
   const next = applyLanguagePreference(value);
   language.value = next;
-  if (!currentUserId.value) return;
-  await upsertProfileSupabase({ userId: currentUserId.value, language: next });
+  if (currentUserId.value) {
+    await upsertProfileSupabase({ userId: currentUserId.value, language: next });
+  }
   window.location.reload();
 };
 </script>

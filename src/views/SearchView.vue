@@ -335,6 +335,14 @@
 
       <BottomTabbar />
     </div>
+
+    <FeedEditSheet
+      :open="isEditOpen"
+      :feed="editingFeed"
+      :saving="isEditSaving"
+      @close="closeEdit"
+      @save="saveEdit"
+    />
   </div>
 </template>
 
@@ -343,6 +351,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
+import FeedEditSheet from "../components/FeedEditSheet.vue";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { searchUsersSupabase } from "../services/profile.js";
 import { searchStocksSupabase } from "../services/stocks.js";
@@ -372,6 +381,9 @@ const likedIds = ref(new Set());
 const hiddenIds = ref(new Set());
 const activeMenuId = ref(null);
 const activeResultTab = ref("all");
+const isEditOpen = ref(false);
+const isEditSaving = ref(false);
+const editingFeed = ref(null);
 let suggestTimer = null;
 const route = useRoute();
 const router = useRouter();
@@ -562,14 +574,28 @@ const handleEndFeed = async (view) => {
 };
 
 const handleEditFeed = async (view) => {
-  const nextContent = window.prompt(t("编辑观点内容"), view.content || "");
+  editingFeed.value = { ...view };
+  isEditOpen.value = true;
+  closeMenu();
+};
+
+const closeEdit = () => {
+  isEditOpen.value = false;
+  editingFeed.value = null;
+};
+
+const saveEdit = async (content) => {
+  if (!editingFeed.value) return;
+  const nextContent = content.trim();
   if (!nextContent) return;
+  isEditSaving.value = true;
   await supabase
     .from("feeds")
-    .update({ content: nextContent.trim() })
-    .eq("feed_id", view.feed_id);
+    .update({ content: nextContent })
+    .eq("feed_id", editingFeed.value.feed_id);
   await refreshFeedResults();
-  closeMenu();
+  isEditSaving.value = false;
+  closeEdit();
 };
 
 const buildSearchQuery = () => {

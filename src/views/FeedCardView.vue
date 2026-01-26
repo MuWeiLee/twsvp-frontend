@@ -382,10 +382,7 @@ onMounted(loadFeed);
 .summary {
   color: var(--ink);
   line-height: 1.5;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  white-space: pre-wrap;
 }
 
 .thread-footer {
