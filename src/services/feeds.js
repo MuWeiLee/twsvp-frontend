@@ -108,7 +108,7 @@ export const getStatusLabel = (phase) => {
 };
 
 export const getStatusDisplay = (view, phase) => {
-  if (phase === "ended") return t("-------------- 已结束");
+  if (phase === "ended") return t("已结束");
   const remaining = getRemainingDays(view);
   return t("观点剩 {days} 天 ｜ 进行中", { days: remaining });
 };
