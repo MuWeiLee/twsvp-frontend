@@ -1,5 +1,9 @@
 # 1 级页面（主导航 / 一级入口）
 
+## 系统定时任务（Cron）
+- `/api/sync-stocks`：每小时 1 次
+- `/api/sync-stock-prices-backfill`：每小时 1 次
+
 ## 1) Login（登录/注册二合一，Google OAuth）
 
 ### 目标
