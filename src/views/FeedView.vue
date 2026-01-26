@@ -39,13 +39,6 @@
             </button>
             <button
               class="tab-btn"
-              :class="{ active: statusFilter === 'pending' }"
-              @click="statusFilter = 'pending'"
-            >
-              {{ t("未开始") }}
-            </button>
-            <button
-              class="tab-btn"
               :class="{ active: statusFilter === 'active' }"
               @click="statusFilter = 'active'"
             >
@@ -733,6 +726,7 @@ watch([statusFilter, sortKey], loadFeeds);
 .status {
   font-size: 12px;
   color: var(--muted);
+  text-align: right;
 }
 
 .like-btn {

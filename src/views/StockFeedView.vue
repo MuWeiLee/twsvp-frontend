@@ -134,13 +134,6 @@
         </button>
         <button
           class="status-btn"
-          :class="{ active: statusFilter === 'pending' }"
-          @click="statusFilter = 'pending'"
-        >
-          {{ t("未开始") }}
-        </button>
-        <button
-          class="status-btn"
           :class="{ active: statusFilter === 'active' }"
           @click="statusFilter = 'active'"
         >
@@ -1096,6 +1089,7 @@ watch(() => route.params.symbol, loadData);
 .status {
   font-size: 12px;
   color: var(--muted);
+  text-align: right;
 }
 
 .summary {

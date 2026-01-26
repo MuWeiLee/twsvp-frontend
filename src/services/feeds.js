@@ -98,21 +98,19 @@ export const getStatusPhase = (view) => {
   if (view.status === "expired") return "ended";
   const range = HORIZON_RANGES[view.horizon] || { min: 5, max: 20 };
   const elapsed = getElapsedDays(view.created_at);
-  if (elapsed < range.min) return "pending";
-  if (elapsed <= range.max) return "active";
-  return "ended";
+  if (elapsed > range.max) return "ended";
+  return "active";
 };
 
 export const getStatusLabel = (phase) => {
   if (phase === "ended") return t("已结束");
-  if (phase === "active") return t("进行中");
-  return t("未开始");
+  return t("进行中");
 };
 
 export const getStatusDisplay = (view, phase) => {
-  if (phase === "ended") return t("已结束");
-  if (phase === "active") return t("进行中");
-  return t("未开始");
+  if (phase === "ended") return t("-------------- 已结束");
+  const remaining = getRemainingDays(view);
+  return t("观点剩 {days} 天 ｜ 进行中", { days: remaining });
 };
 
 const horizonDays = {

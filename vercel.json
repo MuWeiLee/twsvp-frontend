@@ -7,6 +7,10 @@
     {
       "path": "/api/sync-stock-prices-backfill",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/sync-feed-expiry-notifications",
+      "schedule": "0 1 * * *"
     }
   ]
 }

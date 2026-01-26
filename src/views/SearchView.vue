@@ -1141,6 +1141,7 @@ watch(
 .status {
   font-size: 12px;
   color: var(--muted);
+  text-align: right;
 }
 
 .thread-footer {

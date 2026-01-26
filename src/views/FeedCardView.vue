@@ -480,6 +480,7 @@ onMounted(loadFeed);
 .status {
   font-size: 12px;
   color: var(--muted);
+  text-align: right;
 }
 
 .summary {

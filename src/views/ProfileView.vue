@@ -67,13 +67,6 @@
           </button>
           <button
             class="tab-btn"
-            :class="{ active: mode === 'pending' }"
-            @click="mode = 'pending'"
-          >
-            {{ t("未开始") }}
-          </button>
-          <button
-            class="tab-btn"
             :class="{ active: mode === 'active' }"
             @click="mode = 'active'"
           >
@@ -728,6 +721,7 @@ onMounted(loadProfile);
 .status {
   font-size: 12px;
   color: var(--muted);
+  text-align: right;
 }
 
 .summary {
