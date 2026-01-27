@@ -236,7 +236,7 @@
       <div class="share-toast" :class="{ show: showShareToast }" role="status" aria-live="polite">
         {{ t("已复制个股链接") }}
       </div>
-      <nav class="stock-tabbar" aria-label="stock actions">
+      <nav v-if="!isCreateOpen" class="stock-tabbar" aria-label="stock actions">
         <button class="tabbar-btn" type="button" @click="handleTrade">
           <span class="tabbar-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24">
@@ -297,6 +297,16 @@
           <span class="tabbar-label">{{ t("分享") }}</span>
         </button>
       </nav>
+      <div v-if="isCreateOpen" class="create-feed-overlay">
+        <div class="create-feed-frame">
+          <CreateFeedPanel
+            :initial-stock="createFeedStock"
+            :bottom-offset="0"
+            @close="closeCreateFeed"
+            @published="handleCreatePublished"
+          />
+        </div>
+      </div>
     </div>
 
     <FeedEditSheet
@@ -312,6 +322,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import CreateFeedPanel from "../components/CreateFeedPanel.vue";
 import FeedEditSheet from "../components/FeedEditSheet.vue";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import {
@@ -358,6 +369,7 @@ const priceSeries = ref([]);
 const isLoading = ref(false);
 const currentUserId = ref("");
 const likedIds = ref(new Set());
+const isCreateOpen = ref(false);
 const hiddenIds = ref(new Set());
 const activeMenuId = ref(null);
 const hoveredPrice = ref(null);
@@ -374,6 +386,14 @@ const showShareToast = ref(false);
 let shareToastTimer;
 
 const selectedBroker = computed(() => getBrokerById(brokerId.value));
+const createFeedStock = computed(() => {
+  if (!stock.value.symbol) return null;
+  return {
+    stock_id: stock.value.symbol,
+    name: stock.value.name,
+    market: stock.value.market,
+  };
+});
 
 const formatDateKey = (value) => {
   if (!value) return "";
@@ -641,7 +661,18 @@ const goProfile = (view) => {
 };
 
 const goCreateFeed = () => {
-  router.push("/create-feed");
+  isCreateOpen.value = true;
+};
+
+const closeCreateFeed = () => {
+  isCreateOpen.value = false;
+};
+
+const handleCreatePublished = async () => {
+  isCreateOpen.value = false;
+  page.value = 1;
+  hasMore.value = true;
+  await loadData();
 };
 
 const handleDeleteFeed = async (view) => {
@@ -839,6 +870,7 @@ onMounted(loadHiddenIds);
 onMounted(loadData);
 onBeforeUnmount(() => {
   if (shareToastTimer) window.clearTimeout(shareToastTimer);
+  document.body.style.overflow = "";
 });
 watch([filter, statusFilter], () => {
   window.scrollTo({ top: 0, behavior: "auto" });
@@ -847,6 +879,9 @@ watch(() => route.params.symbol, async () => {
   page.value = 1;
   hasMore.value = true;
   await loadData();
+});
+watch(isCreateOpen, (value) => {
+  document.body.style.overflow = value ? "hidden" : "";
 });
 </script>
 
@@ -864,7 +899,7 @@ watch(() => route.params.symbol, async () => {
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  --stock-tabbar-height: 76px;
+  --stock-tabbar-height: 64px;
   padding: 76px 16px calc(var(--stock-tabbar-height) + 20px);
   position: relative;
 }
@@ -1378,6 +1413,23 @@ watch(() => route.params.symbol, async () => {
   opacity: 1;
 }
 
+.create-feed-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 8;
+  display: flex;
+  justify-content: center;
+}
+
+.create-feed-frame {
+  width: 100%;
+  max-width: 600px;
+  min-height: 100vh;
+  padding: 76px 16px 120px;
+  background: var(--bg);
+}
+
 .stock-tabbar {
   position: fixed;
   left: 0;
@@ -1387,7 +1439,7 @@ watch(() => route.params.symbol, async () => {
   max-width: 600px;
   margin: 0 auto;
   height: var(--stock-tabbar-height);
-  padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+  padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
   background: var(--surface);
   border-top: 1px solid var(--border);
   display: grid;
