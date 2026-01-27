@@ -15,7 +15,18 @@
           </svg>
         </button>
         <div class="nav-title">{{ t("观点详情") }}</div>
-        <span class="nav-space" aria-hidden="true"></span>
+        <button class="nav-btn" type="button" :aria-label="t('分享')" @click="handleShare">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M7 17l10-10M10 7h7v7"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
       </nav>
 
       <section class="thread-card" v-if="feed">
@@ -83,12 +94,16 @@
         </div>
       </section>
       <section v-else class="thread-card empty">{{ t("暂无该观点。") }}</section>
+
+      <div class="share-toast" :class="{ show: showShareToast }" role="status" aria-live="polite">
+        {{ t("已复制观点链接") }}
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { t } from "../services/i18n.js";
@@ -111,6 +126,8 @@ const feed = ref(null);
 const likedIds = ref(new Set());
 const currentUserId = ref("");
 const menuOpen = ref(false);
+const showShareToast = ref(false);
+let shareToastTimer = null;
 
 const getInitials = (name) => {
   if (!name) return "";
@@ -233,6 +250,41 @@ const handleHideFeed = () => {
   }
 };
 
+const showShareToastMessage = () => {
+  showShareToast.value = true;
+  if (shareToastTimer) window.clearTimeout(shareToastTimer);
+  shareToastTimer = window.setTimeout(() => {
+    showShareToast.value = false;
+  }, 1800);
+};
+
+const copyText = async (text) => {
+  if (!text) return false;
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (error) {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "true");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return ok;
+  }
+};
+
+const handleShare = async () => {
+  const url = window.location.href;
+  const ok = await copyText(url);
+  if (ok) {
+    showShareToastMessage();
+  }
+};
+
 const loadUser = async () => {
   const supabaseUser = await getCurrentUserSupabase();
   currentUserId.value = supabaseUser?.id || "";
@@ -302,6 +354,9 @@ const handleBack = () => {
 
 onMounted(loadUser);
 onMounted(loadFeed);
+onBeforeUnmount(() => {
+  if (shareToastTimer) window.clearTimeout(shareToastTimer);
+});
 </script>
 
 <style scoped>
@@ -366,10 +421,6 @@ onMounted(loadFeed);
 .nav-btn svg {
   width: 18px;
   height: 18px;
-}
-
-.nav-space {
-  margin-left: auto;
 }
 
 .thread-card {
@@ -564,5 +615,26 @@ onMounted(loadFeed);
 
 .menu-item.danger {
   color: var(--negative);
+}
+
+.share-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 7;
+}
+
+.share-toast.show {
+  opacity: 1;
 }
 </style>
