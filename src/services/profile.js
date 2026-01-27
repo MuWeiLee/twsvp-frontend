@@ -232,16 +232,33 @@ export async function getUserGroupNamesSupabase(userId) {
     .filter((name) => Boolean(name));
 }
 
-export async function searchUsersSupabase(keyword, limit = 20) {
+const normalizePagination = (page = 1, pageSize = 20) => {
+  const safePage = Math.max(1, Number(page) || 1);
+  const safeSize = Math.max(1, Number(pageSize) || 20);
+  const from = (safePage - 1) * safeSize;
+  const to = from + safeSize - 1;
+  return { from, to };
+};
+
+export async function searchUsersSupabase(keyword, limitOrOptions = {}) {
   if (!keyword) {
     return [];
   }
+  let page = 1;
+  let pageSize = 20;
+  if (typeof limitOrOptions === "number") {
+    pageSize = limitOrOptions;
+  } else if (limitOrOptions && typeof limitOrOptions === "object") {
+    page = limitOrOptions.page ?? page;
+    pageSize = limitOrOptions.pageSize ?? pageSize;
+  }
+  const { from, to } = normalizePagination(page, pageSize);
 
   const { data, error } = await supabase
     .from("users")
     .select("user_id, nickname, bio, profile_completed_at, created_at")
     .ilike("nickname", `%${keyword}%`)
-    .limit(limit);
+    .range(from, to);
 
   if (error) {
     console.error("搜索 users 失败:", error);
@@ -255,7 +272,7 @@ export async function searchUsersSupabase(keyword, limit = 20) {
     .from("profiles")
     .select("user_id, nickname, bio, profile_completed_at, created_at")
     .ilike("nickname", `%${keyword}%`)
-    .limit(limit);
+    .range(from, to);
 
   if (legacyError) {
     console.error("搜索 profiles 失败:", legacyError);

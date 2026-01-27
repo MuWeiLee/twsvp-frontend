@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const FINMIND_ENDPOINT =
   process.env.FINMIND_ENDPOINT || "https://api.finmindtrade.com/api/v4/data";
+const MIN_START_DATE = process.env.STOCK_PRICE_MIN_START_DATE || "2026-01-01";
 
 const requiredEnv = (key) => {
   const value = process.env[key];
@@ -28,13 +29,31 @@ const normalizeNumber = (value) => {
   return Number.isNaN(num) ? null : num;
 };
 
-const getDefaultStartDate = () => {
-  if (process.env.STOCK_PRICE_SYNC_START_DATE) {
-    return process.env.STOCK_PRICE_SYNC_START_DATE;
+const getDefaultStartDate = () => process.env.STOCK_PRICE_SYNC_START_DATE || MIN_START_DATE;
+
+const clampStartDate = (value) => {
+  if (!value) return MIN_START_DATE;
+  return value < MIN_START_DATE ? MIN_START_DATE : value;
+};
+
+const normalizeDateRange = (startDate, endDate) => {
+  const safeStart = clampStartDate(startDate);
+  const safeEnd = endDate && endDate < safeStart ? safeStart : endDate;
+  return { startDate: safeStart, endDate: safeEnd || safeStart };
+};
+
+const fetchLatestTradeDate = async (supabase) => {
+  const { data, error } = await supabase
+    .from("stock_prices")
+    .select("trade_date")
+    .order("trade_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.error("读取 stock_prices 最新日期失败:", error);
+    return null;
   }
-  const date = new Date();
-  date.setMonth(date.getMonth() - 6);
-  return formatDate(date);
+  return data?.trade_date || null;
 };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -193,10 +212,13 @@ export default async function handler(req, res) {
 
   const params = parseParams(req);
   const source = `${params.source || "finmind"}`.toLowerCase();
-  const startDate = params.start_date || params.startDate || getDefaultStartDate();
-  const endDate = params.end_date || params.endDate || formatDate(new Date());
+  const explicitStartDate = params.start_date || params.startDate || null;
+  const rawEndDate = params.end_date || params.endDate || formatDate(new Date());
   const chunkSize = Number(params.chunk_size || params.chunkSize || 500);
   const sleepMs = Number(params.sleep_ms || params.sleepMs || 250);
+  const incremental =
+    `${params.incremental || params.incremental_sync || process.env.STOCK_PRICE_SYNC_INCREMENTAL || "1"}` ===
+    "1";
   const dryRun = `${params.dry_run || params.dryRun || ""}` === "1";
   const purge = `${params.purge || params.purge_prices || ""}` === "1";
   const purgeAll = `${params.purge_all || params.purgeAll || ""}` === "1";
@@ -224,6 +246,8 @@ export default async function handler(req, res) {
     maxStocks,
     purge,
     purgeAll,
+    incremental,
+    minStartDate: MIN_START_DATE,
   };
 
   let supabase = null;
@@ -238,6 +262,15 @@ export default async function handler(req, res) {
     supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
     });
+
+    let resolvedStartDate = explicitStartDate;
+    if (!resolvedStartDate && incremental) {
+      resolvedStartDate = await fetchLatestTradeDate(supabase);
+    }
+    const { startDate, endDate } = normalizeDateRange(
+      resolvedStartDate || getDefaultStartDate(),
+      rawEndDate
+    );
 
     logId = dryRun
       ? null

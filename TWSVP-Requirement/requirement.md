@@ -2,8 +2,8 @@
 
 ## 系统定时任务（Cron）
 - `/api/sync-stocks`：每小时 1 次
-- `/api/sync-stock-prices-backfill`：每小时 1 次（固定使用 FinMind 数据源）
-- `/api/sync-stock-prices`：固定使用 FinMind 数据源，可用 `start_date` 或 `STOCK_PRICE_SYNC_START_DATE` 限定抓取起点（例如 `2026-01-01`），需要清洗误数据可传 `purge=1`，全量清空可传 `purge_all=1&purge_confirm=DELETE_ALL`
+- `/api/sync-stock-prices-backfill`：每小时 1 次（固定使用 FinMind 数据源，历史起点固定 `2026-01-01`，覆盖上市/上柜全量）
+- `/api/sync-stock-prices`：固定使用 FinMind 数据源，默认增量同步最新交易日数据（起点不早于 `2026-01-01`）；可用 `start_date` 或 `STOCK_PRICE_SYNC_START_DATE` 指定抓取起点，需要清洗误数据可传 `purge=1`，全量清空可传 `purge_all=1&purge_confirm=DELETE_ALL`
 
 ## 1) Login（登录/注册二合一，Google OAuth）
 
@@ -52,7 +52,7 @@
 
 ### 状态与规则
 - 未登录不可用（强制 Login）
-- 列表分页 / 下拉刷新
+- 列表分页（每页 20 条）/ 下拉刷新
 - 更多：
   - 发布人：删除/编辑/结束自己的观点（其他用户不可操作）
   - 非发布人：隐藏观点
@@ -86,7 +86,7 @@
 
 ### 状态与规则
 - 输入联想（可选）
-- 结果分页
+- 结果分页（每页 20 条）
 - 结果排序（默认相关性）
 
 ### 关键字段
@@ -115,6 +115,7 @@
 ### 状态与规则
 - 已读/未读
 - 去重（同一观点短时间多次点赞可聚合：可后期做）
+- 顶部 Tab 向下滚动收起、向上滚动显示
 
 ### 关键字段
 - noti_id, type(like/bookmark/share/expire_soon/expired)

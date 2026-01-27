@@ -27,7 +27,7 @@
         </router-link>
       </nav>
 
-      <header class="slide-in">
+      <header class="tabs-wrap" :class="{ hidden: !showTabs }">
         <div class="tabs tab-row">
           <div class="tab-group">
             <button
@@ -148,6 +148,11 @@
         <div v-if="!isLoading && !filteredViews.length" class="empty">
           {{ t("暂无观点，先发布一条吧。") }}
         </div>
+        <div v-if="hasMore" class="load-more">
+          <button class="btn-secondary" type="button" :disabled="isLoadingMore" @click="loadMore">
+            {{ isLoadingMore ? t("加载中...") : t("加载更多") }}
+          </button>
+        </div>
       </section>
 
       <BottomTabbar />
@@ -168,7 +173,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
 import FeedEditSheet from "../components/FeedEditSheet.vue";
@@ -205,6 +210,12 @@ const activeMenuId = ref(null);
 const isEditOpen = ref(false);
 const isEditSaving = ref(false);
 const editingFeed = ref(null);
+const showTabs = ref(true);
+const lastScrollY = ref(0);
+const page = ref(1);
+const hasMore = ref(true);
+const isLoadingMore = ref(false);
+const PAGE_SIZE = 20;
 
 const filteredViews = computed(() => {
   const list = feeds.value
@@ -273,20 +284,40 @@ const loadLikedIds = async (list = feeds.value) => {
   likedIds.value = await fetchFeedLikesSupabase(currentUserId.value, feedIds);
 };
 
-const loadFeeds = async () => {
-  isLoading.value = true;
+const loadFeeds = async ({ append = false } = {}) => {
+  if (append) {
+    isLoadingMore.value = true;
+  } else {
+    isLoading.value = true;
+  }
   const data = await fetchFeedsSupabase({
     status: "all",
     sort: sortKey.value,
+    page: page.value,
+    pageSize: PAGE_SIZE,
   });
-  feeds.value = data;
-  await loadLikedIds(data);
-  isLoading.value = false;
+  const nextFeeds = append ? [...feeds.value, ...data] : data;
+  feeds.value = nextFeeds;
+  hasMore.value = data.length === PAGE_SIZE;
+  await loadLikedIds(nextFeeds);
+  if (append) {
+    isLoadingMore.value = false;
+  } else {
+    isLoading.value = false;
+  }
 };
 
 const refreshFeeds = async () => {
+  page.value = 1;
+  hasMore.value = true;
   await loadFeeds();
   window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+const loadMore = async () => {
+  if (!hasMore.value || isLoadingMore.value) return;
+  page.value += 1;
+  await loadFeeds({ append: true });
 };
 
 const loadHiddenIds = () => {
@@ -429,10 +460,30 @@ const goProfile = (view) => {
   }
 };
 
+const handleScroll = () => {
+  const current = window.scrollY || 0;
+  const delta = current - lastScrollY.value;
+  if (Math.abs(delta) < 6) return;
+  showTabs.value = delta <= 0;
+  lastScrollY.value = current;
+};
+
 onMounted(loadUser);
 onMounted(loadFeeds);
 onMounted(loadHiddenIds);
-watch([statusFilter, sortKey], loadFeeds);
+onMounted(() => {
+  lastScrollY.value = window.scrollY || 0;
+  window.addEventListener("scroll", handleScroll, { passive: true });
+});
+onUnmounted(() => {
+  window.removeEventListener("scroll", handleScroll);
+});
+watch([statusFilter, sortKey], async () => {
+  page.value = 1;
+  hasMore.value = true;
+  await loadFeeds();
+  window.scrollTo({ top: 0, behavior: "auto" });
+});
 </script>
 
 <style scoped>
@@ -449,7 +500,7 @@ watch([statusFilter, sortKey], loadFeeds);
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: 76px 16px 140px;
+  padding: 124px 16px 140px;
   position: relative;
 }
 
@@ -519,6 +570,25 @@ watch([statusFilter, sortKey], loadFeeds);
   display: block;
 }
 
+.tabs-wrap {
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  z-index: 4;
+  padding: 0 16px;
+  transition: transform 0.2s ease;
+}
+
+.tabs-wrap.hidden {
+  transform: translateY(-120%);
+}
+
 .tabs {
   display: flex;
   gap: 16px;
@@ -556,6 +626,27 @@ watch([statusFilter, sortKey], loadFeeds);
 .tab-btn.active {
   color: var(--ink);
   border-color: var(--ink);
+}
+
+.load-more {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 24px;
+}
+
+.btn-secondary {
+  border-radius: 999px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .feed {

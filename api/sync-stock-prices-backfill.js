@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const FINMIND_ENDPOINT =
   process.env.FINMIND_ENDPOINT || "https://api.finmindtrade.com/api/v4/data";
+const MIN_START_DATE = process.env.STOCK_PRICE_MIN_START_DATE || "2026-01-01";
 
 const requiredEnv = (key) => {
   const value = process.env[key];
@@ -18,6 +19,11 @@ const formatDate = (date) => {
   const month = pad2(date.getMonth() + 1);
   const day = pad2(date.getDate());
   return `${year}-${month}-${day}`;
+};
+
+const clampStartDate = (value) => {
+  if (!value) return MIN_START_DATE;
+  return value < MIN_START_DATE ? MIN_START_DATE : value;
 };
 
 const addDays = (dateString, days) => {
@@ -230,7 +236,8 @@ export default async function handler(req, res) {
   const params = parseParams(req);
   const source = `${params.source || process.env.BACKFILL_SOURCE || "finmind"}`.toLowerCase();
   let dataset = `${params.dataset || process.env.BACKFILL_DATASET || "TaiwanStockPrice"}`.trim();
-  const startDateParam = params.start_date || process.env.BACKFILL_START_DATE;
+  const startDateParam =
+    params.start_date || process.env.BACKFILL_START_DATE || MIN_START_DATE;
   const endDateParam =
     params.end_date || process.env.BACKFILL_END_DATE || formatDate(new Date());
   const maxStocks = Number(
@@ -264,16 +271,13 @@ export default async function handler(req, res) {
 
     let state = reset ? null : await loadState(supabase, source, dataset);
     if (!state) {
-      if (!startDateParam) {
-        res.status(400).json({ error: "Missing BACKFILL_START_DATE" });
-        return;
-      }
+      const initialStartDate = clampStartDate(startDateParam);
       const initialState = {
         source,
         dataset,
-        start_date: startDateParam,
+        start_date: initialStartDate,
         end_date: endDateParam,
-        cursor_date: startDateParam,
+        cursor_date: initialStartDate,
         stock_offset: 0,
         max_stocks: maxStocks,
         status: "running",
@@ -291,6 +295,9 @@ export default async function handler(req, res) {
 
     const today = formatDate(new Date());
     let endDate = state.end_date || endDateParam;
+    if (endDate < MIN_START_DATE) {
+      endDate = MIN_START_DATE;
+    }
     if (autoExtend && today > endDate) {
       endDate = today;
       if (!dryRun) {
@@ -301,7 +308,7 @@ export default async function handler(req, res) {
       }
     }
 
-    let currentDate = state.cursor_date;
+    let currentDate = clampStartDate(state.cursor_date || startDateParam);
     let stockOffset = state.stock_offset || 0;
 
     if (currentDate > endDate) {

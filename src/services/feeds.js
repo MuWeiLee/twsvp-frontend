@@ -132,6 +132,14 @@ const buildSummary = (content) => {
   return trimmed.split("\n")[0].slice(0, 120);
 };
 
+const normalizePagination = (page = 1, pageSize = 20) => {
+  const safePage = Math.max(1, Number(page) || 1);
+  const safeSize = Math.max(1, Number(pageSize) || 20);
+  const from = (safePage - 1) * safeSize;
+  const to = from + safeSize - 1;
+  return { from, to, page: safePage, pageSize: safeSize };
+};
+
 export async function createFeedSupabase({
   userId,
   targetSymbol,
@@ -171,7 +179,13 @@ export async function createFeedSupabase({
   return data;
 }
 
-export async function fetchFeedsSupabase({ status = "all", sort = "time", userId } = {}) {
+export async function fetchFeedsSupabase({
+  status = "all",
+  sort = "time",
+  userId,
+  page = 1,
+  pageSize = 20,
+} = {}) {
   let query = supabase
     .from("feeds")
     .select(
@@ -195,7 +209,8 @@ export async function fetchFeedsSupabase({ status = "all", sort = "time", userId
     query = query.order("created_at", { ascending: false });
   }
 
-  const { data, error } = await query;
+  const { from, to } = normalizePagination(page, pageSize);
+  const { data, error } = await query.range(from, to);
   if (error) {
     console.error("读取 feeds 失败:", error);
     return [];
@@ -204,7 +219,10 @@ export async function fetchFeedsSupabase({ status = "all", sort = "time", userId
   return data || [];
 }
 
-export async function fetchFeedsBySymbolSupabase(symbol, { sort = "time" } = {}) {
+export async function fetchFeedsBySymbolSupabase(
+  symbol,
+  { sort = "time", page = 1, pageSize = 20 } = {}
+) {
   const targetSymbol = String(symbol || "").trim();
   if (!targetSymbol) return [];
   let query = supabase
@@ -223,7 +241,8 @@ export async function fetchFeedsBySymbolSupabase(symbol, { sort = "time" } = {})
     query = query.order("created_at", { ascending: false });
   }
 
-  const { data, error } = await query;
+  const { from, to } = normalizePagination(page, pageSize);
+  const { data, error } = await query.range(from, to);
   if (error) {
     console.error("读取 feeds 失败:", error);
     return [];
@@ -319,9 +338,18 @@ export async function removeFeedLikeSupabase(userId, feedId) {
   return true;
 }
 
-export async function searchFeedsSupabase(query, limit = 15) {
+export async function searchFeedsSupabase(query, limitOrOptions = {}) {
   const q = query.trim();
   if (!q) return [];
+  let page = 1;
+  let pageSize = 20;
+  if (typeof limitOrOptions === "number") {
+    pageSize = limitOrOptions;
+  } else if (limitOrOptions && typeof limitOrOptions === "object") {
+    page = limitOrOptions.page ?? page;
+    pageSize = limitOrOptions.pageSize ?? pageSize;
+  }
+  const { from, to } = normalizePagination(page, pageSize);
   const { data, error } = await supabase
     .from("feeds")
     .select(
@@ -332,7 +360,7 @@ export async function searchFeedsSupabase(query, limit = 15) {
       `content.ilike.%${q}%,summary.ilike.%${q}%,target_name.ilike.%${q}%,target_symbol.ilike.%${q}%`
     )
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .range(from, to);
 
   if (error) {
     return [];

@@ -98,6 +98,16 @@
                   <span>{{ item.market }}</span>
                 </div>
               </div>
+              <div v-if="hasMoreStocks" class="load-more">
+                <button
+                  class="btn-secondary"
+                  type="button"
+                  :disabled="isLoadingMoreStocks"
+                  @click="loadMoreStocks"
+                >
+                  {{ isLoadingMoreStocks ? t("加载中...") : t("加载更多") }}
+                </button>
+              </div>
             </div>
 
             <div v-if="visibleFeedResults.length" class="result-section">
@@ -187,6 +197,16 @@
                   </div>
                 </div>
               </div>
+              <div v-if="hasMoreFeeds" class="load-more">
+                <button
+                  class="btn-secondary"
+                  type="button"
+                  :disabled="isLoadingMoreFeeds"
+                  @click="loadMoreFeeds"
+                >
+                  {{ isLoadingMoreFeeds ? t("加载中...") : t("加载更多") }}
+                </button>
+              </div>
             </div>
 
             <div v-if="userResults.length" class="result-section">
@@ -201,6 +221,16 @@
                   <strong>{{ user.nickname || t("用户") }}</strong>
                   <span>{{ user.bio || t("暂无简介") }}</span>
                 </div>
+              </div>
+              <div v-if="hasMoreUsers" class="load-more">
+                <button
+                  class="btn-secondary"
+                  type="button"
+                  :disabled="isLoadingMoreUsers"
+                  @click="loadMoreUsers"
+                >
+                  {{ isLoadingMoreUsers ? t("加载中...") : t("加载更多") }}
+                </button>
               </div>
             </div>
 
@@ -223,6 +253,16 @@
                 <strong>{{ item.stock_id }} {{ item.name }}</strong>
                 <span>{{ item.market }}</span>
               </div>
+            </div>
+            <div v-if="hasMoreStocks" class="load-more">
+              <button
+                class="btn-secondary"
+                type="button"
+                :disabled="isLoadingMoreStocks"
+                @click="loadMoreStocks"
+              >
+                {{ isLoadingMoreStocks ? t("加载中...") : t("加载更多") }}
+              </button>
             </div>
             <div v-else class="empty">{{ t("暂无相关股票") }}</div>
           </div>
@@ -313,6 +353,16 @@
                 </div>
               </div>
             </div>
+            <div v-if="hasMoreFeeds" class="load-more">
+              <button
+                class="btn-secondary"
+                type="button"
+                :disabled="isLoadingMoreFeeds"
+                @click="loadMoreFeeds"
+              >
+                {{ isLoadingMoreFeeds ? t("加载中...") : t("加载更多") }}
+              </button>
+            </div>
             <div v-else class="empty">{{ t("暂无相关观点") }}</div>
           </div>
 
@@ -327,6 +377,16 @@
                 <strong>{{ user.nickname || t("用户") }}</strong>
                 <span>{{ user.bio || t("暂无简介") }}</span>
               </div>
+            </div>
+            <div v-if="hasMoreUsers" class="load-more">
+              <button
+                class="btn-secondary"
+                type="button"
+                :disabled="isLoadingMoreUsers"
+                @click="loadMoreUsers"
+              >
+                {{ isLoadingMoreUsers ? t("加载中...") : t("加载更多") }}
+              </button>
             </div>
             <div v-else class="empty">{{ t("暂无相关用户") }}</div>
           </div>
@@ -388,6 +448,16 @@ const activeResultTab = ref("all");
 const isEditOpen = ref(false);
 const isEditSaving = ref(false);
 const editingFeed = ref(null);
+const stockPage = ref(1);
+const feedPage = ref(1);
+const userPage = ref(1);
+const hasMoreStocks = ref(true);
+const hasMoreFeeds = ref(true);
+const hasMoreUsers = ref(true);
+const isLoadingMoreStocks = ref(false);
+const isLoadingMoreFeeds = ref(false);
+const isLoadingMoreUsers = ref(false);
+const PAGE_SIZE = 20;
 let suggestTimer = null;
 const route = useRoute();
 const router = useRouter();
@@ -399,6 +469,12 @@ const handleInput = () => {
     stockResults.value = [];
     feedResults.value = [];
     userResults.value = [];
+    stockPage.value = 1;
+    feedPage.value = 1;
+    userPage.value = 1;
+    hasMoreStocks.value = true;
+    hasMoreFeeds.value = true;
+    hasMoreUsers.value = true;
     suggestedStocks.value = [];
     isSuggesting.value = false;
     clearTimeout(suggestTimer);
@@ -439,6 +515,9 @@ const handleSearch = async () => {
   suggestedStocks.value = [];
   isSuggesting.value = false;
   submittedQuery.value = q;
+  stockPage.value = 1;
+  feedPage.value = 1;
+  userPage.value = 1;
   await runSearch(q);
   router.replace({ path: "/search", query: { q, tab: activeResultTab.value } });
 };
@@ -449,6 +528,12 @@ const clearSearch = () => {
   stockResults.value = [];
   feedResults.value = [];
   userResults.value = [];
+  stockPage.value = 1;
+  feedPage.value = 1;
+  userPage.value = 1;
+  hasMoreStocks.value = true;
+  hasMoreFeeds.value = true;
+  hasMoreUsers.value = true;
   suggestedStocks.value = [];
   isSuggesting.value = false;
   clearTimeout(suggestTimer);
@@ -457,14 +542,8 @@ const clearSearch = () => {
   router.replace({ path: "/search" });
 };
 
-const runSearch = async (q, preferredTab = activeResultTab.value) => {
-  const [stocks, feeds, users] = await Promise.all([
-    searchStocksSupabase(q, 8),
-    searchFeedsSupabase(q, 15),
-    searchUsersSupabase(q, 12),
-  ]);
-  stockResults.value = stocks;
-  feedResults.value = feeds.map((view) => {
+const mapFeedResults = (feeds) =>
+  feeds.map((view) => {
     const phase = getStatusPhase(view);
     const author = view.users?.nickname || t("用户");
     return {
@@ -480,7 +559,19 @@ const runSearch = async (q, preferredTab = activeResultTab.value) => {
       isLiked: false,
     };
   });
+
+const runSearch = async (q, preferredTab = activeResultTab.value) => {
+  const [stocks, feeds, users] = await Promise.all([
+    searchStocksSupabase(q, { page: stockPage.value, pageSize: PAGE_SIZE }),
+    searchFeedsSupabase(q, { page: feedPage.value, pageSize: PAGE_SIZE }),
+    searchUsersSupabase(q, { page: userPage.value, pageSize: PAGE_SIZE }),
+  ]);
+  stockResults.value = stocks;
+  feedResults.value = mapFeedResults(feeds);
   userResults.value = users;
+  hasMoreStocks.value = stocks.length === PAGE_SIZE;
+  hasMoreFeeds.value = feeds.length === PAGE_SIZE;
+  hasMoreUsers.value = users.length === PAGE_SIZE;
   activeResultTab.value = getAvailableTab(preferredTab);
   activeMenuId.value = null;
   await loadFeedLikes();
@@ -552,6 +643,9 @@ const handleHideFeed = (view) => {
 const refreshFeedResults = async () => {
   const q = submittedQuery.value || query.value.trim();
   if (!q) return;
+  stockPage.value = 1;
+  feedPage.value = 1;
+  userPage.value = 1;
   await runSearch(q, activeResultTab.value);
 };
 
@@ -619,6 +713,43 @@ const loadFeedLikes = async (list = feedResults.value) => {
     ...view,
     isLiked: likedIds.value.has(view.feed_id),
   }));
+};
+
+const loadMoreStocks = async () => {
+  if (!hasMoreStocks.value || isLoadingMoreStocks.value) return;
+  const q = submittedQuery.value || query.value.trim();
+  if (!q) return;
+  isLoadingMoreStocks.value = true;
+  stockPage.value += 1;
+  const stocks = await searchStocksSupabase(q, { page: stockPage.value, pageSize: PAGE_SIZE });
+  stockResults.value = [...stockResults.value, ...stocks];
+  hasMoreStocks.value = stocks.length === PAGE_SIZE;
+  isLoadingMoreStocks.value = false;
+};
+
+const loadMoreFeeds = async () => {
+  if (!hasMoreFeeds.value || isLoadingMoreFeeds.value) return;
+  const q = submittedQuery.value || query.value.trim();
+  if (!q) return;
+  isLoadingMoreFeeds.value = true;
+  feedPage.value += 1;
+  const feeds = await searchFeedsSupabase(q, { page: feedPage.value, pageSize: PAGE_SIZE });
+  feedResults.value = [...feedResults.value, ...mapFeedResults(feeds)];
+  hasMoreFeeds.value = feeds.length === PAGE_SIZE;
+  await loadFeedLikes();
+  isLoadingMoreFeeds.value = false;
+};
+
+const loadMoreUsers = async () => {
+  if (!hasMoreUsers.value || isLoadingMoreUsers.value) return;
+  const q = submittedQuery.value || query.value.trim();
+  if (!q) return;
+  isLoadingMoreUsers.value = true;
+  userPage.value += 1;
+  const users = await searchUsersSupabase(q, { page: userPage.value, pageSize: PAGE_SIZE });
+  userResults.value = [...userResults.value, ...users];
+  hasMoreUsers.value = users.length === PAGE_SIZE;
+  isLoadingMoreUsers.value = false;
 };
 
 const goFeed = (feedId) => {
@@ -692,6 +823,9 @@ onMounted(async () => {
   if (!q) return;
   query.value = q;
   submittedQuery.value = q;
+  stockPage.value = 1;
+  feedPage.value = 1;
+  userPage.value = 1;
   await runSearch(q, route.query.tab);
 });
 watch(
@@ -705,9 +839,16 @@ watch(
     }
     query.value = q;
     submittedQuery.value = q;
+    stockPage.value = 1;
+    feedPage.value = 1;
+    userPage.value = 1;
     await runSearch(q, nextTab);
   }
 );
+
+watch(activeResultTab, () => {
+  window.scrollTo({ top: 0, behavior: "auto" });
+});
 </script>
 
 <style scoped>
@@ -961,6 +1102,27 @@ watch(
   padding: 12px;
   font-size: 12px;
   color: var(--muted);
+}
+
+.load-more {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 20px;
+}
+
+.btn-secondary {
+  border-radius: 999px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .feed {

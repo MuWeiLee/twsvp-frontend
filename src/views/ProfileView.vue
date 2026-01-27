@@ -143,6 +143,11 @@
           </div>
         </div>
         <div v-if="!filteredViews.length" class="empty">{{ t("暂无观点") }}</div>
+        <div v-if="hasMore" class="load-more">
+          <button class="btn-secondary" type="button" :disabled="isLoadingMore" @click="loadMore">
+            {{ isLoadingMore ? t("加载中...") : t("加载更多") }}
+          </button>
+        </div>
 
         <p class="legal">
           {{ t("任何观点仅作为记录与回溯，不作为预测价格与投资建议。") }}
@@ -155,7 +160,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
 import { useRouter } from "vue-router";
@@ -190,6 +195,10 @@ const feeds = ref([]);
 const likedIds = ref(new Set());
 const currentUserId = ref("");
 const activeMenuId = ref(null);
+const page = ref(1);
+const hasMore = ref(true);
+const isLoadingMore = ref(false);
+const PAGE_SIZE = 20;
 
 const formatDate = (value) => {
   if (!value) return "—";
@@ -242,6 +251,19 @@ const filteredViews = computed(() => {
   return list.filter((view) => view.statusPhase === mode.value);
 });
 
+const loadFeeds = async ({ append = false } = {}) => {
+  if (!currentUserId.value) return;
+  const data = await fetchFeedsSupabase({
+    userId: currentUserId.value,
+    page: page.value,
+    pageSize: PAGE_SIZE,
+  });
+  const nextFeeds = append ? [...feeds.value, ...data] : data;
+  feeds.value = nextFeeds;
+  hasMore.value = data.length === PAGE_SIZE;
+  await loadLikedIds(nextFeeds);
+};
+
 const loadProfile = async () => {
   const supabaseUser = await getCurrentUserSupabase();
   if (!supabaseUser) {
@@ -267,10 +289,17 @@ const loadProfile = async () => {
     avatarUrl,
     joined: formatDate(profile?.created_at || supabaseUser.created_at),
   };
+  page.value = 1;
+  hasMore.value = true;
+  await loadFeeds();
+};
 
-  const data = await fetchFeedsSupabase({ userId: supabaseUser.id });
-  feeds.value = data;
-  await loadLikedIds(data);
+const loadMore = async () => {
+  if (!hasMore.value || isLoadingMore.value) return;
+  isLoadingMore.value = true;
+  page.value += 1;
+  await loadFeeds({ append: true });
+  isLoadingMore.value = false;
 };
 
 const goFeed = (feedId) => {
@@ -367,6 +396,9 @@ const goEditProfile = () => {
 };
 
 onMounted(loadProfile);
+watch(mode, () => {
+  window.scrollTo({ top: 0, behavior: "auto" });
+});
 </script>
 
 <style scoped>
@@ -794,6 +826,27 @@ onMounted(loadProfile);
   text-align: center;
   font-size: 12px;
   color: var(--muted);
+}
+
+.load-more {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 24px;
+}
+
+.btn-secondary {
+  border-radius: 999px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 @media (max-width: 480px) {

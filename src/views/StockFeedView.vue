@@ -226,6 +226,11 @@
         <div v-if="!isLoading && !filteredViews.length" class="empty">
           {{ t("暂无观点") }}
         </div>
+        <div v-if="hasMore" class="load-more">
+          <button class="btn-secondary" type="button" :disabled="isLoadingMore" @click="loadMore">
+            {{ isLoadingMore ? t("加载中...") : t("加载更多") }}
+          </button>
+        </div>
       </section>
     </div>
 
@@ -287,6 +292,11 @@ const hoveredPrice = ref(null);
 const isEditOpen = ref(false);
 const isEditSaving = ref(false);
 const editingFeed = ref(null);
+const page = ref(1);
+const hasMore = ref(true);
+const isLoadingMore = ref(false);
+const PAGE_SIZE = 20;
+const activeSymbol = ref("");
 
 const formatDateKey = (value) => {
   if (!value) return "";
@@ -466,23 +476,40 @@ const filteredViews = computed(() => {
   return list;
 });
 
+const loadFeeds = async ({ append = false } = {}) => {
+  if (!activeSymbol.value) return;
+  const feeds = await fetchFeedsBySymbolSupabase(activeSymbol.value, {
+    page: page.value,
+    pageSize: PAGE_SIZE,
+  });
+  const nextViews = buildViews(feeds);
+  if (append) {
+    feedRows.value = [...feedRows.value, ...feeds];
+    views.value = [...views.value, ...nextViews];
+  } else {
+    feedRows.value = feeds;
+    views.value = nextViews;
+  }
+  hasMore.value = feeds.length === PAGE_SIZE;
+  await loadLikedIds(views.value);
+};
+
 const loadData = async () => {
   const symbolParam = route.params.symbol;
   if (!symbolParam || Array.isArray(symbolParam)) {
     return;
   }
   const symbol = String(symbolParam);
+  activeSymbol.value = symbol;
   isLoading.value = true;
-  const [stockInfo, feeds, prices] = await Promise.all([
+  const [stockInfo, prices] = await Promise.all([
     fetchStockByIdSupabase(symbol),
-    fetchFeedsBySymbolSupabase(symbol),
     fetchStockPricesSupabase(symbol, 60),
   ]);
-  feedRows.value = feeds;
   priceSeries.value = prices;
   hoveredPrice.value = null;
-  const nextViews = buildViews(feeds);
-  const counts = nextViews.reduce(
+  await loadFeeds();
+  const counts = views.value.reduce(
     (acc, view) => {
       if (view.direction === "long") acc.bullish += 1;
       else if (view.direction === "short") acc.bearish += 1;
@@ -497,10 +524,16 @@ const loadData = async () => {
     market: stockInfo?.market || "",
     ...counts,
   };
-  views.value = nextViews;
-  await loadLikedIds(nextViews);
   isLoading.value = false;
   activeMenuId.value = null;
+};
+
+const loadMore = async () => {
+  if (!hasMore.value || isLoadingMore.value) return;
+  isLoadingMore.value = true;
+  page.value += 1;
+  await loadFeeds({ append: true });
+  isLoadingMore.value = false;
 };
 
 const loadUser = async () => {
@@ -647,7 +680,14 @@ const handleBack = () => {
 onMounted(loadUser);
 onMounted(loadHiddenIds);
 onMounted(loadData);
-watch(() => route.params.symbol, loadData);
+watch([filter, statusFilter], () => {
+  window.scrollTo({ top: 0, behavior: "auto" });
+});
+watch(() => route.params.symbol, async () => {
+  page.value = 1;
+  hasMore.value = true;
+  await loadData();
+});
 </script>
 
 <style scoped>
@@ -1133,5 +1173,26 @@ watch(() => route.params.symbol, loadData);
   padding: 12px;
   font-size: 12px;
   color: var(--muted);
+}
+
+.load-more {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 24px;
+}
+
+.btn-secondary {
+  border-radius: 999px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>

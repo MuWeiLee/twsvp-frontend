@@ -30,7 +30,9 @@
             class="content-input"
             :placeholder="t('用一句话说明你的核心判断\n你的判断依据\n关于观点的风险提示...')"
           ></textarea>
-          <div class="helper">{{ t("每个观点最少 20 字") }}</div>
+          <div class="helper" :class="{ error: showContentError }">
+            {{ t("每个观点至少20字") }}
+          </div>
         </div>
 
         <div class="section">
@@ -42,7 +44,9 @@
               type="text"
               :placeholder="t('搜索并选择标的')"
             />
-            <div class="helper">{{ t("标的必须从数据库选择") }}</div>
+            <div class="helper" :class="{ error: showTargetError }">
+              {{ t("请输入正确的公司名称/股票代码") }}
+            </div>
             <div v-if="isStockLoading && !stockResults.length" class="search-tip">
               {{ t("正在搜索...") }}
             </div>
@@ -98,7 +102,7 @@
       <div class="bottom-actions">
         <button
           class="btn-primary btn-fixed"
-          :disabled="!isValid || isSubmitting"
+          :disabled="isSubmitting"
           @click="handlePublish"
         >
           {{ t("发布观点") }}
@@ -135,6 +139,7 @@ const isSubmitting = ref(false);
 const stockResults = ref([]);
 const isStockLoading = ref(false);
 const selectedStock = ref(null);
+const showErrors = ref(false);
 const DRAFT_KEY = "twsvp_feed_draft";
 let stockSearchTimer = null;
 
@@ -142,6 +147,13 @@ const isValid = computed(() => {
   const length = content.value.trim().length;
   return length >= 20 && length <= 1000 && !!selectedStock.value;
 });
+
+const showContentError = computed(() => {
+  const length = content.value.trim().length;
+  return showErrors.value && length < 20;
+});
+
+const showTargetError = computed(() => showErrors.value && !selectedStock.value);
 
 const overLimitCount = computed(() => {
   const length = content.value.trim().length;
@@ -204,6 +216,7 @@ const selectStock = (stock) => {
 };
 
 const handlePublish = async () => {
+  showErrors.value = true;
   if (!isValid.value || isSubmitting.value) {
     return;
   }
@@ -219,7 +232,6 @@ const handlePublish = async () => {
   }
 
   if (!selectedStock.value) {
-    alert(t("请选择列表中的标的"));
     return;
   }
 
@@ -473,6 +485,10 @@ onMounted(loadDraft);
   font-size: 12px;
   color: var(--muted);
   margin-top: 6px;
+}
+
+.helper.error {
+  color: var(--negative);
 }
 
 .bottom-actions {
