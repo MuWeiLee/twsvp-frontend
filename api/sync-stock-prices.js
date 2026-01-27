@@ -1,10 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
 
-const TWSE_ENDPOINT =
-  process.env.TWSE_ENDPOINT || "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL";
-const TPEX_ENDPOINT =
-  process.env.TPEX_ENDPOINT ||
-  "https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_result.php";
 const FINMIND_ENDPOINT =
   process.env.FINMIND_ENDPOINT || "https://api.finmindtrade.com/api/v4/data";
 
@@ -25,31 +20,6 @@ const formatDate = (date) => {
   return `${year}-${month}-${day}`;
 };
 
-const formatDateParam = (date) => {
-  const year = date.getFullYear();
-  const month = pad2(date.getMonth() + 1);
-  const day = pad2(date.getDate());
-  return `${year}${month}${day}`;
-};
-
-const formatRocDate = (date, padMonth = true) => {
-  const rocYear = date.getFullYear() - 1911;
-  const month = padMonth ? pad2(date.getMonth() + 1) : date.getMonth() + 1;
-  const day = padMonth ? pad2(date.getDate()) : date.getDate();
-  return `${rocYear}/${month}/${day}`;
-};
-
-const parseJson = async (response) => {
-  const text = await response.text();
-  if (!text) return null;
-  if (text.trim().startsWith("<")) return null;
-  try {
-    return JSON.parse(text);
-  } catch (error) {
-    return null;
-  }
-};
-
 const normalizeNumber = (value) => {
   if (value === null || value === undefined) return null;
   const raw = `${value}`.replace(/,/g, "").trim();
@@ -59,42 +29,15 @@ const normalizeNumber = (value) => {
 };
 
 const getDefaultStartDate = () => {
+  if (process.env.STOCK_PRICE_SYNC_START_DATE) {
+    return process.env.STOCK_PRICE_SYNC_START_DATE;
+  }
   const date = new Date();
   date.setMonth(date.getMonth() - 6);
   return formatDate(date);
 };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const getDateRange = (start, end) => {
-  const dates = [];
-  const cursor = new Date(start);
-  const endDate = new Date(end);
-  while (cursor <= endDate) {
-    dates.push(new Date(cursor));
-    cursor.setDate(cursor.getDate() + 1);
-  }
-  return dates;
-};
-
-const fetchTwseDaily = async (date) => {
-  const url = new URL(TWSE_ENDPOINT);
-  url.searchParams.set("date", formatDateParam(date));
-  const response = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-      "User-Agent": "Mozilla/5.0",
-    },
-  });
-  if (!response.ok) {
-    throw new Error(`TWSE request failed ${response.status} ${response.statusText}`);
-  }
-  const payload = await parseJson(response);
-  if (!Array.isArray(payload)) {
-    return [];
-  }
-  return payload;
-};
 
 const fetchFinmindPrices = async (
   token,
@@ -167,126 +110,6 @@ const parseFinmindRows = (rows, stockId) =>
       };
     })
     .filter(Boolean);
-
-const fetchTpexDaily = async (date) => {
-  const attempt = async (padMonth) => {
-    const url = new URL(TPEX_ENDPOINT);
-    url.searchParams.set("l", "zh-tw");
-    url.searchParams.set("d", formatRocDate(date, padMonth));
-    url.searchParams.set("se", "EW");
-    const response = await fetch(url, {
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "Mozilla/5.0",
-        Referer: "https://www.tpex.org.tw/",
-      },
-    });
-    if (!response.ok) {
-      throw new Error(`TPEx request failed ${response.status} ${response.statusText}`);
-    }
-    const payload = await parseJson(response);
-    if (!payload) return null;
-    return payload;
-  };
-
-  const padded = await attempt(true);
-  if (padded && (padded.aaData || padded.data || padded.table)) return padded;
-  return attempt(false);
-};
-
-const parseTwseRows = (rows, tradeDate) =>
-  rows
-    .map((row) => {
-      const stockId = `${row.Code || row.code || ""}`.trim();
-      const name = `${row.Name || row.name || ""}`.trim();
-      if (!stockId || !name) return null;
-      const volume = normalizeNumber(row.TradeVolume);
-      const turnover = normalizeNumber(row.TradeValue);
-      let average = null;
-      if (volume && turnover) {
-        average = Number((turnover / volume).toFixed(4));
-      }
-      return {
-        stock: {
-          stock_id: stockId,
-          name,
-          market: "上市",
-          industry: null,
-          is_active: true,
-        },
-        price: {
-          stock_id: stockId,
-          trade_date: tradeDate,
-          open: normalizeNumber(row.OpeningPrice),
-          high: normalizeNumber(row.HighestPrice),
-          low: normalizeNumber(row.LowestPrice),
-          close: normalizeNumber(row.ClosingPrice),
-          average,
-          volume: volume === null ? null : Math.trunc(volume),
-          turnover,
-        },
-      };
-    })
-    .filter(Boolean);
-
-const parseTpexRows = (payload, tradeDate) => {
-  const rows = payload?.aaData || payload?.data || payload?.table || [];
-  const fields = payload?.fields || payload?.field || payload?.title || [];
-  let idxCode = fields.findIndex((field) => `${field}`.includes("代號"));
-  let idxName = fields.findIndex((field) => `${field}`.includes("名稱"));
-  let idxClose = fields.findIndex((field) => `${field}`.includes("收盤"));
-  let idxOpen = fields.findIndex((field) => `${field}`.includes("開盤"));
-  let idxHigh = fields.findIndex((field) => `${field}`.includes("最高"));
-  let idxLow = fields.findIndex((field) => `${field}`.includes("最低"));
-  let idxVolume = fields.findIndex((field) => `${field}`.includes("成交股數"));
-  let idxTurnover = fields.findIndex((field) => `${field}`.includes("成交金額"));
-
-  if (idxCode < 0) {
-    idxCode = 0;
-    idxName = 1;
-    idxClose = 2;
-    idxOpen = 4;
-    idxHigh = 5;
-    idxLow = 6;
-    idxVolume = 7;
-    idxTurnover = 8;
-  }
-
-  return rows
-    .map((row) => {
-      if (!Array.isArray(row)) return null;
-      const stockId = `${row[idxCode] || ""}`.trim();
-      const name = `${row[idxName] || ""}`.trim();
-      if (!stockId || !name) return null;
-      const volume = normalizeNumber(row[idxVolume]);
-      const turnover = normalizeNumber(row[idxTurnover]);
-      let average = null;
-      if (volume && turnover) {
-        average = Number((turnover / volume).toFixed(4));
-      }
-      return {
-        stock: {
-          stock_id: stockId,
-          name,
-          market: "上櫃",
-          industry: null,
-          is_active: true,
-        },
-        price: {
-          stock_id: stockId,
-          trade_date: tradeDate,
-          open: normalizeNumber(row[idxOpen]),
-          high: normalizeNumber(row[idxHigh]),
-          low: normalizeNumber(row[idxLow]),
-          close: normalizeNumber(row[idxClose]),
-          average,
-          volume: volume === null ? null : Math.trunc(volume),
-          turnover,
-        },
-      };
-    })
-    .filter(Boolean);
-};
 
 const upsertRows = async (supabase, table, rows, chunkSize, onConflict) => {
   for (let i = 0; i < rows.length; i += chunkSize) {
@@ -369,13 +192,15 @@ export default async function handler(req, res) {
   }
 
   const params = parseParams(req);
-  const source = `${params.source || "public"}`.toLowerCase();
+  const source = `${params.source || "finmind"}`.toLowerCase();
   const startDate = params.start_date || params.startDate || getDefaultStartDate();
   const endDate = params.end_date || params.endDate || formatDate(new Date());
-  const maxDays = Number(params.max_days || params.maxDays || 31);
   const chunkSize = Number(params.chunk_size || params.chunkSize || 500);
   const sleepMs = Number(params.sleep_ms || params.sleepMs || 250);
   const dryRun = `${params.dry_run || params.dryRun || ""}` === "1";
+  const purge = `${params.purge || params.purge_prices || ""}` === "1";
+  const purgeAll = `${params.purge_all || params.purgeAll || ""}` === "1";
+  const purgeConfirm = `${params.purge_confirm || params.purgeConfirm || ""}`;
   const markets = (params.markets || "上市,上櫃")
     .split(",")
     .map((value) => value.trim())
@@ -390,26 +215,23 @@ export default async function handler(req, res) {
   const maxStocks = Number(params.max_stocks || params.maxStocks || 200);
 
   const logParams = {
-    dataset: source === "finmind" ? dataset : null,
+    dataset,
     markets,
-    maxDays,
     chunkSize,
     stockId: stockIdParam || null,
     stockIds: stockIdsParam.length ? stockIdsParam : null,
     stockOffset,
     maxStocks,
+    purge,
+    purgeAll,
   };
 
   let supabase = null;
   let logId = null;
 
   try {
-    const dates = getDateRange(startDate, endDate);
-    if (dates.length > maxDays) {
-      res.status(400).json({
-        error: "Date range too large",
-        detail: `Range ${dates.length} days exceeds max_days ${maxDays}.`,
-      });
+    if (source !== "finmind") {
+      res.status(400).json({ error: "Only finmind source is supported." });
       return;
     }
 
@@ -429,101 +251,63 @@ export default async function handler(req, res) {
 
     const summary = [];
     let totalRows = 0;
-    if (source === "finmind") {
-      const token = requiredEnv("FINMIND_TOKEN");
-      let stockIds = [];
-      if (stockIdParam) {
-        stockIds = [stockIdParam];
-      } else if (stockIdsParam.length) {
-        stockIds = stockIdsParam;
-      } else {
-        stockIds = await fetchStockIds(supabase, markets, stockOffset, maxStocks);
+    const token = requiredEnv("FINMIND_TOKEN");
+    if (purgeAll && !dryRun) {
+      if (purgeConfirm !== "DELETE_ALL") {
+        res.status(400).json({ error: "Missing purge_confirm=DELETE_ALL for purge_all." });
+        return;
       }
-
-      for (const stockId of stockIds) {
-        let errorMessage = null;
-        let rows = [];
-        try {
-          const raw = await fetchFinmindPrices(
-            token,
-            dataset,
-            stockId,
-            startDate,
-            endDate
-          );
-          rows = parseFinmindRows(raw, stockId);
-          if (!dryRun && rows.length) {
-            await upsertRows(
-              supabase,
-              "stock_prices",
-              rows,
-              chunkSize,
-              "stock_id,trade_date"
-            );
-          }
-          totalRows += rows.length;
-        } catch (error) {
-          errorMessage = error.message;
-        }
-        summary.push({
-          stock_id: stockId,
-          rows: rows.length,
-          error: errorMessage,
-        });
-        if (sleepMs > 0) {
-          await sleep(sleepMs);
-        }
+      const { error } = await supabase.from("stock_prices").delete().neq("stock_id", "");
+      if (error) {
+        throw new Error(`Stock price purge all failed: ${error.message}`);
       }
+    }
+    let stockIds = [];
+    if (stockIdParam) {
+      stockIds = [stockIdParam];
+    } else if (stockIdsParam.length) {
+      stockIds = stockIdsParam;
     } else {
-      for (const date of dates) {
-        const tradeDate = formatDate(date);
-        let twseRows = [];
-        let tpexRows = [];
-        let twseError = null;
-        let tpexError = null;
+      stockIds = await fetchStockIds(supabase, markets, stockOffset, maxStocks);
+    }
 
-        try {
-          const twse = await fetchTwseDaily(date);
-          twseRows = parseTwseRows(twse, tradeDate);
-        } catch (error) {
-          twseError = error.message;
-        }
-
-        try {
-          const tpex = await fetchTpexDaily(date);
-          if (tpex) {
-            tpexRows = parseTpexRows(tpex, tradeDate);
+    for (const stockId of stockIds) {
+      let errorMessage = null;
+      let rows = [];
+      try {
+        if (purge && !dryRun) {
+          const { error } = await supabase
+            .from("stock_prices")
+            .delete()
+            .eq("stock_id", stockId)
+            .gte("trade_date", startDate)
+            .lte("trade_date", endDate);
+          if (error) {
+            throw new Error(`Stock price purge failed: ${error.message}`);
           }
-        } catch (error) {
-          tpexError = error.message;
         }
-
-        const combined = [...twseRows, ...tpexRows];
-        const stockRows = combined.map((row) => row.stock);
-        const priceRows = combined.map((row) => row.price);
-
-        if (!dryRun && combined.length) {
-          await upsertRows(supabase, "stocks", stockRows, chunkSize, "stock_id");
+        const raw = await fetchFinmindPrices(token, dataset, stockId, startDate, endDate);
+        rows = parseFinmindRows(raw, stockId);
+        if (!dryRun && rows.length) {
           await upsertRows(
             supabase,
             "stock_prices",
-            priceRows,
+            rows,
             chunkSize,
             "stock_id,trade_date"
           );
         }
-
-        totalRows += priceRows.length;
-        summary.push({
-          date: tradeDate,
-          rows: priceRows.length,
-          twseError,
-          tpexError,
-        });
-
-        if (sleepMs > 0) {
-          await sleep(sleepMs);
-        }
+        totalRows += rows.length;
+      } catch (error) {
+        errorMessage = error.message;
+      }
+      summary.push({
+        stock_id: stockId,
+        rows: rows.length,
+        error: errorMessage,
+      });
+      if (sleepMs > 0) {
+        await sleep(sleepMs);
       }
     }
 
@@ -542,9 +326,10 @@ export default async function handler(req, res) {
       startDate,
       endDate,
       totalRows,
-      stockOffset: source === "finmind" ? stockOffset : undefined,
-      maxStocks: source === "finmind" ? maxStocks : undefined,
+      stockOffset,
+      maxStocks,
       dryRun,
+      purgeAll,
       summary,
     });
   } catch (error) {

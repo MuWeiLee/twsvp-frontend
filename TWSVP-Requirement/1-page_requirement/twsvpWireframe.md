@@ -4,6 +4,8 @@
 
 ### 系统后台任务
 - 定时任务（Cron）统一为每小时 1 次
+- 股价同步固定使用 FinMind，可用 `start_date` 或 `STOCK_PRICE_SYNC_START_DATE` 指定起始日（例如 `2026-01-01`），必要时 `purge=1` 先清洗误数据，全量清空可传 `purge_all=1&purge_confirm=DELETE_ALL`
+- 历史回补（backfill）同样固定使用 FinMind
 
 ### 主框架分层
 - 顶部栏
