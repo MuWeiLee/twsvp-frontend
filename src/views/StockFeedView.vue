@@ -278,19 +278,12 @@
           <span class="tabbar-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24">
               <path
-                d="M3 11.5L21 3l-7.5 18-2.5-7L3 11.5z"
+                d="M7 17l10-10M10 7h7v7"
                 fill="none"
                 stroke="currentColor"
                 stroke-width="2"
                 stroke-linecap="round"
                 stroke-linejoin="round"
-              />
-              <path
-                d="M11 14l10-11"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
               />
             </svg>
           </span>
