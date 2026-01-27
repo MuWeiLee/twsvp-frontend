@@ -1,9 +1,8 @@
 # 1 级页面（主导航 / 一级入口）
 
 ## 系统定时任务（Cron）
-- `/api/sync-stocks`：每小时 1 次
+- `/api/sync-stock-prices`：每日 17:00（台北时间，Vercel Cron 为 UTC 需配置为 `0 9 * * *`），固定使用 FinMind 数据源，默认增量同步最新交易日数据（起点不早于 `2026-01-01`）；可用 `start_date` 或 `STOCK_PRICE_SYNC_START_DATE` 指定抓取起点，需要清洗误数据可传 `purge=1`，全量清空可传 `purge_all=1&purge_confirm=DELETE_ALL`
 - `/api/sync-stock-prices-backfill`：每小时 1 次（固定使用 FinMind 数据源，历史起点固定 `2026-01-01`，覆盖上市/上柜全量）
-- `/api/sync-stock-prices`：固定使用 FinMind 数据源，默认增量同步最新交易日数据（起点不早于 `2026-01-01`）；可用 `start_date` 或 `STOCK_PRICE_SYNC_START_DATE` 指定抓取起点，需要清洗误数据可传 `purge=1`，全量清空可传 `purge_all=1&purge_confirm=DELETE_ALL`
 
 ## 1) Login（登录/注册二合一，Google OAuth）
 
