@@ -233,9 +233,16 @@
         </div>
       </section>
 
-      <div class="floating-action">
-        <button class="action-btn" type="button" @click="goCreateFeed">
-          {{ t("发表观点") }}
+      <div class="floating-action" :class="{ compact: !isAtBottom }">
+        <button
+          class="action-btn"
+          :class="{ compact: !isAtBottom }"
+          type="button"
+          :aria-label="t('发表观点')"
+          @click="goCreateFeed"
+        >
+          <span v-if="isAtBottom">{{ t("发表观点") }}</span>
+          <span v-else aria-hidden="true">+</span>
         </button>
       </div>
     </div>
@@ -251,7 +258,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import FeedEditSheet from "../components/FeedEditSheet.vue";
 import { getCurrentUserSupabase } from "../services/auth.js";
@@ -303,6 +310,14 @@ const hasMore = ref(true);
 const isLoadingMore = ref(false);
 const PAGE_SIZE = 20;
 const activeSymbol = ref("");
+const isAtBottom = ref(false);
+
+const updateScrollState = () => {
+  const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+  const windowHeight = window.innerHeight || 0;
+  const docHeight = document.documentElement.scrollHeight || 0;
+  isAtBottom.value = scrollTop + windowHeight >= docHeight - 8;
+};
 
 const formatDateKey = (value) => {
   if (!value) return "";
@@ -532,6 +547,7 @@ const loadData = async () => {
   };
   isLoading.value = false;
   activeMenuId.value = null;
+  updateScrollState();
 };
 
 const loadMore = async () => {
@@ -540,6 +556,7 @@ const loadMore = async () => {
   page.value += 1;
   await loadFeeds({ append: true });
   isLoadingMore.value = false;
+  updateScrollState();
 };
 
 const loadUser = async () => {
@@ -690,6 +707,13 @@ const handleBack = () => {
 onMounted(loadUser);
 onMounted(loadHiddenIds);
 onMounted(loadData);
+onMounted(() => {
+  updateScrollState();
+  window.addEventListener("scroll", updateScrollState, { passive: true });
+});
+onBeforeUnmount(() => {
+  window.removeEventListener("scroll", updateScrollState);
+});
 watch([filter, statusFilter], () => {
   window.scrollTo({ top: 0, behavior: "auto" });
 });
@@ -1215,6 +1239,13 @@ watch(() => route.params.symbol, async () => {
   z-index: 6;
 }
 
+.floating-action.compact {
+  left: auto;
+  right: 16px;
+  width: auto;
+  transform: none;
+}
+
 .action-btn {
   width: 100%;
   border: 0;
@@ -1225,5 +1256,12 @@ watch(() => route.params.symbol, async () => {
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+}
+
+.action-btn.compact {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  font-size: 22px;
 }
 </style>
