@@ -1,6 +1,6 @@
 const PRICE_SCHEMES = {
-  red_up: { up: "#d64545", down: "#1a7f37" },
-  green_up: { up: "#1a7f37", down: "#d64545" },
+  red_up: { up: "#30f3a4", down: "#ff3b6a" },
+  green_up: { up: "#30f3a4", down: "#ff3b6a" },
 };
 
 const LANGUAGES = new Set(["zh-Hans", "zh-Hant"]);

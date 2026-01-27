@@ -232,6 +232,12 @@
           </button>
         </div>
       </section>
+
+      <div class="floating-action">
+        <button class="action-btn" type="button" @click="goCreateFeed">
+          {{ t("发表观点") }}
+        </button>
+      </div>
     </div>
 
     <FeedEditSheet
@@ -562,6 +568,10 @@ const goProfile = (view) => {
   }
 };
 
+const goCreateFeed = () => {
+  router.push("/create-feed");
+};
+
 const handleDeleteFeed = async (view) => {
   const confirmed = window.confirm(t("确定删除这条观点吗？"));
   if (!confirmed) return;
@@ -704,7 +714,7 @@ watch(() => route.params.symbol, async () => {
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: 76px 16px 40px;
+  padding: 76px 16px 96px;
   position: relative;
 }
 
@@ -1194,5 +1204,26 @@ watch(() => route.params.symbol, async () => {
 .btn-secondary:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.floating-action {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100% - 32px, 560px);
+  z-index: 6;
+}
+
+.action-btn {
+  width: 100%;
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 16px;
+  background: #000000;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
 }
 </style>
