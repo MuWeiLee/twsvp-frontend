@@ -284,7 +284,8 @@ watch(activeTab, () => {
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: 124px 16px 96px;
+  padding: calc(124px + env(safe-area-inset-top, 0px)) 16px
+    calc(96px + env(safe-area-inset-bottom, 0px));
   position: relative;
 }
 
@@ -293,8 +294,8 @@ watch(activeTab, () => {
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
-  height: 64px;
-  padding: 0 16px;
+  height: calc(64px + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) 16px 0;
   position: fixed;
   top: 0;
   left: 0;
@@ -359,7 +360,7 @@ watch(activeTab, () => {
 
 .tabs-wrap {
   position: fixed;
-  top: 64px;
+  top: calc(64px + env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
   width: 100%;
