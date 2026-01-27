@@ -65,61 +65,10 @@
           ]
         },
         {
-          "type": "group",
-          "id": "sog8p",
-          "x": 16,
-          "y": 76,
-          "name": "postButton",
-          "children": [
-            {
-              "type": "rectangle",
-              "id": "lswk6",
-              "x": 0,
-              "y": 0,
-              "name": "background",
-              "fill": "#ffffffff",
-              "width": 343,
-              "height": 72
-            },
-            {
-              "type": "text",
-              "id": "JrNVU",
-              "x": 68,
-              "y": 37,
-              "fill": "#000000",
-              "content": "写下你的观点...",
-              "fontFamily": "Inter",
-              "fontSize": 16,
-              "fontWeight": "normal"
-            },
-            {
-              "type": "text",
-              "id": "8moQt",
-              "x": 68,
-              "y": 12,
-              "fill": "#000000",
-              "content": "{userName}",
-              "fontFamily": "Inter",
-              "fontSize": 14,
-              "fontWeight": "normal"
-            },
-            {
-              "type": "rectangle",
-              "id": "boM7A",
-              "x": 12,
-              "y": 12,
-              "name": "personalCover",
-              "fill": "#CCCCCC",
-              "width": 44,
-              "height": 44
-            }
-          ]
-        },
-        {
           "type": "text",
           "id": "WXnhk",
           "x": 16,
-          "y": 160,
+          "y": 84,
           "fill": "#000000",
           "content": "全部 ｜ 未结束 ｜ 已结束",
           "fontFamily": "Inter",
@@ -130,7 +79,7 @@
           "type": "text",
           "id": "7ghtH",
           "x": 281,
-          "y": 160,
+          "y": 84,
           "fill": "#000000",
           "content": "时间 ｜ 热度",
           "textAlign": "right",
@@ -142,7 +91,7 @@
           "type": "group",
           "id": "FjRh5",
           "x": 16,
-          "y": 194,
+          "y": 118,
           "name": "feedCard",
           "children": [
             {
