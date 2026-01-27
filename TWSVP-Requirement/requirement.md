@@ -59,6 +59,7 @@
 - 更多：
   - 发布人：删除/编辑/结束自己的观点（其他用户不可操作）
   - 非发布人：隐藏观点
+- 更多菜单需覆盖在导航与筛选层之上，不被遮挡或裁切
 
 ### 关键字段
 - view_id, user_id, stock_id, sector_id(可选), direction, horizon, summary, created_at

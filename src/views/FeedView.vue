@@ -522,6 +522,9 @@ watch([statusFilter, sortKey], async () => {
   margin: 0 auto;
   background: var(--bg);
   min-height: 100vh;
+  --nav-height: 64px;
+  --tabs-height: 52px;
+  --header-gap: 12px;
 }
 
 .phone-frame {
@@ -530,7 +533,8 @@ watch([statusFilter, sortKey], async () => {
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: calc(124px + env(safe-area-inset-top, 0px)) 16px
+  padding: calc(var(--nav-height) + var(--tabs-height) + var(--header-gap) + env(safe-area-inset-top, 0px))
+    16px
     calc(140px + env(safe-area-inset-bottom, 0px));
   position: relative;
 }
@@ -540,7 +544,7 @@ watch([statusFilter, sortKey], async () => {
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
-  height: calc(64px + env(safe-area-inset-top, 0px));
+  height: calc(var(--nav-height) + env(safe-area-inset-top, 0px));
   padding: env(safe-area-inset-top, 0px) 16px 0;
   position: fixed;
   top: 0;
@@ -603,7 +607,7 @@ watch([statusFilter, sortKey], async () => {
 
 .tabs-wrap {
   position: fixed;
-  top: calc(64px + env(safe-area-inset-top, 0px));
+  top: calc(var(--nav-height) + env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
   width: 100%;
@@ -770,7 +774,7 @@ watch([statusFilter, sortKey], async () => {
   border-radius: 10px;
   box-shadow: var(--shadow);
   display: grid;
-  z-index: 4;
+  z-index: 6;
   overflow: hidden;
 }
 
@@ -920,7 +924,9 @@ watch([statusFilter, sortKey], async () => {
 
 @media (max-width: 480px) {
   .phone-frame {
-    padding: 68px 16px 140px;
+    padding: calc(var(--nav-height) + var(--tabs-height) + var(--header-gap) + env(safe-area-inset-top, 0px))
+      16px
+      calc(140px + env(safe-area-inset-bottom, 0px));
   }
 
   .composer-meta {
