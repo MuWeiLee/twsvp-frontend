@@ -40,8 +40,9 @@
               v-model="targetInput"
               class="text-input"
               type="text"
-              :placeholder="t('请输入标的')"
+              :placeholder="t('搜索并选择标的')"
             />
+            <div class="helper">{{ t("标的必须从数据库选择") }}</div>
             <div v-if="isStockLoading && !stockResults.length" class="search-tip">
               {{ t("正在搜索...") }}
             </div>
@@ -133,12 +134,13 @@ const targetInput = ref("");
 const isSubmitting = ref(false);
 const stockResults = ref([]);
 const isStockLoading = ref(false);
+const selectedStock = ref(null);
 const DRAFT_KEY = "twsvp_feed_draft";
 let stockSearchTimer = null;
 
 const isValid = computed(() => {
   const length = content.value.trim().length;
-  return length >= 20 && length <= 1000 && targetInput.value.trim().length > 0;
+  return length >= 20 && length <= 1000 && !!selectedStock.value;
 });
 
 const overLimitCount = computed(() => {
@@ -146,22 +148,13 @@ const overLimitCount = computed(() => {
   return length > 1000 ? length - 1000 : 0;
 });
 
-const parseTarget = (value) => {
-  const trimmed = value.trim();
-  if (!trimmed) return { symbol: "", name: "" };
-  const parts = trimmed.split(/\s+/);
-  if (parts.length >= 2) {
-    const symbol = parts.shift() || "";
-    const name = parts.join(" ");
-    return { symbol, name };
-  }
-  return { symbol: trimmed, name: trimmed };
-};
+const getStockLabel = (stock) => `${stock.stock_id} ${stock.name}`;
 
 const saveDraft = () => {
   const draft = {
     content: content.value,
     targetInput: targetInput.value,
+    selectedStock: selectedStock.value,
     selectedDirection: selectedDirection.value,
     selectedHorizon: selectedHorizon.value,
   };
@@ -174,7 +167,12 @@ const loadDraft = () => {
     if (!raw) return;
     const draft = JSON.parse(raw);
     content.value = draft.content || content.value;
-    targetInput.value = draft.targetInput || targetInput.value;
+    if (draft.selectedStock?.stock_id) {
+      selectedStock.value = draft.selectedStock;
+      targetInput.value = getStockLabel(draft.selectedStock);
+    } else {
+      targetInput.value = draft.targetInput || targetInput.value;
+    }
     selectedDirection.value = draft.selectedDirection || selectedDirection.value;
     selectedHorizon.value = draft.selectedHorizon || selectedHorizon.value;
   } catch (error) {
@@ -187,6 +185,7 @@ const searchStocks = () => {
   clearTimeout(stockSearchTimer);
   if (!q) {
     stockResults.value = [];
+    selectedStock.value = null;
     return;
   }
 
@@ -199,7 +198,8 @@ const searchStocks = () => {
 };
 
 const selectStock = (stock) => {
-  targetInput.value = `${stock.stock_id} ${stock.name}`;
+  selectedStock.value = stock;
+  targetInput.value = getStockLabel(stock);
   stockResults.value = [];
 };
 
@@ -218,7 +218,11 @@ const handlePublish = async () => {
     return;
   }
 
-  const { symbol, name } = parseTarget(targetInput.value);
+  if (!selectedStock.value) {
+    alert(t("请选择列表中的标的"));
+    return;
+  }
+
   const direction = mapLabelToDirection(selectedDirection.value);
   const horizon = mapLabelToHorizon(selectedHorizon.value);
 
@@ -226,8 +230,8 @@ const handlePublish = async () => {
     isSubmitting.value = true;
     await createFeedSupabase({
       userId: user.id,
-      targetSymbol: symbol,
-      targetName: name,
+      targetSymbol: selectedStock.value.stock_id,
+      targetName: selectedStock.value.name,
       direction,
       horizon,
       content: content.value.trim(),
@@ -241,7 +245,18 @@ const handlePublish = async () => {
   }
 };
 
-watch(targetInput, searchStocks);
+watch(
+  targetInput,
+  (value) => {
+    if (selectedStock.value) {
+      const label = getStockLabel(selectedStock.value);
+      if (value.trim() !== label) {
+        selectedStock.value = null;
+      }
+    }
+    searchStocks();
+  }
+);
 
 onMounted(loadDraft);
 </script>
