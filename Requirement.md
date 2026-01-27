@@ -160,7 +160,38 @@
 
 # 2 级页面（二级聚合 / 详情类）
 
-## 6) PersonalViewer（他人视角的个人页）
+## 6) Setting（设置）
+
+### 目标
+管理账号资料与交易券商跳转配置
+
+### 模块
+- 账号信息区
+  - 头像、昵称、email（只读）
+- 设置项列表
+  - 编辑个人资料（跳 PersonalSetting / ProfileEdit）
+  - 选择交易券商（跳 BrokerSelection）
+  - 登出
+
+### 交易券商列表（MVP）
+- 中信亮點
+- 國泰證券
+- 富邦 AI Pro
+- 元大投資先生
+
+### 主要操作
+- 选择/切换交易券商
+- 前往 App Store（如果有对应链接）
+- 退出登录
+
+### 状态与规则
+- 券商未设置：展示「未设置」
+- 已设置：显示券商名称
+
+### 关键字段
+- broker_id, broker_name, app_store_url
+
+## 7) PersonalViewer（他人视角的个人页）
 
 ### 目标
 建立信任：看这个人靠不靠谱
@@ -182,7 +213,7 @@
 ### 关键字段
 同 PersonalUser，但少了管理权限字段
 
-## 7) StockFeed（个股观点汇总 + 近期看法总结）
+## 8) StockFeed（个股观点汇总 + 近期看法总结）
 
 ### 目标
 围绕单一标的聚合观点，并给出“近期市场看法摘要”
@@ -217,7 +248,7 @@
 - summary: long_ratio, short_ratio, neutral_ratio, key_points[]
 - views list
 
-## 8) SectorFeed（概念观点汇总 + 近期看法总结）
+## 9) SectorFeed（概念观点汇总 + 近期看法总结）
 
 ### 目标
 围绕概念/行业聚合观点（注意：你这页叫 SectorFeed，但概念与行业可能不同）
@@ -247,7 +278,7 @@
 
 # 3 级页面（内容详情 / 表单流程）
 
-## 9) PersonalSetting（首次登录后完善资料）
+## 10) PersonalSetting（首次登录后完善资料）
 
 ### 目标
 完成可用的个人画像：昵称、介绍、感兴趣行业
@@ -277,7 +308,7 @@
 ### 依赖基础表
 - industry(id, name, order)
 
-## 10) FeedCard（观点详情）
+## 11) FeedCard（观点详情）
 
 ### 目标
 完整展示观点内容 + 互动
