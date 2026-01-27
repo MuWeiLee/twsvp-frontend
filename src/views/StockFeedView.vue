@@ -240,13 +240,21 @@
         <button class="tabbar-btn" type="button" @click="handleTrade">
           <span class="tabbar-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2" />
               <path
-                d="M8 12h8M12 8v8"
+                d="M8 16V8m0 0l-3 3m3-3l3 3"
                 fill="none"
                 stroke="currentColor"
                 stroke-width="2"
                 stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M16 8v8m0 0l-3-3m3 3l3-3"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
               />
             </svg>
           </span>
@@ -270,7 +278,7 @@
           <span class="tabbar-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24">
               <path
-                d="M14 7l-4 4 4 4"
+                d="M3 11.5L21 3l-7.5 18-2.5-7L3 11.5z"
                 fill="none"
                 stroke="currentColor"
                 stroke-width="2"
@@ -278,14 +286,7 @@
                 stroke-linejoin="round"
               />
               <path
-                d="M10 11h4a4 4 0 014 4v2"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-              />
-              <path
-                d="M10 13H8a4 4 0 00-4 4v1"
+                d="M11 14l10-11"
                 fill="none"
                 stroke="currentColor"
                 stroke-width="2"
