@@ -18,6 +18,13 @@ export const BROKERS = [
     appScheme: "",
   },
   {
+    id: "cathay-tree-elf",
+    name: "國泰樹精靈",
+    appStoreUrl:
+      "https://apps.apple.com/tw/app/%E5%9C%8B%E6%B3%B0%E8%AD%89%E5%88%B8-%E6%A8%B9%E7%B2%BE%E9%9D%88/id1119050613?l=en-GB",
+    appScheme: "",
+  },
+  {
     id: "fubon-ai-pro",
     name: "富邦 AI Pro",
     appStoreUrl:
