@@ -872,6 +872,8 @@ watch(activeResultTab, () => {
   margin: 0 auto;
   background: var(--bg);
   min-height: 100vh;
+  --nav-height: 64px;
+  --header-gap: 12px;
 }
 
 .phone-frame {
@@ -880,7 +882,8 @@ watch(activeResultTab, () => {
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: 76px 16px 140px;
+  padding: calc(var(--nav-height) + var(--header-gap) + env(safe-area-inset-top, 0px)) 16px
+    calc(140px + env(safe-area-inset-bottom, 0px));
   position: relative;
 }
 
@@ -889,8 +892,8 @@ watch(activeResultTab, () => {
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
-  height: 64px;
-  padding: 0 16px;
+  height: calc(var(--nav-height) + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) 16px 0;
   position: fixed;
   top: 0;
   left: 0;
@@ -1380,7 +1383,8 @@ watch(activeResultTab, () => {
 
 @media (max-width: 480px) {
   .phone-frame {
-    padding: 68px 16px 140px;
+    padding: calc(var(--nav-height) + var(--header-gap) + env(safe-area-inset-top, 0px)) 16px
+      calc(140px + env(safe-area-inset-bottom, 0px));
   }
 }
 </style>

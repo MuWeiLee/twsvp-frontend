@@ -1,12 +1,21 @@
 const API_BASE = "https://api.twsvp.com";
 const AUTH_CACHE_MS = 60000;
+const SUPABASE_CACHE_MS = 60000;
+const PROFILE_CACHE_MS = 5 * 60 * 1000;
 const TOKEN_KEY = "twsvp_token";
 
 import { supabase } from './supabase';
 import { t } from "./i18n.js";
 
-let cachedUser = null;
-let checkedAt = 0;
+let cachedApiUser = null;
+let apiCheckedAt = 0;
+let cachedSupabaseUser = null;
+let supabaseCheckedAt = 0;
+let cachedProfileCompletion = {
+  userId: "",
+  value: false,
+  checkedAt: 0,
+};
 
 export function getAuthToken() {
   if (typeof localStorage === "undefined") {
@@ -32,14 +41,14 @@ export async function getMe(options = {}) {
   const now = Date.now();
   const token = getAuthToken();
 
-  if (!force && checkedAt && now - checkedAt < AUTH_CACHE_MS) {
-    return cachedUser;
+  if (!force && apiCheckedAt && now - apiCheckedAt < AUTH_CACHE_MS) {
+    return cachedApiUser;
   }
 
   if (!token) {
-    cachedUser = null;
-    checkedAt = now;
-    return cachedUser;
+    cachedApiUser = null;
+    apiCheckedAt = now;
+    return cachedApiUser;
   }
 
   try {
@@ -50,22 +59,29 @@ export async function getMe(options = {}) {
     });
 
     if (!response.ok) {
-      cachedUser = null;
+      cachedApiUser = null;
     } else {
       const data = await response.json();
-      cachedUser = data && data.user ? data.user : null;
+      cachedApiUser = data && data.user ? data.user : null;
     }
   } catch (error) {
-    cachedUser = null;
+    cachedApiUser = null;
   }
 
-  checkedAt = now;
-  return cachedUser;
+  apiCheckedAt = now;
+  return cachedApiUser;
 }
 
 export function clearAuthCache() {
-  cachedUser = null;
-  checkedAt = 0;
+  cachedApiUser = null;
+  apiCheckedAt = 0;
+  cachedSupabaseUser = null;
+  supabaseCheckedAt = 0;
+  cachedProfileCompletion = {
+    userId: "",
+    value: false,
+    checkedAt: 0,
+  };
 }
 
 export async function exchangeGoogleCode(code) {
@@ -87,8 +103,8 @@ export async function exchangeGoogleCode(code) {
   }
 
   setAuthToken(data.token);
-  cachedUser = data.user || null;
-  checkedAt = Date.now();
+  cachedApiUser = data.user || null;
+  apiCheckedAt = Date.now();
   return data;
 }
 
@@ -115,7 +131,12 @@ export async function signInWithGoogleSupabase() {
 }
 
 // 使用Supabase获取当前用户
-export async function getCurrentUserSupabase() {
+export async function getCurrentUserSupabase(options = {}) {
+  const force = options.force === true;
+  const now = Date.now();
+  if (!force && supabaseCheckedAt && now - supabaseCheckedAt < SUPABASE_CACHE_MS) {
+    return cachedSupabaseUser;
+  }
   try {
     const { data: { user }, error } = await supabase.auth.getUser();
     
@@ -123,12 +144,12 @@ export async function getCurrentUserSupabase() {
       throw error;
     }
     
-    cachedUser = user || null;
-    checkedAt = Date.now();
-    return user;
+    cachedSupabaseUser = user || null;
+    supabaseCheckedAt = Date.now();
+    return cachedSupabaseUser;
   } catch (error) {
     console.error('获取用户失败:', error);
-    cachedUser = null;
+    cachedSupabaseUser = null;
     return null;
   }
 }
@@ -193,6 +214,13 @@ export async function getProfileCompletionSupabase(userId) {
   }
 
   try {
+    const now = Date.now();
+    if (
+      cachedProfileCompletion.userId === userId &&
+      now - cachedProfileCompletion.checkedAt < PROFILE_CACHE_MS
+    ) {
+      return cachedProfileCompletion.value;
+    }
     let profile = null;
     const { data: userRow, error: userError } = await supabase
       .from("users")
@@ -232,7 +260,13 @@ export async function getProfileCompletionSupabase(userId) {
 
     const hasNickname = Boolean(profile && profile.nickname);
     const hasGroups = (count || 0) > 0;
-    return hasNickname && hasGroups;
+    const completed = hasNickname && hasGroups;
+    cachedProfileCompletion = {
+      userId,
+      value: completed,
+      checkedAt: now,
+    };
+    return completed;
   } catch (error) {
     console.error("检查 profile 完整度失败:", error);
     return false;

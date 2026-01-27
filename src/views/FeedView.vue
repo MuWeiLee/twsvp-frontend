@@ -524,7 +524,7 @@ watch([statusFilter, sortKey], async () => {
   min-height: 100vh;
   --nav-height: 64px;
   --tabs-height: 52px;
-  --header-gap: 12px;
+  --header-gap: 0px;
 }
 
 .phone-frame {
@@ -672,7 +672,7 @@ watch([statusFilter, sortKey], async () => {
 }
 
 .feed {
-  margin-top: 18px;
+  margin-top: 12px;
   display: grid;
   gap: 16px;
 }
