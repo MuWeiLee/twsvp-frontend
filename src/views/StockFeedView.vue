@@ -1289,14 +1289,14 @@ watch(() => route.params.symbol, async () => {
 .floating-action {
   position: fixed;
   bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(100% - 32px, 560px);
+  right: 16px;
+  left: auto;
+  transform: none;
+  width: 120px;
   z-index: 6;
 }
 
 .floating-action.compact {
-  left: auto;
   right: 16px;
   width: auto;
   transform: none;
@@ -1331,7 +1331,7 @@ watch(() => route.params.symbol, async () => {
 .trade-btn {
   height: 44px;
   padding: 0 14px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   border: 0;
   border-radius: 999px;
