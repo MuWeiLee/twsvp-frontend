@@ -148,10 +148,10 @@
         <div v-if="!isLoading && !filteredViews.length" class="empty">
           {{ t("暂无观点，先发布一条吧。") }}
         </div>
-        <div v-if="hasMore" class="load-more">
-          <button class="btn-secondary" type="button" :disabled="isLoadingMore" @click="loadMore">
-            {{ isLoadingMore ? t("加载中...") : t("加载更多") }}
-          </button>
+        <div ref="loadTrigger" class="load-trigger">
+          <span v-if="isLoadingMore">{{ t("加载中...") }}</span>
+          <span v-else-if="hasMore">{{ t("下滑加载更多") }}</span>
+          <span v-else>{{ t("已加载全部") }}</span>
         </div>
       </section>
 
@@ -173,7 +173,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
 import FeedEditSheet from "../components/FeedEditSheet.vue";
@@ -216,6 +216,8 @@ const page = ref(1);
 const hasMore = ref(true);
 const isLoadingMore = ref(false);
 const PAGE_SIZE = 20;
+const loadTrigger = ref(null);
+let loadObserver = null;
 
 const filteredViews = computed(() => {
   const list = feeds.value
@@ -315,7 +317,7 @@ const refreshFeeds = async () => {
 };
 
 const loadMore = async () => {
-  if (!hasMore.value || isLoadingMore.value) return;
+  if (!hasMore.value || isLoadingMore.value || isLoading.value) return;
   page.value += 1;
   await loadFeeds({ append: true });
 };
@@ -462,10 +464,31 @@ const goProfile = (view) => {
 
 const handleScroll = () => {
   const current = window.scrollY || 0;
+  if (current <= 4) {
+    showTabs.value = true;
+    lastScrollY.value = current;
+    return;
+  }
   const delta = current - lastScrollY.value;
   if (Math.abs(delta) < 6) return;
   showTabs.value = delta <= 0;
   lastScrollY.value = current;
+};
+
+const setupInfiniteScroll = () => {
+  if (!loadTrigger.value) return;
+  if (loadObserver) {
+    loadObserver.disconnect();
+  }
+  loadObserver = new IntersectionObserver(
+    (entries) => {
+      if (entries[0]?.isIntersecting) {
+        loadMore();
+      }
+    },
+    { rootMargin: "160px 0px" }
+  );
+  loadObserver.observe(loadTrigger.value);
 };
 
 onMounted(loadUser);
@@ -475,8 +498,15 @@ onMounted(() => {
   lastScrollY.value = window.scrollY || 0;
   window.addEventListener("scroll", handleScroll, { passive: true });
 });
+onMounted(async () => {
+  await nextTick();
+  setupInfiniteScroll();
+});
 onUnmounted(() => {
   window.removeEventListener("scroll", handleScroll);
+  if (loadObserver) {
+    loadObserver.disconnect();
+  }
 });
 watch([statusFilter, sortKey], async () => {
   page.value = 1;
@@ -500,7 +530,8 @@ watch([statusFilter, sortKey], async () => {
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: 124px 16px 140px;
+  padding: calc(124px + env(safe-area-inset-top, 0px)) 16px
+    calc(140px + env(safe-area-inset-bottom, 0px));
   position: relative;
 }
 
@@ -509,8 +540,8 @@ watch([statusFilter, sortKey], async () => {
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
-  height: 64px;
-  padding: 0 16px;
+  height: calc(64px + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) 16px 0;
   position: fixed;
   top: 0;
   left: 0;
@@ -572,7 +603,7 @@ watch([statusFilter, sortKey], async () => {
 
 .tabs-wrap {
   position: fixed;
-  top: 64px;
+  top: calc(64px + env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
   width: 100%;
@@ -628,25 +659,12 @@ watch([statusFilter, sortKey], async () => {
   border-color: var(--ink);
 }
 
-.load-more {
+.load-trigger {
   display: flex;
   justify-content: center;
   padding: 12px 0 24px;
-}
-
-.btn-secondary {
-  border-radius: 999px;
-  padding: 8px 16px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--ink);
   font-size: 12px;
-  cursor: pointer;
-}
-
-.btn-secondary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  color: var(--muted);
 }
 
 .feed {
