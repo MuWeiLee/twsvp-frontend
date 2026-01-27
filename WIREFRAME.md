@@ -81,3 +81,5 @@
 │ - 富果 FUGLE                 │
 └──────────────────────────────┘
 ```
+
+备注：中信亮點 App Store 链接：https://apps.apple.com/tw/app/%E4%B8%AD%E4%BF%A1%E4%BA%AE%E9%BB%9E/id1411101548?l=en-GB
