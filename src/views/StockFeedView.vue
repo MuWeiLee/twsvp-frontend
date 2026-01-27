@@ -14,6 +14,9 @@
             />
           </svg>
         </button>
+        <button class="nav-btn trade-btn" type="button" :aria-label="t('交易')" @click="handleTrade">
+          {{ t("交易") }}
+        </button>
         <div class="nav-title">
           <span class="company-name">{{ stock.name || "—" }}</span>
           <span class="company-code">{{ stock.symbol }}</span>
@@ -280,6 +283,13 @@ import {
 import { supabase } from "../services/supabase.js";
 import { fetchStockByIdSupabase, fetchStockPricesSupabase } from "../services/stocks.js";
 import { t } from "../services/i18n.js";
+import {
+  fetchBrokerPreferenceSupabase,
+  getAppStoreDeepLink,
+  getAppStoreUrl,
+  getBrokerById,
+  getBrokerPreferenceLocal,
+} from "../services/brokers.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -311,6 +321,9 @@ const isLoadingMore = ref(false);
 const PAGE_SIZE = 20;
 const activeSymbol = ref("");
 const isAtBottom = ref(false);
+const brokerId = ref("");
+
+const selectedBroker = computed(() => getBrokerById(brokerId.value));
 
 const updateScrollState = () => {
   const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
@@ -562,6 +575,7 @@ const loadMore = async () => {
 const loadUser = async () => {
   const supabaseUser = await getCurrentUserSupabase();
   currentUserId.value = supabaseUser?.id || "";
+  brokerId.value = await fetchBrokerPreferenceSupabase(currentUserId.value);
   await loadLikedIds();
 };
 
@@ -704,6 +718,46 @@ const handleBack = () => {
   router.push("/feed");
 };
 
+const handleTrade = () => {
+  if (!brokerId.value) {
+    brokerId.value = getBrokerPreferenceLocal();
+  }
+  const broker = getBrokerById(brokerId.value);
+  if (!broker) {
+    window.alert(t("请前往个人中心 > 设置 > 选择交易券商，完成跳转设置。"));
+    return;
+  }
+  const appStoreUrl = getAppStoreUrl(broker);
+  const appScheme = broker.appScheme || "";
+  if (!appScheme) {
+    const appStoreDeepLink = getAppStoreDeepLink(broker);
+    if (!appStoreDeepLink && appStoreUrl) {
+      window.location.href = appStoreUrl;
+      return;
+    }
+    if (!appStoreDeepLink) return;
+    const fallbackTimer = window.setTimeout(() => {
+      if (appStoreUrl) {
+        window.location.href = appStoreUrl;
+      }
+    }, 800);
+    const clearFallback = () => window.clearTimeout(fallbackTimer);
+    window.addEventListener("pagehide", clearFallback, { once: true });
+    window.addEventListener("blur", clearFallback, { once: true });
+    window.location.href = appStoreDeepLink;
+    return;
+  }
+  const fallbackTimer = window.setTimeout(() => {
+    if (appStoreUrl) {
+      window.location.href = appStoreUrl;
+    }
+  }, 1200);
+  const clearFallback = () => window.clearTimeout(fallbackTimer);
+  window.addEventListener("pagehide", clearFallback, { once: true });
+  window.addEventListener("blur", clearFallback, { once: true });
+  window.location.href = appScheme;
+};
+
 onMounted(loadUser);
 onMounted(loadHiddenIds);
 onMounted(loadData);
@@ -784,6 +838,16 @@ watch(() => route.params.symbol, async () => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.trade-btn {
+  width: auto;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 0;
+  background: #000;
+  color: #fff;
 }
 
 .nav-btn svg {

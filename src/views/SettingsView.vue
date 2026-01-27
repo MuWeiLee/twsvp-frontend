@@ -73,6 +73,30 @@
           </div>
         </div>
 
+        <div class="section-title">{{ t("快捷交易") }}</div>
+        <div class="setting-item">
+          <div class="setting-meta">
+            <strong>{{ t("选择交易券商") }}</strong>
+            <span>{{ brokerLabel }}</span>
+          </div>
+          <router-link
+            class="btn-icon"
+            to="/broker-selection"
+            :aria-label="t('选择交易券商')"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M9 6l6 6-6 6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </router-link>
+        </div>
+
         <div class="section-title">{{ t("系统语言") }}</div>
         <div class="setting-item">
           <div class="setting-meta">
@@ -156,7 +180,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { getCurrentUserSupabase, signOutSupabase } from "../services/auth.js";
 import { getProfileSupabase, upsertProfileSupabase } from "../services/profile.js";
@@ -167,6 +191,7 @@ import {
   getLanguagePreference,
   getPriceScheme,
 } from "../services/preferences.js";
+import { fetchBrokerPreferenceSupabase, getBrokerById } from "../services/brokers.js";
 
 const router = useRouter();
 
@@ -181,6 +206,12 @@ const preferences = reactive({
 const priceScheme = ref("red_up");
 const language = ref(getLanguagePreference());
 const currentUserId = ref("");
+const brokerId = ref("");
+
+const brokerLabel = computed(() => {
+  const broker = getBrokerById(brokerId.value);
+  return broker ? broker.name : t("未设置");
+});
 
 const toggle = (key) => {
   preferences[key] = !preferences[key];
@@ -194,6 +225,7 @@ const loadAccount = async () => {
   const user = await getCurrentUserSupabase();
   account.email = user?.email || "—";
   currentUserId.value = user?.id || "";
+  brokerId.value = await fetchBrokerPreferenceSupabase(currentUserId.value);
   if (currentUserId.value) {
     const profile = await getProfileSupabase(currentUserId.value);
     if (profile?.language) {

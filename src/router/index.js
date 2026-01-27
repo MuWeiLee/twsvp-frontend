@@ -8,6 +8,7 @@ import PersonalViewerView from "../views/PersonalViewerView.vue";
 import ProfileView from "../views/ProfileView.vue";
 import SearchView from "../views/SearchView.vue";
 import SettingsView from "../views/SettingsView.vue";
+import BrokerSelectionView from "../views/BrokerSelectionView.vue";
 import CreateFeedView from "../views/CreateFeedView.vue";
 import StockFeedView from "../views/StockFeedView.vue";
 import SectorFeedView from "../views/SectorFeedView.vue";
@@ -33,6 +34,7 @@ const routes = [
   { path: "/user/:id", component: PersonalViewerView },
   { path: "/profile", component: ProfileView },
   { path: "/settings", component: SettingsView },
+  { path: "/broker-selection", component: BrokerSelectionView },
   { path: "/agreement/user", component: UserAgreementView },
   { path: "/agreement/privacy", component: PrivacyPolicyView },
   { path: "/:pathMatch(.*)*", redirect: "/login" },
