@@ -14,9 +14,6 @@
             />
           </svg>
         </button>
-        <button class="nav-btn trade-btn" type="button" :aria-label="t('交易')" @click="handleTrade">
-          {{ t("交易") }}
-        </button>
         <div class="nav-title">
           <span class="company-name">{{ stock.name || "—" }}</span>
           <span class="company-code">{{ stock.symbol }}</span>
@@ -246,6 +243,11 @@
         >
           <span v-if="isAtBottom">{{ t("发表观点") }}</span>
           <span v-else aria-hidden="true">+</span>
+        </button>
+      </div>
+      <div class="floating-trade">
+        <button class="trade-btn" type="button" :aria-label="t('交易')" @click="handleTrade">
+          {{ t("交易") }}
         </button>
       </div>
     </div>
@@ -840,16 +842,6 @@ watch(() => route.params.symbol, async () => {
   justify-content: center;
 }
 
-.trade-btn {
-  width: auto;
-  padding: 0 12px;
-  font-size: 12px;
-  font-weight: 600;
-  border: 0;
-  background: #000;
-  color: #fff;
-}
-
 .nav-btn svg {
   width: 18px;
   height: 18px;
@@ -1327,5 +1319,24 @@ watch(() => route.params.symbol, async () => {
   height: 44px;
   padding: 0;
   font-size: 22px;
+}
+
+.floating-trade {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: 6;
+}
+
+.trade-btn {
+  height: 44px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 0;
+  border-radius: 999px;
+  background: #000;
+  color: #fff;
+  cursor: pointer;
 }
 </style>
