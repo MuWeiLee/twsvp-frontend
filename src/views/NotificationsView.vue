@@ -251,6 +251,11 @@ const goProfile = (item) => {
 
 const handleScroll = () => {
   const current = window.scrollY || 0;
+  if (current <= 4) {
+    showTabs.value = true;
+    lastScrollY.value = current;
+    return;
+  }
   const delta = current - lastScrollY.value;
   if (Math.abs(delta) < 6) return;
   showTabs.value = delta <= 0;
