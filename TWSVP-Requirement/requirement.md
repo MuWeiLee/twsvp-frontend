@@ -2,7 +2,8 @@
 
 ## 系统定时任务（Cron）
 - `/api/sync-stocks`：每小时 1 次
-- `/api/sync-stock-prices-backfill`：每小时 1 次
+- `/api/sync-stock-prices-backfill`：每小时 1 次（固定使用 FinMind 数据源）
+- `/api/sync-stock-prices`：固定使用 FinMind 数据源，可用 `start_date` 或 `STOCK_PRICE_SYNC_START_DATE` 限定抓取起点（例如 `2026-01-01`），需要清洗误数据可传 `purge=1`，全量清空可传 `purge_all=1&purge_confirm=DELETE_ALL`
 
 ## 1) Login（登录/注册二合一，Google OAuth）
 
