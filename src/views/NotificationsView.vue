@@ -423,6 +423,7 @@ watch(activeTab, () => {
 .list {
   display: grid;
   gap: 12px;
+  padding-top: 72px;
 }
 
 .item {
