@@ -45,8 +45,17 @@
               </button>
             </div>
           </div>
-          <button class="btn-primary" type="button" @click="handleSearch">{{ t("搜索") }}</button>
+          <button
+            class="btn-primary"
+            type="button"
+            :disabled="isSearching"
+            @click="handleSearch"
+          >
+            {{ isSearching ? t("搜索中...") : t("搜索") }}
+          </button>
         </div>
+
+        <div v-if="isSearching" class="search-loading">{{ t("正在搜索...") }}</div>
 
         <section v-if="submittedQuery">
           <div class="tabs result-tabs">
@@ -440,6 +449,7 @@ const feedResults = ref([]);
 const userResults = ref([]);
 const suggestedStocks = ref([]);
 const isSuggesting = ref(false);
+const isSearching = ref(false);
 const currentUserId = ref("");
 const likedIds = ref(new Set());
 const hiddenIds = ref(new Set());
@@ -510,7 +520,7 @@ const selectSuggestedStock = (stock) => {
 
 const handleSearch = async () => {
   const q = query.value.trim();
-  if (!q) return;
+  if (!q || isSearching.value) return;
   clearTimeout(suggestTimer);
   suggestedStocks.value = [];
   isSuggesting.value = false;
@@ -561,20 +571,25 @@ const mapFeedResults = (feeds) =>
   });
 
 const runSearch = async (q, preferredTab = activeResultTab.value) => {
-  const [stocks, feeds, users] = await Promise.all([
-    searchStocksSupabase(q, { page: stockPage.value, pageSize: PAGE_SIZE }),
-    searchFeedsSupabase(q, { page: feedPage.value, pageSize: PAGE_SIZE }),
-    searchUsersSupabase(q, { page: userPage.value, pageSize: PAGE_SIZE }),
-  ]);
-  stockResults.value = stocks;
-  feedResults.value = mapFeedResults(feeds);
-  userResults.value = users;
-  hasMoreStocks.value = stocks.length === PAGE_SIZE;
-  hasMoreFeeds.value = feeds.length === PAGE_SIZE;
-  hasMoreUsers.value = users.length === PAGE_SIZE;
-  activeResultTab.value = getAvailableTab(preferredTab);
-  activeMenuId.value = null;
-  await loadFeedLikes();
+  isSearching.value = true;
+  try {
+    const [stocks, feeds, users] = await Promise.all([
+      searchStocksSupabase(q, { page: stockPage.value, pageSize: PAGE_SIZE }),
+      searchFeedsSupabase(q, { page: feedPage.value, pageSize: PAGE_SIZE }),
+      searchUsersSupabase(q, { page: userPage.value, pageSize: PAGE_SIZE }),
+    ]);
+    stockResults.value = stocks;
+    feedResults.value = mapFeedResults(feeds);
+    userResults.value = users;
+    hasMoreStocks.value = stocks.length === PAGE_SIZE;
+    hasMoreFeeds.value = feeds.length === PAGE_SIZE;
+    hasMoreUsers.value = users.length === PAGE_SIZE;
+    activeResultTab.value = getAvailableTab(preferredTab);
+    activeMenuId.value = null;
+    await loadFeedLikes();
+  } finally {
+    isSearching.value = false;
+  }
 };
 
 const getInitials = (name) => {
@@ -942,6 +957,11 @@ watch(activeResultTab, () => {
   display: flex;
   gap: 10px;
   align-items: center;
+}
+
+.search-loading {
+  font-size: 14px;
+  color: var(--muted);
 }
 
 .search-input-wrap {
