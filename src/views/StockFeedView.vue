@@ -233,23 +233,69 @@
         </div>
       </section>
 
-      <div class="floating-action" :class="{ compact: !isAtBottom }">
-        <button
-          class="action-btn"
-          :class="{ compact: !isAtBottom }"
-          type="button"
-          :aria-label="t('发表观点')"
-          @click="goCreateFeed"
-        >
-          <span v-if="isAtBottom">{{ t("发表观点") }}</span>
-          <span v-else aria-hidden="true">+</span>
-        </button>
+      <div class="share-toast" :class="{ show: showShareToast }" role="status" aria-live="polite">
+        {{ t("已复制个股链接") }}
       </div>
-      <div class="floating-trade">
-        <button class="trade-btn" type="button" :aria-label="t('交易')" @click="handleTrade">
-          {{ t("交易") }}
+      <nav class="stock-tabbar" aria-label="stock actions">
+        <button class="tabbar-btn" type="button" @click="handleTrade">
+          <span class="tabbar-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2" />
+              <path
+                d="M8 12h8M12 8v8"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+            </svg>
+          </span>
+          <span class="tabbar-label">{{ t("交易") }}</span>
         </button>
-      </div>
+        <button class="tabbar-btn" type="button" @click="goCreateFeed">
+          <span class="tabbar-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M12 5v14M5 12h14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+            </svg>
+          </span>
+          <span class="tabbar-label">{{ t("发表观点") }}</span>
+        </button>
+        <button class="tabbar-btn" type="button" @click="handleShare">
+          <span class="tabbar-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M14 7l-4 4 4 4"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M10 11h4a4 4 0 014 4v2"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+              <path
+                d="M10 13H8a4 4 0 00-4 4v1"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+            </svg>
+          </span>
+          <span class="tabbar-label">{{ t("分享") }}</span>
+        </button>
+      </nav>
     </div>
 
     <FeedEditSheet
@@ -322,17 +368,11 @@ const hasMore = ref(true);
 const isLoadingMore = ref(false);
 const PAGE_SIZE = 20;
 const activeSymbol = ref("");
-const isAtBottom = ref(false);
 const brokerId = ref("");
+const showShareToast = ref(false);
+let shareToastTimer;
 
 const selectedBroker = computed(() => getBrokerById(brokerId.value));
-
-const updateScrollState = () => {
-  const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
-  const windowHeight = window.innerHeight || 0;
-  const docHeight = document.documentElement.scrollHeight || 0;
-  isAtBottom.value = scrollTop + windowHeight >= docHeight - 8;
-};
 
 const formatDateKey = (value) => {
   if (!value) return "";
@@ -562,7 +602,6 @@ const loadData = async () => {
   };
   isLoading.value = false;
   activeMenuId.value = null;
-  updateScrollState();
 };
 
 const loadMore = async () => {
@@ -571,7 +610,6 @@ const loadMore = async () => {
   page.value += 1;
   await loadFeeds({ append: true });
   isLoadingMore.value = false;
-  updateScrollState();
 };
 
 const loadUser = async () => {
@@ -760,15 +798,46 @@ const handleTrade = () => {
   window.location.href = appScheme;
 };
 
+const showShareToastMessage = () => {
+  showShareToast.value = true;
+  if (shareToastTimer) window.clearTimeout(shareToastTimer);
+  shareToastTimer = window.setTimeout(() => {
+    showShareToast.value = false;
+  }, 1800);
+};
+
+const copyText = async (text) => {
+  if (!text) return false;
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (error) {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "true");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return ok;
+  }
+};
+
+const handleShare = async () => {
+  const url = window.location.href;
+  const ok = await copyText(url);
+  if (ok) {
+    showShareToastMessage();
+  }
+};
+
 onMounted(loadUser);
 onMounted(loadHiddenIds);
 onMounted(loadData);
-onMounted(() => {
-  updateScrollState();
-  window.addEventListener("scroll", updateScrollState, { passive: true });
-});
 onBeforeUnmount(() => {
-  window.removeEventListener("scroll", updateScrollState);
+  if (shareToastTimer) window.clearTimeout(shareToastTimer);
 });
 watch([filter, statusFilter], () => {
   window.scrollTo({ top: 0, behavior: "auto" });
@@ -794,7 +863,8 @@ watch(() => route.params.symbol, async () => {
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: 76px 16px 96px;
+  --stock-tabbar-height: 76px;
+  padding: 76px 16px calc(var(--stock-tabbar-height) + 20px);
   position: relative;
 }
 
@@ -1286,57 +1356,72 @@ watch(() => route.params.symbol, async () => {
   cursor: not-allowed;
 }
 
-.floating-action {
+.share-toast {
   position: fixed;
-  bottom: 16px;
-  right: 16px;
-  left: auto;
-  transform: none;
-  width: 120px;
-  z-index: 6;
+  left: 50%;
+  bottom: calc(var(--stock-tabbar-height) + 14px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 7;
 }
 
-.floating-action.compact {
-  right: 16px;
-  width: auto;
-  transform: none;
+.share-toast.show {
+  opacity: 1;
 }
 
-.action-btn {
+.stock-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
   width: 100%;
-  border: 0;
-  border-radius: 999px;
-  padding: 12px 16px;
-  background: #000000;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.action-btn.compact {
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  font-size: 22px;
-}
-
-.floating-trade {
-  position: fixed;
-  bottom: 16px;
-  left: 16px;
+  max-width: 600px;
+  margin: 0 auto;
+  height: var(--stock-tabbar-height);
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
   z-index: 6;
 }
 
-.trade-btn {
-  height: 44px;
-  padding: 0 14px;
-  font-size: 14px;
-  font-weight: 600;
+.tabbar-btn {
   border: 0;
-  border-radius: 999px;
-  background: #000;
-  color: #fff;
+  background: transparent;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  color: var(--ink);
+  font-size: 12px;
   cursor: pointer;
+  padding: 4px 0;
+}
+
+.tabbar-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tabbar-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.tabbar-label {
+  font-size: 12px;
+  font-weight: 600;
 }
 </style>
