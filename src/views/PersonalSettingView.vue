@@ -86,7 +86,7 @@
 <script setup>
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { getCurrentUserSupabase, signOutSupabase } from "../services/auth.js";
+import { clearAuthCache, getCurrentUserSupabase, signOutSupabase } from "../services/auth.js";
 import { applyLanguagePreference, getLanguagePreference } from "../services/preferences.js";
 import { t } from "../services/i18n.js";
 import {
@@ -175,29 +175,40 @@ const handleSave = async () => {
     error.value = t("请选择至少 1 个行业。");
     return;
   }
+  if (!userId.value) {
+    error.value = t("登录状态异常，请重新登录。");
+    return;
+  }
   error.value = "";
   isLoading.value = true;
 
-  const selectedLanguage = applyLanguagePreference(language.value);
-  const profile = await upsertProfileSupabase({
-    userId: userId.value,
-    nickname: nickname.value.trim(),
-    bio: bio.value.trim(),
-    language: selectedLanguage,
-    completed: true,
-  });
+  try {
+    const selectedLanguage = applyLanguagePreference(language.value);
+    const profile = await upsertProfileSupabase({
+      userId: userId.value,
+      nickname: nickname.value.trim(),
+      bio: bio.value.trim(),
+      language: selectedLanguage,
+      completed: true,
+    });
 
-  const savedGroups = await setUserGroupsSupabase(
-    userId.value,
-    selectedGroupIds.value
-  );
+    const savedGroups = await setUserGroupsSupabase(
+      userId.value,
+      selectedGroupIds.value
+    );
 
-  isLoading.value = false;
-  if (profile && savedGroups) {
-    router.replace("/feed");
-    return;
+    if (profile && savedGroups) {
+      clearAuthCache();
+      router.replace("/feed");
+      return;
+    }
+    error.value = t("保存失败，请稍后重试。");
+  } catch (saveError) {
+    console.error("保存个人信息失败:", saveError);
+    error.value = t("保存失败，请稍后重试。");
+  } finally {
+    isLoading.value = false;
   }
-  error.value = t("保存失败，请稍后重试。");
 };
 
 const handleBack = async () => {
