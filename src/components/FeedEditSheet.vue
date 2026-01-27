@@ -19,7 +19,9 @@
             class="content-input"
             :placeholder="t('用一句话说明你的核心判断\n你的判断依据\n关于观点的风险提示...')"
           ></textarea>
-          <div class="helper">{{ t("每个观点最少 20 字") }}</div>
+          <div class="helper" :class="{ error: showContentError }">
+            {{ t("每个观点至少20字") }}
+          </div>
         </div>
 
         <div class="section is-disabled">
@@ -67,7 +69,7 @@
         <button
           class="btn-primary"
           type="button"
-          :disabled="!isValid || saving"
+          :disabled="saving"
           @click="handleSave"
         >
           {{ t("保存修改") }}
@@ -94,11 +96,13 @@ const props = defineProps({
 const emit = defineEmits(["close", "save"]);
 
 const draftContent = ref("");
+const showErrors = ref(false);
 
 watch(
   () => props.feed,
   (next) => {
     draftContent.value = next?.content || "";
+    showErrors.value = false;
   },
   { immediate: true }
 );
@@ -133,12 +137,21 @@ const isValid = computed(() => {
   return length >= 20 && length <= 1000;
 });
 
+const showContentError = computed(() => {
+  const length = draftContent.value.trim().length;
+  return showErrors.value && length < 20;
+});
+
 const overLimitCount = computed(() => {
   const length = draftContent.value.trim().length;
   return length > 1000 ? length - 1000 : 0;
 });
 
 const handleSave = () => {
+  showErrors.value = true;
+  if (!isValid.value) {
+    return;
+  }
   emit("save", draftContent.value);
 };
 </script>
@@ -247,6 +260,10 @@ const handleSave = () => {
 .helper {
   font-size: 12px;
   color: var(--muted);
+}
+
+.helper.error {
+  color: var(--price-down);
 }
 
 .pill-group {

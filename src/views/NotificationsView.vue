@@ -9,7 +9,7 @@
         <span class="nav-space" aria-hidden="true"></span>
       </nav>
 
-      <div class="tabs">
+      <div class="tabs tabs-wrap" :class="{ hidden: !showTabs }">
         <button
           class="tab-btn"
           :class="{ active: activeTab === 'like' }"
@@ -55,6 +55,11 @@
         <div v-if="!isLoading && !filteredItems.length" class="empty">
           {{ t("暂无通知") }}
         </div>
+        <div v-if="hasMore" class="load-more">
+          <button class="btn-secondary" type="button" :disabled="isLoadingMore" @click="loadMore">
+            {{ isLoadingMore ? t("加载中...") : t("加载更多") }}
+          </button>
+        </div>
       </section>
 
       <p class="legal">
@@ -67,7 +72,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
@@ -81,6 +86,12 @@ const activeTab = ref("like");
 const items = ref([]);
 const isLoading = ref(false);
 const currentUserId = ref("");
+const showTabs = ref(true);
+const lastScrollY = ref(0);
+const page = ref(1);
+const hasMore = ref(true);
+const isLoadingMore = ref(false);
+const PAGE_SIZE = 20;
 
 const getInitials = (name) => {
   if (!name) return "";
@@ -188,20 +199,39 @@ const filteredItems = computed(() => {
   return items.value.filter((item) => item.type === activeTab.value);
 });
 
-const loadNotifications = async () => {
+const loadNotifications = async ({ append = false } = {}) => {
   const user = await getCurrentUserSupabase();
   if (!user) {
     router.replace("/login");
     return;
   }
   currentUserId.value = user.id;
-  isLoading.value = true;
-  const rows = await fetchNotificationsSupabase(user.id);
-  items.value = rows
+  if (append) {
+    isLoadingMore.value = true;
+  } else {
+    isLoading.value = true;
+  }
+  const rows = await fetchNotificationsSupabase(user.id, {
+    page: page.value,
+    pageSize: PAGE_SIZE,
+  });
+  const nextItems = rows
     .filter((row) => row.type !== "share")
     .filter((row) => !row.feeds || !row.feeds.deleted_at)
     .map(buildItem);
-  isLoading.value = false;
+  items.value = append ? [...items.value, ...nextItems] : nextItems;
+  hasMore.value = rows.length === PAGE_SIZE;
+  if (append) {
+    isLoadingMore.value = false;
+  } else {
+    isLoading.value = false;
+  }
+};
+
+const loadMore = async () => {
+  if (!hasMore.value || isLoadingMore.value) return;
+  page.value += 1;
+  await loadNotifications({ append: true });
 };
 
 const goFeed = (feedId) => {
@@ -219,7 +249,25 @@ const goProfile = (item) => {
   }
 };
 
+const handleScroll = () => {
+  const current = window.scrollY || 0;
+  const delta = current - lastScrollY.value;
+  if (Math.abs(delta) < 6) return;
+  showTabs.value = delta <= 0;
+  lastScrollY.value = current;
+};
+
 onMounted(loadNotifications);
+onMounted(() => {
+  lastScrollY.value = window.scrollY || 0;
+  window.addEventListener("scroll", handleScroll, { passive: true });
+});
+onUnmounted(() => {
+  window.removeEventListener("scroll", handleScroll);
+});
+watch(activeTab, () => {
+  window.scrollTo({ top: 0, behavior: "auto" });
+});
 </script>
 
 <style scoped>
@@ -236,7 +284,7 @@ onMounted(loadNotifications);
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: 76px 16px 96px;
+  padding: 124px 16px 96px;
   position: relative;
 }
 
@@ -305,10 +353,27 @@ onMounted(loadNotifications);
 }
 
 .tabs {
-  margin: 6px 0 12px;
   display: flex;
   gap: 16px;
+}
+
+.tabs-wrap {
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
+  z-index: 4;
+  padding: 6px 16px 12px;
+  transition: transform 0.2s ease;
+}
+
+.tabs-wrap.hidden {
+  transform: translateY(-120%);
 }
 
 .tab-btn {
@@ -326,6 +391,27 @@ onMounted(loadNotifications);
 .tab-btn.active {
   color: var(--ink);
   border-color: var(--ink);
+}
+
+.load-more {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 24px;
+}
+
+.btn-secondary {
+  border-radius: 999px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .list {

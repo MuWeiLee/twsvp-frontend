@@ -1,16 +1,33 @@
 import { supabase } from "./supabase";
 
-export async function fetchNotificationsSupabase(userId, limit = 50) {
+const normalizePagination = (page = 1, pageSize = 20) => {
+  const safePage = Math.max(1, Number(page) || 1);
+  const safeSize = Math.max(1, Number(pageSize) || 20);
+  const from = (safePage - 1) * safeSize;
+  const to = from + safeSize - 1;
+  return { from, to };
+};
+
+export async function fetchNotificationsSupabase(userId, limitOrOptions = 20) {
   if (!userId) {
     return [];
   }
+  let page = 1;
+  let pageSize = 20;
+  if (typeof limitOrOptions === "number") {
+    pageSize = limitOrOptions;
+  } else if (limitOrOptions && typeof limitOrOptions === "object") {
+    page = limitOrOptions.page ?? page;
+    pageSize = limitOrOptions.pageSize ?? pageSize;
+  }
+  const { from, to } = normalizePagination(page, pageSize);
 
   const { data, error } = await supabase
     .from("notifications")
     .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .range(from, to);
 
   if (error) {
     console.error("读取 notifications 失败:", error);

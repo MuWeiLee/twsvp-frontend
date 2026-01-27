@@ -119,6 +119,11 @@
           </div>
         </div>
         <div v-if="!filteredViews.length" class="empty">{{ t("暂无观点") }}</div>
+        <div v-if="hasMore" class="load-more">
+          <button class="btn-secondary" type="button" :disabled="isLoadingMore" @click="loadMore">
+            {{ isLoadingMore ? t("加载中...") : t("加载更多") }}
+          </button>
+        </div>
       </section>
 
       <p class="legal">
@@ -129,7 +134,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { getProfileSupabase, getUserGroupNamesSupabase } from "../services/profile.js";
@@ -162,6 +167,10 @@ const user = ref({
 const feeds = ref([]);
 const likedIds = ref(new Set());
 const currentUserId = ref("");
+const page = ref(1);
+const hasMore = ref(true);
+const isLoadingMore = ref(false);
+const PAGE_SIZE = 20;
 
 const formatDate = (value) => {
   if (!value) return "—";
@@ -217,6 +226,22 @@ const filteredViews = computed(() => {
   return list.filter((view) => view.statusPhase === mode.value);
 });
 
+const loadFeeds = async ({ append = false } = {}) => {
+  const userId = route.params.id;
+  if (!userId || Array.isArray(userId)) {
+    return;
+  }
+  const data = await fetchFeedsSupabase({
+    userId,
+    page: page.value,
+    pageSize: PAGE_SIZE,
+  });
+  const nextFeeds = append ? [...feeds.value, ...data] : data;
+  feeds.value = nextFeeds;
+  hasMore.value = data.length === PAGE_SIZE;
+  await loadLikedIds(nextFeeds);
+};
+
 const loadProfile = async () => {
   const userId = route.params.id;
   if (!userId || Array.isArray(userId)) {
@@ -242,10 +267,17 @@ const loadProfile = async () => {
     tags,
     joined: formatDate(profile?.created_at),
   };
+  page.value = 1;
+  hasMore.value = true;
+  await loadFeeds();
+};
 
-  const data = await fetchFeedsSupabase({ userId });
-  feeds.value = data;
-  await loadLikedIds(data);
+const loadMore = async () => {
+  if (!hasMore.value || isLoadingMore.value) return;
+  isLoadingMore.value = true;
+  page.value += 1;
+  await loadFeeds({ append: true });
+  isLoadingMore.value = false;
 };
 
 const goFeed = (feedId) => {
@@ -332,6 +364,9 @@ const toggleLike = async (view) => {
 };
 
 onMounted(loadProfile);
+watch(mode, () => {
+  window.scrollTo({ top: 0, behavior: "auto" });
+});
 </script>
 
 <style scoped>
@@ -670,6 +705,27 @@ onMounted(loadProfile);
   text-align: center;
   font-size: 12px;
   color: var(--muted);
+}
+
+.load-more {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 24px;
+}
+
+.btn-secondary {
+  border-radius: 999px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .legal {
