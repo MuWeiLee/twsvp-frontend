@@ -24,6 +24,13 @@ export const BROKERS = [
       "https://apps.apple.com/tw/app/%E5%AF%8C%E9%82%A6-ai-pro/id6751573234?l=en-GB",
     appScheme: "",
   },
+  {
+    id: "yuanta-investment-mr",
+    name: "元大投資先生",
+    appStoreUrl:
+      "https://apps.apple.com/tw/app/%E6%8A%95%E8%B3%87%E5%85%88%E7%94%9F/id1382114621?l=en-GB",
+    appScheme: "",
+  },
 ];
 
 const BROKER_MAP = new Map(BROKERS.map((broker) => [broker.id, broker]));

@@ -201,6 +201,13 @@
 - 绑定账号信息（只读：Google）
 - 登出（Logout）
 
+#### C. 交易券商
+- 选择交易券商（跳 BrokerSelection）
+  - 中信亮點
+  - 國泰證券
+  - 富邦 AI Pro
+  - 元大投資先生
+
 ---
 
 ## 6.2 ProfileEdit
