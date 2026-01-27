@@ -86,6 +86,8 @@
 - 输入联想（可选）
 - 结果分页
 - 结果排序（默认相关性）
+- 搜索框固定在顶部导航下方，内容区仅在搜索框与底部 Tabbar 之间滚动
+- 免责声明固定在 Tabbar 上方，不参与滚动
 
 ### 关键字段
 - query, result_type, stock(symbol,name), sector(name), user(nickname,avatar), view(summary,stock,direction)

@@ -10,93 +10,252 @@
       </nav>
 
       <section class="search">
-        <div class="search-bar">
-          <div class="search-input-wrap">
-            <input
-              class="search-input"
-              type="text"
-              :placeholder="t('搜索股票、代码、话题或作者')"
-              v-model="query"
-              @input="handleInput"
-              @keyup.enter="handleSearch"
-            />
-            <button
-              v-if="query"
-              class="clear-btn"
-              type="button"
-              :aria-label="t('清除搜索')"
-              @click="clearSearch"
-            >
-              ×
-            </button>
-            <div v-if="isSuggesting && !suggestedStocks.length" class="suggest-tip">
-              {{ t("正在联想...") }}
-            </div>
-            <div v-if="suggestedStocks.length" class="suggest-list">
+        <div class="search-bar-shell">
+          <div class="search-bar">
+            <div class="search-input-wrap">
+              <input
+                class="search-input"
+                type="text"
+                :placeholder="t('搜索股票、代码、话题或作者')"
+                v-model="query"
+                @input="handleInput"
+                @keyup.enter="handleSearch"
+              />
               <button
-                v-for="stock in suggestedStocks"
-                :key="stock.stock_id"
+                v-if="query"
+                class="clear-btn"
                 type="button"
-                class="suggest-item"
-                @click="selectSuggestedStock(stock)"
+                :aria-label="t('清除搜索')"
+                @click="clearSearch"
               >
-                <strong>{{ stock.stock_id }} {{ stock.name }}</strong>
-                <span>{{ stock.market }}</span>
+                ×
               </button>
+              <div v-if="isSuggesting && !suggestedStocks.length" class="suggest-tip">
+                {{ t("正在联想...") }}
+              </div>
+              <div v-if="suggestedStocks.length" class="suggest-list">
+                <button
+                  v-for="stock in suggestedStocks"
+                  :key="stock.stock_id"
+                  type="button"
+                  class="suggest-item"
+                  @click="selectSuggestedStock(stock)"
+                >
+                  <strong>{{ stock.stock_id }} {{ stock.name }}</strong>
+                  <span>{{ stock.market }}</span>
+                </button>
+              </div>
             </div>
+            <button
+              class="btn-primary"
+              type="button"
+              :disabled="isSearching"
+              @click="handleSearch"
+            >
+              {{ isSearching ? t("搜索中...") : t("搜索") }}
+            </button>
           </div>
-          <button
-            class="btn-primary"
-            type="button"
-            :disabled="isSearching"
-            @click="handleSearch"
-          >
-            {{ isSearching ? t("搜索中...") : t("搜索") }}
-          </button>
         </div>
 
-        <div v-if="isSearching" class="search-loading">{{ t("正在搜索...") }}</div>
+        <div class="search-body">
+          <div v-if="isSearching" class="search-loading">{{ t("正在搜索...") }}</div>
 
-        <section v-if="submittedQuery">
-          <div class="tabs result-tabs">
-            <button
-              class="tab-btn"
-              :class="{ active: activeResultTab === 'all' }"
-              @click="activeResultTab = 'all'"
-            >
-              {{
-                t("全部 {count}", {
-                  count: stockResults.length + visibleFeedResults.length + userResults.length,
-                })
-              }}
-            </button>
-            <button
-              class="tab-btn"
-              :class="{ active: activeResultTab === 'stock' }"
-              @click="activeResultTab = 'stock'"
-            >
-              {{ t("股票 {count}", { count: stockResults.length }) }}
-            </button>
-            <button
-              class="tab-btn"
-              :class="{ active: activeResultTab === 'feed' }"
-              @click="activeResultTab = 'feed'"
-            >
-              {{ t("观点 {count}", { count: visibleFeedResults.length }) }}
-            </button>
-            <button
-              class="tab-btn"
-              :class="{ active: activeResultTab === 'user' }"
-              @click="activeResultTab = 'user'"
-            >
-              {{ t("用户 {count}", { count: userResults.length }) }}
-            </button>
-          </div>
+          <section v-if="submittedQuery">
+            <div class="tabs result-tabs">
+              <button
+                class="tab-btn"
+                :class="{ active: activeResultTab === 'all' }"
+                @click="activeResultTab = 'all'"
+              >
+                {{
+                  t("全部 {count}", {
+                    count: stockResults.length + visibleFeedResults.length + userResults.length,
+                  })
+                }}
+              </button>
+              <button
+                class="tab-btn"
+                :class="{ active: activeResultTab === 'stock' }"
+                @click="activeResultTab = 'stock'"
+              >
+                {{ t("股票 {count}", { count: stockResults.length }) }}
+              </button>
+              <button
+                class="tab-btn"
+                :class="{ active: activeResultTab === 'feed' }"
+                @click="activeResultTab = 'feed'"
+              >
+                {{ t("观点 {count}", { count: visibleFeedResults.length }) }}
+              </button>
+              <button
+                class="tab-btn"
+                :class="{ active: activeResultTab === 'user' }"
+                @click="activeResultTab = 'user'"
+              >
+                {{ t("用户 {count}", { count: userResults.length }) }}
+              </button>
+            </div>
 
-          <div v-if="activeResultTab === 'all'">
-            <div v-if="stockResults.length" class="result-section">
-              <div class="result-title">{{ t("股票") }}</div>
-              <div class="list">
+            <div v-if="activeResultTab === 'all'">
+              <div v-if="stockResults.length" class="result-section">
+                <div class="result-title">{{ t("股票") }}</div>
+                <div class="list">
+                  <div
+                    v-for="item in stockResults"
+                    :key="item.stock_id"
+                    class="list-item"
+                    @click="goStock(item.stock_id)"
+                  >
+                    <strong>{{ item.stock_id }} {{ item.name }}</strong>
+                    <span>{{ item.market }}</span>
+                  </div>
+                </div>
+                <div v-if="hasMoreStocks" class="load-more">
+                  <button
+                    class="btn-secondary"
+                    type="button"
+                    :disabled="isLoadingMoreStocks"
+                    @click="loadMoreStocks"
+                  >
+                    {{ isLoadingMoreStocks ? t("加载中...") : t("加载更多") }}
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="visibleFeedResults.length" class="result-section">
+                <div class="result-title">{{ t("观点") }}</div>
+                <div class="feed">
+                  <div v-for="view in visibleFeedResults" :key="view.feed_id" class="thread">
+                    <div class="thread-card" @click="goFeed(view.feed_id)">
+                      <div class="thread-header">
+                        <div class="header-left">
+                          <div class="stock" @click.stop="goStock(view.target_symbol)">
+                            <span class="stock-name">{{ view.target_name }}</span>
+                            <span class="stock-code">{{ view.target_symbol }}</span>
+                          </div>
+                          <span class="direction" :class="view.direction">
+                            {{ view.directionLabel }}
+                          </span>
+                        </div>
+                        <div class="more-wrap">
+                          <button
+                            class="more-btn"
+                            type="button"
+                            @click.stop="toggleMenu(view.feed_id)"
+                          >
+                            ...
+                          </button>
+                          <div v-if="activeMenuId === view.feed_id" class="more-menu">
+                            <template v-if="isAuthor(view)">
+                              <button
+                                v-if="canEditFeed(view)"
+                                class="menu-item"
+                                type="button"
+                                @click.stop="handleEditFeed(view)"
+                              >
+                                {{ t("编辑观点") }}
+                              </button>
+                              <button
+                                v-if="view.statusPhase !== 'ended'"
+                                class="menu-item"
+                                type="button"
+                                @click.stop="handleEndFeed(view)"
+                              >
+                                {{ t("手动结束") }}
+                              </button>
+                              <button
+                                class="menu-item danger"
+                                type="button"
+                                @click.stop="handleDeleteFeed(view)"
+                              >
+                                {{ t("删除观点") }}
+                              </button>
+                            </template>
+                            <button
+                              v-else
+                              class="menu-item"
+                              type="button"
+                              @click.stop="handleHideFeed(view)"
+                            >
+                              {{ t("不看这条") }}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="thread-meta">
+                        <div class="author" @click.stop="goProfile(view)">
+                          <span class="avatar" :class="{ empty: !view.authorAvatar }">
+                            <img v-if="view.authorAvatar" :src="view.authorAvatar" alt="" />
+                            <span v-else>{{ view.authorInitial }}</span>
+                          </span>
+                          <span class="author-name">{{ view.author }}</span>
+                        </div>
+                        <span class="status">{{ view.statusDisplay }}</span>
+                      </div>
+                      <div class="summary" @click.stop="goFeed(view.feed_id)">
+                        {{ view.content }}
+                      </div>
+                      <div class="thread-footer">
+                        <span class="created-at">{{ view.createdDateLabel }}</span>
+                        <button
+                          class="like-btn"
+                          type="button"
+                          :class="{ active: view.isLiked }"
+                          @click.stop="toggleLike(view)"
+                        >
+                          👍 {{ view.like_count }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="hasMoreFeeds" class="load-more">
+                  <button
+                    class="btn-secondary"
+                    type="button"
+                    :disabled="isLoadingMoreFeeds"
+                    @click="loadMoreFeeds"
+                  >
+                    {{ isLoadingMoreFeeds ? t("加载中...") : t("加载更多") }}
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="userResults.length" class="result-section">
+                <div class="result-title">{{ t("用户") }}</div>
+                <div class="user-list">
+                  <div
+                    v-for="user in userResults"
+                    :key="user.user_id"
+                    class="user-card"
+                    @click="goUser(user)"
+                  >
+                    <strong>{{ user.nickname || t("用户") }}</strong>
+                    <span>{{ user.bio || t("暂无简介") }}</span>
+                  </div>
+                </div>
+                <div v-if="hasMoreUsers" class="load-more">
+                  <button
+                    class="btn-secondary"
+                    type="button"
+                    :disabled="isLoadingMoreUsers"
+                    @click="loadMoreUsers"
+                  >
+                    {{ isLoadingMoreUsers ? t("加载中...") : t("加载更多") }}
+                  </button>
+                </div>
+              </div>
+
+              <div
+                v-if="!stockResults.length && !visibleFeedResults.length && !userResults.length"
+                class="empty"
+              >
+                {{ t("暂无相关结果") }}
+              </div>
+            </div>
+
+            <div v-else-if="activeResultTab === 'stock'">
+              <div v-if="stockResults.length" class="list">
                 <div
                   v-for="item in stockResults"
                   :key="item.stock_id"
@@ -117,11 +276,11 @@
                   {{ isLoadingMoreStocks ? t("加载中...") : t("加载更多") }}
                 </button>
               </div>
+              <div v-else class="empty">{{ t("暂无相关股票") }}</div>
             </div>
 
-            <div v-if="visibleFeedResults.length" class="result-section">
-              <div class="result-title">{{ t("观点") }}</div>
-              <div class="feed">
+            <div v-else-if="activeResultTab === 'feed'">
+              <div v-if="visibleFeedResults.length" class="feed">
                 <div v-for="view in visibleFeedResults" :key="view.feed_id" class="thread">
                   <div class="thread-card" @click="goFeed(view.feed_id)">
                     <div class="thread-header">
@@ -216,11 +375,11 @@
                   {{ isLoadingMoreFeeds ? t("加载中...") : t("加载更多") }}
                 </button>
               </div>
+              <div v-else class="empty">{{ t("暂无相关观点") }}</div>
             </div>
 
-            <div v-if="userResults.length" class="result-section">
-              <div class="result-title">{{ t("用户") }}</div>
-              <div class="user-list">
+            <div v-else>
+              <div v-if="userResults.length" class="user-list">
                 <div
                   v-for="user in userResults"
                   :key="user.user_id"
@@ -241,166 +400,11 @@
                   {{ isLoadingMoreUsers ? t("加载中...") : t("加载更多") }}
                 </button>
               </div>
+              <div v-else class="empty">{{ t("暂无相关用户") }}</div>
             </div>
+          </section>
 
-            <div
-              v-if="!stockResults.length && !visibleFeedResults.length && !userResults.length"
-              class="empty"
-            >
-              {{ t("暂无相关结果") }}
-            </div>
-          </div>
-
-          <div v-else-if="activeResultTab === 'stock'">
-            <div v-if="stockResults.length" class="list">
-              <div
-                v-for="item in stockResults"
-                :key="item.stock_id"
-                class="list-item"
-                @click="goStock(item.stock_id)"
-              >
-                <strong>{{ item.stock_id }} {{ item.name }}</strong>
-                <span>{{ item.market }}</span>
-              </div>
-            </div>
-            <div v-if="hasMoreStocks" class="load-more">
-              <button
-                class="btn-secondary"
-                type="button"
-                :disabled="isLoadingMoreStocks"
-                @click="loadMoreStocks"
-              >
-                {{ isLoadingMoreStocks ? t("加载中...") : t("加载更多") }}
-              </button>
-            </div>
-            <div v-else class="empty">{{ t("暂无相关股票") }}</div>
-          </div>
-
-          <div v-else-if="activeResultTab === 'feed'">
-            <div v-if="visibleFeedResults.length" class="feed">
-              <div v-for="view in visibleFeedResults" :key="view.feed_id" class="thread">
-                <div class="thread-card" @click="goFeed(view.feed_id)">
-                  <div class="thread-header">
-                    <div class="header-left">
-                      <div class="stock" @click.stop="goStock(view.target_symbol)">
-                        <span class="stock-name">{{ view.target_name }}</span>
-                        <span class="stock-code">{{ view.target_symbol }}</span>
-                      </div>
-                      <span class="direction" :class="view.direction">
-                        {{ view.directionLabel }}
-                      </span>
-                    </div>
-                    <div class="more-wrap">
-                      <button
-                        class="more-btn"
-                        type="button"
-                        @click.stop="toggleMenu(view.feed_id)"
-                      >
-                        ...
-                      </button>
-                      <div v-if="activeMenuId === view.feed_id" class="more-menu">
-                        <template v-if="isAuthor(view)">
-                          <button
-                            v-if="canEditFeed(view)"
-                            class="menu-item"
-                            type="button"
-                            @click.stop="handleEditFeed(view)"
-                          >
-                            {{ t("编辑观点") }}
-                          </button>
-                          <button
-                            v-if="view.statusPhase !== 'ended'"
-                            class="menu-item"
-                            type="button"
-                            @click.stop="handleEndFeed(view)"
-                          >
-                            {{ t("手动结束") }}
-                          </button>
-                          <button
-                            class="menu-item danger"
-                            type="button"
-                            @click.stop="handleDeleteFeed(view)"
-                          >
-                            {{ t("删除观点") }}
-                          </button>
-                        </template>
-                        <button
-                          v-else
-                          class="menu-item"
-                          type="button"
-                          @click.stop="handleHideFeed(view)"
-                        >
-                          {{ t("不看这条") }}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="thread-meta">
-                    <div class="author" @click.stop="goProfile(view)">
-                      <span class="avatar" :class="{ empty: !view.authorAvatar }">
-                        <img v-if="view.authorAvatar" :src="view.authorAvatar" alt="" />
-                        <span v-else>{{ view.authorInitial }}</span>
-                      </span>
-                      <span class="author-name">{{ view.author }}</span>
-                    </div>
-                    <span class="status">{{ view.statusDisplay }}</span>
-                  </div>
-                  <div class="summary" @click.stop="goFeed(view.feed_id)">
-                    {{ view.content }}
-                  </div>
-                  <div class="thread-footer">
-                    <span class="created-at">{{ view.createdDateLabel }}</span>
-                    <button
-                      class="like-btn"
-                      type="button"
-                      :class="{ active: view.isLiked }"
-                      @click.stop="toggleLike(view)"
-                    >
-                      👍 {{ view.like_count }}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div v-if="hasMoreFeeds" class="load-more">
-              <button
-                class="btn-secondary"
-                type="button"
-                :disabled="isLoadingMoreFeeds"
-                @click="loadMoreFeeds"
-              >
-                {{ isLoadingMoreFeeds ? t("加载中...") : t("加载更多") }}
-              </button>
-            </div>
-            <div v-else class="empty">{{ t("暂无相关观点") }}</div>
-          </div>
-
-          <div v-else>
-            <div v-if="userResults.length" class="user-list">
-              <div
-                v-for="user in userResults"
-                :key="user.user_id"
-                class="user-card"
-                @click="goUser(user)"
-              >
-                <strong>{{ user.nickname || t("用户") }}</strong>
-                <span>{{ user.bio || t("暂无简介") }}</span>
-              </div>
-            </div>
-            <div v-if="hasMoreUsers" class="load-more">
-              <button
-                class="btn-secondary"
-                type="button"
-                :disabled="isLoadingMoreUsers"
-                @click="loadMoreUsers"
-              >
-                {{ isLoadingMoreUsers ? t("加载中...") : t("加载更多") }}
-              </button>
-            </div>
-            <div v-else class="empty">{{ t("暂无相关用户") }}</div>
-          </div>
-        </section>
-
+        </div>
         <p class="legal">
           {{ t("任何观点仅作为记录与回溯，不作为预测价格与投资建议。") }}
         </p>
@@ -874,6 +878,9 @@ watch(activeResultTab, () => {
   min-height: 100vh;
   --nav-height: 64px;
   --header-gap: 12px;
+  --tab-height: 64px;
+  --search-bar-shell-height: 72px;
+  --legal-height: 38px;
 }
 
 .phone-frame {
@@ -882,9 +889,8 @@ watch(activeResultTab, () => {
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: calc(var(--nav-height) + var(--header-gap) + env(safe-area-inset-top, 0px)) 16px
-    calc(140px + env(safe-area-inset-bottom, 0px));
   position: relative;
+  overflow: hidden;
 }
 
 .nav {
@@ -952,14 +958,43 @@ watch(activeResultTab, () => {
 }
 
 .search {
-  display: grid;
-  gap: 18px;
+  position: relative;
+}
+
+.search-bar-shell {
+  position: fixed;
+  top: calc(var(--nav-height) + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(600px, 100%);
+  height: var(--search-bar-shell-height);
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  z-index: 4;
 }
 
 .search-bar {
   display: flex;
   gap: 10px;
   align-items: center;
+  width: 100%;
+}
+
+.search-body {
+  margin-top: calc(
+    var(--nav-height) + var(--search-bar-shell-height) + env(safe-area-inset-top, 0px)
+  );
+  height: calc(
+    100vh - var(--nav-height) - var(--search-bar-shell-height) - var(--tab-height) -
+      var(--legal-height) - env(safe-area-inset-top, 0px)
+  );
+  overflow-y: auto;
+  padding: 18px 16px 24px;
+  display: grid;
+  gap: 18px;
 }
 
 .search-loading {
@@ -1370,7 +1405,7 @@ watch(activeResultTab, () => {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--tab-height) + env(safe-area-inset-bottom, 0px));
   width: min(600px, 100%);
   padding: 6px 16px;
   margin: 0;
@@ -1382,9 +1417,9 @@ watch(activeResultTab, () => {
 }
 
 @media (max-width: 480px) {
-  .phone-frame {
-    padding: calc(var(--nav-height) + var(--header-gap) + env(safe-area-inset-top, 0px)) 16px
-      calc(140px + env(safe-area-inset-bottom, 0px));
+  .search-bar-shell,
+  .search-body {
+    width: 100%;
   }
 }
 </style>
