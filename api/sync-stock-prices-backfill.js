@@ -222,7 +222,9 @@ export default async function handler(req, res) {
   const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET } = process.env;
   if (CRON_SECRET) {
     const secret = req.headers["x-cron-secret"] || req.query?.secret;
-    const isVercelCron = req.headers["x-vercel-cron"] === "1";
+    const userAgent = `${req.headers["user-agent"] || ""}`;
+    const isVercelCron =
+      req.headers["x-vercel-cron"] === "1" || userAgent.startsWith("vercel-cron/");
     if (!isVercelCron && secret !== CRON_SECRET) {
       res.status(401).json({ error: "Unauthorized" });
       return;
