@@ -7,7 +7,7 @@ export const BROKERS = [
     id: "ctbc-bright",
     name: "中信亮點",
     appStoreUrl:
-      "https://apps.apple.com/tw/app/%E4%B8%AD%E4%BF%A1%E4%BA%AE%E9%BB%9E/id1411101548?l=en-GB",
+      "https://insight.win168.com.tw/Link/insight/app",
     appScheme: "",
   },
   {
@@ -36,6 +36,13 @@ export const BROKERS = [
     name: "元大投資先生",
     appStoreUrl:
       "https://apps.apple.com/tw/app/%E6%8A%95%E8%B3%87%E5%85%88%E7%94%9F/id1382114621?l=en-GB",
+    appScheme: "",
+  },
+  {
+    id: "fugle",
+    name: "富果 FUGLE",
+    appStoreUrl:
+      "https://apps.apple.com/tw/app/%E5%AF%8C%E6%9E%9C-fugle-%E5%B0%88%E7%82%BA%E5%B9%B4%E8%BC%95%E4%BA%BA%E6%89%93%E9%80%A0%E5%8F%B0%E8%82%A1%E6%8A%95%E8%B3%87%E7%A0%94%E7%A9%B6-%E8%A6%96%E8%A6%BA%E5%8C%96%E9%81%B8%E8%82%A1%E7%9C%8B%E7%9B%A4/id1542310263?l=en-GB",
     appScheme: "",
   },
 ];
