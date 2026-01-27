@@ -7,7 +7,7 @@ export const BROKERS = [
     id: "ctbc-bright",
     name: "中信亮點",
     appStoreUrl:
-      "https://insight.win168.com.tw/Link/insight/app",
+      "https://apps.apple.com/tw/app/%E4%B8%AD%E4%BF%A1%E4%BA%AE%E9%BB%9E/id1411101548?l=en-GB",
     appScheme: "",
   },
   {

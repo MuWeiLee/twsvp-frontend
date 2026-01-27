@@ -210,6 +210,9 @@
 - 元大投資先生
 - 富果 FUGLE
 
+### App Store 链接（MVP）
+- 中信亮點：https://apps.apple.com/tw/app/%E4%B8%AD%E4%BF%A1%E4%BA%AE%E9%BB%9E/id1411101548?l=en-GB
+
 ### 主要操作
 - 选择/切换交易券商
 - 前往 App Store（如果有对应链接）
