@@ -23,18 +23,22 @@
         <p class="subtitle">{{ t("用于快捷交易跳转") }}</p>
       </header>
 
-      <section class="card slide-in">
-        <div class="search-field">
-          <label class="search-label" for="broker-search">{{ t("券商搜索") }}</label>
-          <input
-            id="broker-search"
-            v-model="searchQuery"
-            class="search-input"
-            type="search"
-            :placeholder="t('券商搜索')"
-          />
+      <section class="search-bar-shell slide-in">
+        <div class="search-bar">
+          <div class="search-input-wrap">
+            <input
+              id="broker-search"
+              v-model="searchQuery"
+              class="search-input"
+              type="search"
+              :placeholder="t('券商搜索')"
+              :aria-label="t('券商搜索')"
+            />
+          </div>
         </div>
+      </section>
 
+      <section class="card slide-in">
         <div class="broker-groups">
           <div v-for="group in groupedBrokers" :key="group.key" class="broker-group">
             <div class="group-title">{{ group.label }}</div>
@@ -82,6 +86,7 @@ const searchQuery = ref("");
 const GROUPS = [
   { key: "F", label: "F", brokerIds: ["fubon-ai-pro", "fugle"] },
   { key: "G", label: "G", brokerIds: ["cathay-securities", "cathay-tree-elf"] },
+  { key: "T", label: "T", brokerIds: ["taishin-phoneez"] },
   { key: "Y", label: "Y", brokerIds: ["yuanta-investment-mr", "sinopac-da-hu-tou"] },
   { key: "Z", label: "Z", brokerIds: ["ctbc-bright"] },
 ];
@@ -209,23 +214,32 @@ const handleBack = () => {
   gap: 14px;
 }
 
-.search-field {
-  display: grid;
-  gap: 8px;
+.search-bar-shell {
+  padding: 0 4px 14px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
 }
 
-.search-label {
-  font-size: 12px;
-  color: var(--muted);
+.search-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+}
+
+.search-input-wrap {
+  position: relative;
+  flex: 1;
 }
 
 .search-input {
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 10px 12px;
   font-size: 14px;
-  background: var(--panel);
+  background: transparent;
   color: var(--ink);
+  width: 100%;
 }
 
 .broker-groups {

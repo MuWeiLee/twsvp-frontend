@@ -32,6 +32,13 @@ export const BROKERS = [
     appScheme: "",
   },
   {
+    id: "taishin-phoneez",
+    name: "台新 PhoneEZ",
+    appStoreUrl:
+      "https://apps.apple.com/tw/app/%E5%8F%B0%E6%96%B0%E8%AD%89%E5%88%B8-phoneez/id370135677?l=en-GB",
+    appScheme: "",
+  },
+  {
     id: "yuanta-investment-mr",
     name: "元大投資先生",
     appStoreUrl:
