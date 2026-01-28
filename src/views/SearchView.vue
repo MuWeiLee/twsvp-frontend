@@ -30,21 +30,6 @@
               >
                 ×
               </button>
-              <div v-if="isSuggesting && !suggestedStocks.length" class="suggest-tip">
-                {{ t("正在联想...") }}
-              </div>
-              <div v-if="suggestedStocks.length" class="suggest-list">
-                <button
-                  v-for="stock in suggestedStocks"
-                  :key="stock.stock_id"
-                  type="button"
-                  class="suggest-item"
-                  @click="selectSuggestedStock(stock)"
-                >
-                  <strong>{{ stock.stock_id }} {{ stock.name }}</strong>
-                  <span>{{ stock.market }}</span>
-                </button>
-              </div>
             </div>
             <button
               class="btn-primary"
@@ -59,6 +44,24 @@
 
         <div class="search-body">
           <div v-if="isSearching" class="search-loading">{{ t("正在搜索...") }}</div>
+
+          <section v-if="query && (isSuggesting || suggestedStocks.length)" class="suggest-panel">
+            <div v-if="isSuggesting && !suggestedStocks.length" class="suggest-tip">
+              {{ t("正在联想...") }}
+            </div>
+            <div v-if="suggestedStocks.length" class="suggest-list">
+              <button
+                v-for="stock in suggestedStocks"
+                :key="stock.stock_id"
+                type="button"
+                class="suggest-item"
+                @click="selectSuggestedStock(stock)"
+              >
+                <strong>{{ stock.stock_id }} {{ stock.name }}</strong>
+                <span>{{ stock.market }}</span>
+              </button>
+            </div>
+          </section>
 
           <section v-if="submittedQuery">
             <div class="tabs result-tabs">
@@ -1059,27 +1062,24 @@ watch(activeResultTab, () => {
   padding: 0;
 }
 
-.suggest-tip {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.suggest-list {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
+.suggest-panel {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: var(--shadow);
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.suggest-tip {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 4px 6px;
+}
+
+.suggest-list {
   display: grid;
   gap: 2px;
-  z-index: 6;
-  padding: 6px;
 }
 
 .suggest-item {
