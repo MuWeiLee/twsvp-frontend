@@ -513,7 +513,7 @@ const searchSuggestions = () => {
   }
   suggestTimer = setTimeout(async () => {
     isSuggesting.value = true;
-    suggestedStocks.value = await searchStocksSupabase(q, 6);
+    suggestedStocks.value = await searchStocksSupabase(q, 8);
     isSuggesting.value = false;
   }, 200);
 };
@@ -1080,6 +1080,9 @@ watch(activeResultTab, () => {
 .suggest-list {
   display: grid;
   gap: 2px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .suggest-item {
