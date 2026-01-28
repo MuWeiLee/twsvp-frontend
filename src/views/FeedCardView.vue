@@ -133,8 +133,37 @@
             </span>
             <div class="reply-body">
               <div class="reply-meta">
-                <span class="reply-author">{{ reply.author }}</span>
-                <span class="reply-time">{{ reply.createdLabel }}</span>
+                <div class="reply-meta-info">
+                  <span class="reply-author">{{ reply.author }}</span>
+                  <span class="reply-time">{{ reply.createdLabel }}</span>
+                </div>
+                <div class="reply-more">
+                  <button
+                    class="reply-more-btn"
+                    type="button"
+                    @click.stop="toggleReplyMenu(reply.reply_id)"
+                  >
+                    ...
+                  </button>
+                  <div v-if="activeReplyMenuId === reply.reply_id" class="reply-menu">
+                    <button
+                      v-if="reply.isAuthor"
+                      class="menu-item danger"
+                      type="button"
+                      @click.stop="handleDeleteReply(reply)"
+                    >
+                      {{ t("删除留言") }}
+                    </button>
+                    <button
+                      v-else
+                      class="menu-item"
+                      type="button"
+                      @click.stop="handleHideReply(reply)"
+                    >
+                      {{ t("不要看到") }}
+                    </button>
+                  </div>
+                </div>
               </div>
               <div class="reply-content">{{ reply.content }}</div>
             </div>
@@ -181,6 +210,8 @@ const showShareToast = ref(false);
 const replies = ref([]);
 const replyContent = ref("");
 const replySubmitting = ref(false);
+const activeReplyMenuId = ref(null);
+const hiddenReplyIds = ref(new Set());
 let shareToastTimer = null;
 const MAX_REPLY_LENGTH = 200;
 
@@ -344,6 +375,46 @@ const loadUser = async () => {
   const supabaseUser = await getCurrentUserSupabase();
   currentUserId.value = supabaseUser?.id || "";
   await loadLikedIds();
+  if (feed.value?.feed_id) {
+    await loadReplies(feed.value.feed_id);
+  }
+};
+
+const loadHiddenReplyIds = () => {
+  try {
+    const raw = localStorage.getItem("twsvp_reply_hidden");
+    const ids = raw ? JSON.parse(raw) : [];
+    hiddenReplyIds.value = new Set(ids);
+  } catch (error) {
+    hiddenReplyIds.value = new Set();
+  }
+};
+
+const saveHiddenReplyIds = () => {
+  localStorage.setItem("twsvp_reply_hidden", JSON.stringify([...hiddenReplyIds.value]));
+};
+
+const toggleReplyMenu = (replyId) => {
+  activeReplyMenuId.value = activeReplyMenuId.value === replyId ? null : replyId;
+};
+
+const closeReplyMenu = () => {
+  activeReplyMenuId.value = null;
+};
+
+const handleHideReply = (reply) => {
+  if (!reply?.reply_id) return;
+  hiddenReplyIds.value.add(reply.reply_id);
+  saveHiddenReplyIds();
+  replies.value = replies.value.filter((item) => item.reply_id !== reply.reply_id);
+  closeReplyMenu();
+};
+
+const handleDeleteReply = async (reply) => {
+  if (!reply?.reply_id) return;
+  await supabase.from("feed_replies").delete().eq("reply_id", reply.reply_id);
+  replies.value = replies.value.filter((item) => item.reply_id !== reply.reply_id);
+  closeReplyMenu();
 };
 
 const loadReplies = async (feedId = feed.value?.feed_id) => {
@@ -352,13 +423,16 @@ const loadReplies = async (feedId = feed.value?.feed_id) => {
     return;
   }
   const data = await fetchFeedRepliesSupabase(feedId);
-  replies.value = data.map((reply) => ({
-    ...reply,
-    author: reply.users?.nickname || t("用户"),
-    authorAvatar: reply.users?.avatar_url || "",
-    authorInitial: getInitials(reply.users?.nickname || t("用户")),
-    createdLabel: formatFeedTimestamp(reply.created_at),
-  }));
+  replies.value = data
+    .map((reply) => ({
+      ...reply,
+      author: reply.users?.nickname || t("用户"),
+      authorAvatar: reply.users?.avatar_url || "",
+      authorInitial: getInitials(reply.users?.nickname || t("用户")),
+      createdLabel: formatFeedTimestamp(reply.created_at),
+      isAuthor: currentUserId.value && reply.user_id === currentUserId.value,
+    }))
+    .filter((reply) => !hiddenReplyIds.value.has(reply.reply_id));
 };
 
 const loadFeed = async () => {
@@ -445,6 +519,7 @@ const submitReply = async () => {
       authorAvatar: data.users?.avatar_url || "",
       authorInitial: getInitials(data.users?.nickname || t("用户")),
       createdLabel: formatFeedTimestamp(data.created_at),
+      isAuthor: currentUserId.value && data.user_id === currentUserId.value,
     },
   ];
   replyContent.value = "";
@@ -456,6 +531,7 @@ const goLogin = () => {
 
 const canSubmitReply = computed(() => replyContent.value.trim().length > 0);
 
+onMounted(loadHiddenReplyIds);
 onMounted(loadUser);
 onMounted(loadFeed);
 onBeforeUnmount(() => {
@@ -853,9 +929,45 @@ onBeforeUnmount(() => {
 .reply-meta {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   font-size: 12px;
   color: var(--muted);
+}
+
+.reply-meta-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reply-more {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.reply-more-btn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 16px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.reply-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 120px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px;
+  display: grid;
+  gap: 6px;
+  z-index: 2;
 }
 
 .reply-author {

@@ -189,7 +189,7 @@ export async function fetchFeedsSupabase({
   let query = supabase
     .from("feeds")
     .select(
-      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, users!feeds_user_id_fkey(nickname, avatar_url)"
+      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, feed_replies(count), users!feeds_user_id_fkey(nickname, avatar_url)"
     )
     .is("deleted_at", null);
 
@@ -262,7 +262,7 @@ export async function fetchFeedsBySymbolSupabase(
   let query = supabase
     .from("feeds")
     .select(
-      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, users!feeds_user_id_fkey(nickname, avatar_url)"
+      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, feed_replies(count), users!feeds_user_id_fkey(nickname, avatar_url)"
     )
     .is("deleted_at", null)
     .eq("target_symbol", targetSymbol);
@@ -293,7 +293,7 @@ export async function fetchFeedByIdSupabase(feedId) {
   const { data, error } = await supabase
     .from("feeds")
     .select(
-      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, users!feeds_user_id_fkey(nickname, avatar_url)"
+      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, feed_replies(count), users!feeds_user_id_fkey(nickname, avatar_url)"
     )
     .eq("feed_id", feedId)
     .maybeSingle();
@@ -387,7 +387,7 @@ export async function searchFeedsSupabase(query, limitOrOptions = {}) {
   const { data, error } = await supabase
     .from("feeds")
     .select(
-      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, users!feeds_user_id_fkey(nickname, avatar_url)"
+      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, feed_replies(count), users!feeds_user_id_fkey(nickname, avatar_url)"
     )
     .is("deleted_at", null)
     .or(
@@ -402,3 +402,15 @@ export async function searchFeedsSupabase(query, limitOrOptions = {}) {
 
   return data || [];
 }
+
+export const getReplyCount = (view) => {
+  if (!view) return 0;
+  const value = view.feed_replies;
+  if (Array.isArray(value)) {
+    return Number(value[0]?.count || 0);
+  }
+  if (value && typeof value === "object") {
+    return Number(value.count || 0);
+  }
+  return Number(view.reply_count || 0);
+};
