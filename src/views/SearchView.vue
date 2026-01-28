@@ -203,14 +203,28 @@
                       </div>
                       <div class="thread-footer">
                         <span class="created-at">{{ view.createdDateLabel }}</span>
-                        <button
-                          class="like-btn"
-                          type="button"
-                          :class="{ active: view.isLiked }"
-                          @click.stop="toggleLike(view)"
-                        >
-                          👍 {{ view.like_count }}
-                        </button>
+                        <div class="thread-actions">
+                          <span class="reply-count" aria-label="留言数">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                              <path
+                                d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-4 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linejoin="round"
+                              />
+                            </svg>
+                            {{ view.replyCount }}
+                          </span>
+                          <button
+                            class="like-btn"
+                            type="button"
+                            :class="{ active: view.isLiked }"
+                            @click.stop="toggleLike(view)"
+                          >
+                            👍 {{ view.like_count }}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -357,8 +371,21 @@
                     <div class="summary" @click.stop="goFeed(view.feed_id)">
                       {{ view.content }}
                     </div>
-                    <div class="thread-footer">
-                      <span class="created-at">{{ view.createdDateLabel }}</span>
+                  <div class="thread-footer">
+                    <span class="created-at">{{ view.createdDateLabel }}</span>
+                    <div class="thread-actions">
+                      <span class="reply-count" aria-label="留言数">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path
+                            d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-4 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
+                        {{ view.replyCount }}
+                      </span>
                       <button
                         class="like-btn"
                         type="button"
@@ -368,6 +395,7 @@
                         👍 {{ view.like_count }}
                       </button>
                     </div>
+                  </div>
                   </div>
                 </div>
               </div>
@@ -444,6 +472,7 @@ import {
   addFeedLikeSupabase,
   fetchFeedLikesSupabase,
   formatFeedTimestamp,
+  getReplyCount,
   getStatusDisplay,
   getStatusPhase,
   mapDirectionToLabel,
@@ -582,6 +611,7 @@ const mapFeedResults = (feeds) =>
       createdLabel: formatFeedTimestamp(view.created_at),
       createdDateLabel: formatFeedTimestamp(view.created_at),
       isLiked: false,
+      replyCount: getReplyCount(view),
     };
   });
 
@@ -1380,8 +1410,27 @@ watch(activeResultTab, () => {
 
 .thread-footer {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+}
+
+.thread-actions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reply-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.reply-count svg {
+  width: 16px;
+  height: 16px;
 }
 
 .created-at {
