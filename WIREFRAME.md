@@ -1,5 +1,8 @@
 # Wireframe
 
+## 全局设置
+- 默认语言：繁体中文（zh-Hant）。
+
 ## Search（搜索）
 
 ```

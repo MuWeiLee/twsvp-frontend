@@ -22,11 +22,11 @@ export const applyPriceScheme = (scheme) => {
 
 export const getLanguagePreference = () => {
   const stored = localStorage.getItem("twsvp_language");
-  return LANGUAGES.has(stored) ? stored : "zh-Hans";
+  return LANGUAGES.has(stored) ? stored : "zh-Hant";
 };
 
 export const applyLanguagePreference = (language) => {
-  const key = LANGUAGES.has(language) ? language : "zh-Hans";
+  const key = LANGUAGES.has(language) ? language : "zh-Hant";
   document.documentElement.lang = key;
   document.documentElement.dataset.language = key;
   localStorage.setItem("twsvp_language", key);
