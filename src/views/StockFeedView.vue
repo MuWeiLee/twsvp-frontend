@@ -35,15 +35,6 @@
             </div>
             <div class="chart-plot">
               <div class="chart-grid" aria-hidden="true"></div>
-              <svg class="ma-lines" viewBox="0 0 100 100" preserveAspectRatio="none">
-                <path
-                  v-for="line in maLines"
-                  :key="line.key"
-                  class="ma-line"
-                  :class="line.key"
-                  :d="line.path"
-                />
-              </svg>
               <div class="candles">
                 <button
                   v-for="price in chartPrices"
@@ -402,7 +393,6 @@ const isLoadingMore = ref(false);
 const PAGE_SIZE = 20;
 const MAX_CANDLES = 30;
 const PRICE_FETCH_SIZE = 60;
-const MA_PERIODS = [5, 10, 20, 60];
 const activeSymbol = ref("");
 const brokerId = ref("");
 const showShareToast = ref(false);
@@ -544,13 +534,6 @@ const chartRange = computed(() => {
   return { min, max, range: max - min || 1 };
 });
 
-const calcMA = (index, period) => {
-  if (index < period - 1) return null;
-  const slice = priceSeries.value.slice(index - period + 1, index + 1);
-  if (slice.length < period) return null;
-  const sum = slice.reduce((acc, item) => acc + getCloseValue(item), 0);
-  return sum / period;
-};
 
 const chartPrices = computed(() => {
   const list = displaySeries.value;
@@ -589,23 +572,6 @@ const chartPrices = computed(() => {
   });
 });
 
-const maLines = computed(() => {
-  if (!displaySeries.value.length) return [];
-  const { max, range } = chartRange.value;
-  const lastIndex = displaySeries.value.length - 1;
-  const widthStep = lastIndex > 0 ? 100 / lastIndex : 0;
-  return MA_PERIODS.map((period) => {
-    let path = "";
-    displaySeries.value.forEach((item, idx) => {
-      const value = calcMA(item.seriesIndex, period);
-      if (value === null) return;
-      const x = idx * widthStep;
-      const y = ((max - value) / range) * 100;
-      path += path ? ` L ${x} ${y}` : `M ${x} ${y}`;
-    });
-    return { key: `ma${period}`, path };
-  }).filter((line) => line.path);
-});
 
 const axisLabels = computed(() => {
   if (!displaySeries.value.length) {
@@ -1215,34 +1181,6 @@ watch(isCreateOpen, (value) => {
 .chart-axis.right {
   right: 6px;
   text-align: right;
-}
-
-.ma-lines {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.ma-line {
-  fill: none;
-  stroke-width: 1.2;
-}
-
-.ma-line.ma5 {
-  stroke: #f59e0b;
-}
-
-.ma-line.ma10 {
-  stroke: #10b981;
-}
-
-.ma-line.ma20 {
-  stroke: #3b82f6;
-}
-
-.ma-line.ma60 {
-  stroke: #8b5cf6;
 }
 
 .x-axis {
