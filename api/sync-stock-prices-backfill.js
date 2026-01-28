@@ -26,6 +26,18 @@ const clampStartDate = (value) => {
   return value < MIN_START_DATE ? MIN_START_DATE : value;
 };
 
+const normalizeMode = (value) => {
+  const mode = `${value || ""}`.trim().toLowerCase();
+  if (!mode) return null;
+  if (["stock", "per_stock", "by_stock", "per-stock", "by-stock"].includes(mode)) {
+    return "stock";
+  }
+  if (["date", "day", "per_date", "by_date", "per-date", "by-date"].includes(mode)) {
+    return "date";
+  }
+  return "date";
+};
+
 const addDays = (dateString, days) => {
   const date = new Date(dateString);
   date.setDate(date.getDate() + days);
@@ -239,13 +251,18 @@ export default async function handler(req, res) {
   const params = parseParams(req);
   const source = `${params.source || process.env.BACKFILL_SOURCE || "finmind"}`.toLowerCase();
   let dataset = `${params.dataset || process.env.BACKFILL_DATASET || "TaiwanStockPrice"}`.trim();
+  const mode =
+    normalizeMode(
+      params.mode || params.backfill_mode || process.env.BACKFILL_MODE || "date"
+    ) || "date";
   const startDateParam =
     params.start_date || process.env.BACKFILL_START_DATE || MIN_START_DATE;
   const endDateParam =
     params.end_date || process.env.BACKFILL_END_DATE || formatDate(new Date());
-  const maxStocks = Number(
+  const requestedMaxStocks = Number(
     params.max_stocks || process.env.BACKFILL_MAX_STOCKS || 200
   );
+  const maxStocks = mode === "stock" ? 1 : requestedMaxStocks;
   const chunkSize = Number(
     params.chunk_size || process.env.BACKFILL_CHUNK_SIZE || 500
   );
@@ -273,6 +290,13 @@ export default async function handler(req, res) {
     });
 
     let state = reset ? null : await loadState(supabase, source, dataset);
+    if (state && state.detail?.mode && state.detail.mode !== mode && !reset) {
+      res.status(409).json({
+        error: `Backfill mode mismatch. Existing state is ${state.detail.mode}.`,
+        hint: "Use reset=1 to switch backfill mode.",
+      });
+      return;
+    }
     if (!state) {
       const initialStartDate = clampStartDate(startDateParam);
       const initialState = {
@@ -286,6 +310,7 @@ export default async function handler(req, res) {
         status: "running",
         detail: {
           markets,
+          mode,
           created_by: reset ? "reset" : "auto",
         },
       };
@@ -337,12 +362,13 @@ export default async function handler(req, res) {
       logId = await createSyncLog(supabase, {
         source,
         start_date: currentDate,
-        end_date: currentDate,
+        end_date: mode === "stock" ? endDate : currentDate,
         status: "running",
         detail: {
           params: {
             dataset,
             markets,
+            mode,
             stockOffset,
             maxStocks,
           },
@@ -357,90 +383,197 @@ export default async function handler(req, res) {
     let rateLimited = false;
 
     const token = requiredEnv("FINMIND_TOKEN");
-    const stockIds = await fetchStockIds(supabase, markets, stockOffset, maxStocks);
-    if (!stockIds.length) {
-      if (stockOffset === 0) {
-        throw new Error("No active stocks found for markets.");
-      }
-      currentDate = addDays(currentDate, 1);
-      stockOffset = 0;
-      const status = currentDate > endDate ? (autoExtend ? "idle" : "completed") : "running";
-      if (!dryRun) {
-        state = await upsertState(supabase, state.state_id, {
-          cursor_date: currentDate,
-          stock_offset: stockOffset,
-          status,
-          finished_at: status === "completed" ? new Date().toISOString() : null,
-          detail: {
-            ...state.detail,
-            last_run: { note: "Reached end of stock list", date: currentDate },
-          },
-        });
-      }
-      if (!dryRun && logId) {
-        await updateSyncLog(supabase, logId, {
-          status: "success",
-          total_rows: 0,
-          finished_at: new Date().toISOString(),
-          detail: {
-            params: {
-              dataset,
-              markets,
-              stockOffset,
-              maxStocks,
+    if (mode === "stock") {
+      const stockIds = await fetchStockIds(supabase, markets, stockOffset, maxStocks);
+      if (!stockIds.length) {
+        if (stockOffset === 0) {
+          throw new Error("No active stocks found for markets.");
+        }
+        const nextCursorDate = addDays(endDate, 1);
+        const status = nextCursorDate > endDate ? (autoExtend ? "idle" : "completed") : "running";
+        if (!dryRun) {
+          state = await upsertState(supabase, state.state_id, {
+            cursor_date: nextCursorDate,
+            stock_offset: 0,
+            status,
+            finished_at: status === "completed" ? new Date().toISOString() : null,
+            detail: {
+              ...state.detail,
+              last_run: {
+                note: "Reached end of stock list",
+                range: { start: currentDate, end: endDate },
+              },
             },
-            summary: [],
-          },
+          });
+        }
+        if (!dryRun && logId) {
+          await updateSyncLog(supabase, logId, {
+            status: "success",
+            total_rows: 0,
+            finished_at: new Date().toISOString(),
+            detail: {
+              params: {
+                dataset,
+                markets,
+                mode,
+                stockOffset,
+                maxStocks,
+              },
+              summary: [],
+            },
+          });
+        }
+        res.status(200).json({
+          status,
+          message: "Reached end of stock list for this range.",
+          state,
         });
+        return;
       }
-      res.status(200).json({
-        status,
-        message: "Reached end of stock list for this date.",
-        state,
-      });
-      return;
-    }
 
-    for (const stockId of stockIds) {
-      let rows = [];
-      let errorMessage = null;
-      try {
-        const raw = await fetchFinmindPrices(token, dataset, stockId, currentDate, currentDate);
-        rows = parseFinmindRows(raw, stockId);
-        if (!dryRun && rows.length) {
-          await upsertRows(
-            supabase,
-            "stock_prices",
-            rows,
-            chunkSize,
-            "stock_id,trade_date"
+      for (const stockId of stockIds) {
+        let rows = [];
+        let errorMessage = null;
+        try {
+          const raw = await fetchFinmindPrices(token, dataset, stockId, currentDate, endDate);
+          rows = parseFinmindRows(raw, stockId);
+          if (!dryRun && rows.length) {
+            await upsertRows(
+              supabase,
+              "stock_prices",
+              rows,
+              chunkSize,
+              "stock_id,trade_date"
+            );
+          }
+          totalRows += rows.length;
+        } catch (error) {
+          errorMessage = error.message;
+          if (errorMessage && /402|Payment Required/i.test(errorMessage)) {
+            rateLimited = true;
+          }
+        }
+        summary.push({ stock_id: stockId, rows: rows.length, error: errorMessage });
+        if (rateLimited) break;
+        if (sleepMs > 0) {
+          await sleep(sleepMs);
+        }
+      }
+
+      if (!rateLimited) {
+        nextDate = currentDate;
+        nextOffset = stockOffset + stockIds.length;
+      }
+    } else {
+      const stockIds = await fetchStockIds(supabase, markets, stockOffset, maxStocks);
+      if (!stockIds.length) {
+        if (stockOffset === 0) {
+          throw new Error("No active stocks found for markets.");
+        }
+        currentDate = addDays(currentDate, 1);
+        stockOffset = 0;
+        const status =
+          currentDate > endDate ? (autoExtend ? "idle" : "completed") : "running";
+        if (!dryRun) {
+          state = await upsertState(supabase, state.state_id, {
+            cursor_date: currentDate,
+            stock_offset: stockOffset,
+            status,
+            finished_at: status === "completed" ? new Date().toISOString() : null,
+            detail: {
+              ...state.detail,
+              last_run: { note: "Reached end of stock list", date: currentDate },
+            },
+          });
+        }
+        if (!dryRun && logId) {
+          await updateSyncLog(supabase, logId, {
+            status: "success",
+            total_rows: 0,
+            finished_at: new Date().toISOString(),
+            detail: {
+              params: {
+                dataset,
+                markets,
+                mode,
+                stockOffset,
+                maxStocks,
+              },
+              summary: [],
+            },
+          });
+        }
+        res.status(200).json({
+          status,
+          message: "Reached end of stock list for this date.",
+          state,
+        });
+        return;
+      }
+
+      for (const stockId of stockIds) {
+        let rows = [];
+        let errorMessage = null;
+        try {
+          const raw = await fetchFinmindPrices(
+            token,
+            dataset,
+            stockId,
+            currentDate,
+            currentDate
           );
+          rows = parseFinmindRows(raw, stockId);
+          if (!dryRun && rows.length) {
+            await upsertRows(
+              supabase,
+              "stock_prices",
+              rows,
+              chunkSize,
+              "stock_id,trade_date"
+            );
+          }
+          totalRows += rows.length;
+        } catch (error) {
+          errorMessage = error.message;
+          if (errorMessage && /402|Payment Required/i.test(errorMessage)) {
+            rateLimited = true;
+          }
         }
-        totalRows += rows.length;
-      } catch (error) {
-        errorMessage = error.message;
-        if (errorMessage && /402|Payment Required/i.test(errorMessage)) {
-          rateLimited = true;
+        summary.push({ stock_id: stockId, rows: rows.length, error: errorMessage });
+        if (rateLimited) break;
+        if (sleepMs > 0) {
+          await sleep(sleepMs);
         }
       }
-      summary.push({ stock_id: stockId, rows: rows.length, error: errorMessage });
-      if (rateLimited) break;
-      if (sleepMs > 0) {
-        await sleep(sleepMs);
-      }
-    }
 
-    if (!rateLimited) {
-      nextDate = currentDate;
-      nextOffset = stockOffset + stockIds.length;
-      if (stockIds.length < maxStocks) {
-        nextDate = addDays(currentDate, 1);
-        nextOffset = 0;
+      if (!rateLimited) {
+        nextDate = currentDate;
+        nextOffset = stockOffset + stockIds.length;
+        if (stockIds.length < maxStocks) {
+          nextDate = addDays(currentDate, 1);
+          nextOffset = 0;
+        }
       }
     }
 
     if (rateLimited) {
       if (!dryRun) {
+        const lastRun =
+          mode === "stock"
+            ? {
+                range: { start: currentDate, end: endDate },
+                stock_offset: stockOffset,
+                total_rows: totalRows,
+                summary,
+                error: "rate_limited",
+              }
+            : {
+                date: currentDate,
+                stock_offset: stockOffset,
+                total_rows: totalRows,
+                summary,
+                error: "rate_limited",
+              };
         state = await upsertState(supabase, state.state_id, {
           cursor_date: currentDate,
           stock_offset: stockOffset,
@@ -449,13 +582,7 @@ export default async function handler(req, res) {
           status: "rate_limited",
           detail: {
             ...state.detail,
-            last_run: {
-              date: currentDate,
-              stock_offset: stockOffset,
-              total_rows: totalRows,
-              summary,
-              error: "rate_limited",
-            },
+            last_run: lastRun,
           },
         });
       }
@@ -468,6 +595,7 @@ export default async function handler(req, res) {
             params: {
               dataset,
               markets,
+              mode,
               stockOffset,
               maxStocks,
             },
@@ -479,7 +607,10 @@ export default async function handler(req, res) {
         status: "rate_limited",
         source,
         dataset,
+        mode,
         date: currentDate,
+        startDate: currentDate,
+        endDate,
         totalRows,
         stockOffset,
         maxStocks,
@@ -493,6 +624,20 @@ export default async function handler(req, res) {
 
     const status = nextDate > endDate ? (autoExtend ? "idle" : "completed") : "running";
     if (!dryRun) {
+      const lastRun =
+        mode === "stock"
+          ? {
+              range: { start: currentDate, end: endDate },
+              stock_offset: stockOffset,
+              total_rows: totalRows,
+              summary,
+            }
+          : {
+              date: currentDate,
+              stock_offset: stockOffset,
+              total_rows: totalRows,
+              summary,
+            };
       state = await upsertState(supabase, state.state_id, {
         cursor_date: nextDate,
         stock_offset: nextOffset,
@@ -502,12 +647,7 @@ export default async function handler(req, res) {
         finished_at: status === "completed" ? new Date().toISOString() : null,
         detail: {
           ...state.detail,
-          last_run: {
-            date: currentDate,
-            stock_offset: stockOffset,
-            total_rows: totalRows,
-            summary,
-          },
+          last_run: lastRun,
         },
       });
     }
@@ -521,6 +661,7 @@ export default async function handler(req, res) {
           params: {
             dataset,
             markets,
+            mode,
             stockOffset,
             maxStocks,
           },
@@ -533,7 +674,10 @@ export default async function handler(req, res) {
       status: "ok",
       source,
       dataset,
+      mode,
       date: currentDate,
+      startDate: currentDate,
+      endDate,
       totalRows,
       stockOffset,
       maxStocks,
