@@ -33,33 +33,36 @@
             <div class="chart-axis y-axis right">
               <span v-for="label in axisLabels.pct" :key="label">{{ label }}</span>
             </div>
-            <svg class="ma-lines" viewBox="0 0 100 100" preserveAspectRatio="none">
-              <path
-                v-for="line in maLines"
-                :key="line.key"
-                class="ma-line"
-                :class="line.key"
-                :d="line.path"
-              />
-            </svg>
-            <div class="candles">
-            <button
-              v-for="price in chartPrices"
-              :key="price.trade_date"
-              class="candle"
-              :class="price.direction"
-              type="button"
-              @click="selectPrice(price, $event)"
-              :style="{
-                '--wick-top': price.wickTop,
-                '--wick-bottom': price.wickBottom,
-                '--body-top': price.bodyTop,
-                '--body-bottom': price.bodyBottom,
-              }"
-            >
-              <span class="wick"></span>
-              <span class="body"></span>
-            </button>
+            <div class="chart-plot">
+              <div class="chart-grid" aria-hidden="true"></div>
+              <svg class="ma-lines" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <path
+                  v-for="line in maLines"
+                  :key="line.key"
+                  class="ma-line"
+                  :class="line.key"
+                  :d="line.path"
+                />
+              </svg>
+              <div class="candles">
+                <button
+                  v-for="price in chartPrices"
+                  :key="price.trade_date"
+                  class="candle"
+                  :class="price.direction"
+                  type="button"
+                  @click="selectPrice(price, $event)"
+                  :style="{
+                    '--wick-top': price.wickTop,
+                    '--wick-bottom': price.wickBottom,
+                    '--body-top': price.bodyTop,
+                    '--body-bottom': price.bodyBottom,
+                  }"
+                >
+                  <span class="wick"></span>
+                  <span class="body"></span>
+                </button>
+              </div>
             </div>
             <div class="x-axis">
               <span>{{ axisLabels.timeStart }}</span>
@@ -1128,7 +1131,20 @@ watch(isCreateOpen, (value) => {
 .chart-body {
   height: 220px;
   position: relative;
-  padding: 12px 34px 26px;
+}
+
+.chart-plot {
+  position: absolute;
+  inset: 12px 34px 26px;
+}
+
+.chart-grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to right, rgba(148, 163, 184, 0.25) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.25) 1px, transparent 1px);
+  background-size: 20% 100%, 100% 25%;
+  z-index: 0;
 }
 
 .candles {
@@ -1203,7 +1219,7 @@ watch(isCreateOpen, (value) => {
 
 .ma-lines {
   position: absolute;
-  inset: 12px 34px 26px;
+  inset: 0;
   z-index: 1;
   pointer-events: none;
 }
