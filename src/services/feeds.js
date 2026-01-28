@@ -219,6 +219,40 @@ export async function fetchFeedsSupabase({
   return data || [];
 }
 
+export async function fetchFeedRepliesSupabase(feedId) {
+  if (!feedId) return [];
+  const { data, error } = await supabase
+    .from("feed_replies")
+    .select("reply_id, feed_id, user_id, content, created_at, users!feed_replies_user_id_fkey(nickname, avatar_url)")
+    .eq("feed_id", feedId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("读取 feed_replies 失败:", error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function addFeedReplySupabase({ feedId, userId, content }) {
+  if (!feedId || !userId || !content) return null;
+  const { data, error } = await supabase
+    .from("feed_replies")
+    .insert({ feed_id: feedId, user_id: userId, content })
+    .select(
+      "reply_id, feed_id, user_id, content, created_at, users!feed_replies_user_id_fkey(nickname, avatar_url)"
+    )
+    .single();
+
+  if (error) {
+    console.error("创建 feed_replies 失败:", error);
+    return null;
+  }
+
+  return data;
+}
+
 export async function fetchFeedsBySymbolSupabase(
   symbol,
   { sort = "time", page = 1, pageSize = 20 } = {}

@@ -95,6 +95,54 @@
       </section>
       <section v-else class="thread-card empty">{{ t("暂无该观点。") }}</section>
 
+      <section v-if="feed" class="reply-panel">
+        <div class="reply-header">
+          <div class="reply-title">{{ t("留言") }}</div>
+          <div class="reply-count">{{ replies.length }}</div>
+        </div>
+        <div v-if="currentUserId" class="reply-form">
+          <textarea
+            v-model="replyContent"
+            class="reply-input"
+            :placeholder="t('写下你的留言')"
+            :maxlength="MAX_REPLY_LENGTH"
+          ></textarea>
+          <div class="reply-actions">
+            <span class="reply-hint">{{ t("最多 {count} 字", { count: MAX_REPLY_LENGTH }) }}</span>
+            <button
+              class="reply-submit"
+              type="button"
+              :disabled="replySubmitting || !canSubmitReply"
+              @click="submitReply"
+            >
+              {{ replySubmitting ? t("发送中...") : t("发布留言") }}
+            </button>
+          </div>
+        </div>
+        <div v-else class="reply-login">
+          <span>{{ t("登录后即可留言") }}</span>
+          <button class="reply-submit" type="button" @click="goLogin">
+            {{ t("去登录") }}
+          </button>
+        </div>
+        <ul v-if="replies.length" class="reply-list">
+          <li v-for="reply in replies" :key="reply.reply_id" class="reply-item">
+            <span class="reply-avatar" :class="{ empty: !reply.authorAvatar }">
+              <img v-if="reply.authorAvatar" :src="reply.authorAvatar" alt="" />
+              <span v-else>{{ reply.authorInitial }}</span>
+            </span>
+            <div class="reply-body">
+              <div class="reply-meta">
+                <span class="reply-author">{{ reply.author }}</span>
+                <span class="reply-time">{{ reply.createdLabel }}</span>
+              </div>
+              <div class="reply-content">{{ reply.content }}</div>
+            </div>
+          </li>
+        </ul>
+        <div v-else class="reply-empty">{{ t("暂无留言") }}</div>
+      </section>
+
       <div class="share-toast" :class="{ show: showShareToast }" role="status" aria-live="polite">
         {{ t("已复制观点链接") }}
       </div>
@@ -103,7 +151,7 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { t } from "../services/i18n.js";
@@ -111,8 +159,10 @@ import { applyShareMeta } from "../services/shareMeta.js";
 import { supabase } from "../services/supabase.js";
 import {
   addFeedLikeSupabase,
+  addFeedReplySupabase,
   fetchFeedByIdSupabase,
   fetchFeedLikesSupabase,
+  fetchFeedRepliesSupabase,
   formatFeedTimestamp,
   getStatusDisplay,
   getStatusPhase,
@@ -128,7 +178,11 @@ const likedIds = ref(new Set());
 const currentUserId = ref("");
 const menuOpen = ref(false);
 const showShareToast = ref(false);
+const replies = ref([]);
+const replyContent = ref("");
+const replySubmitting = ref(false);
 let shareToastTimer = null;
+const MAX_REPLY_LENGTH = 200;
 
 const getInitials = (name) => {
   if (!name) return "";
@@ -292,6 +346,21 @@ const loadUser = async () => {
   await loadLikedIds();
 };
 
+const loadReplies = async (feedId = feed.value?.feed_id) => {
+  if (!feedId) {
+    replies.value = [];
+    return;
+  }
+  const data = await fetchFeedRepliesSupabase(feedId);
+  replies.value = data.map((reply) => ({
+    ...reply,
+    author: reply.users?.nickname || t("用户"),
+    authorAvatar: reply.users?.avatar_url || "",
+    authorInitial: getInitials(reply.users?.nickname || t("用户")),
+    createdLabel: formatFeedTimestamp(reply.created_at),
+  }));
+};
+
 const loadFeed = async () => {
   const feedId = route.params.id;
   if (!feedId || Array.isArray(feedId)) {
@@ -327,6 +396,7 @@ const loadFeed = async () => {
   const shareName = feed.value.target_name || feed.value.target_symbol || t("观点");
   applyShareMeta({ name: shareName, url: window.location.href });
   await loadLikedIds(data.feed_id);
+  await loadReplies(data.feed_id);
 };
 
 const goStock = (view) => {
@@ -354,6 +424,37 @@ const handleBack = () => {
   }
   router.push("/feed");
 };
+
+const submitReply = async () => {
+  if (!feed.value || !currentUserId.value || replySubmitting.value) return;
+  const trimmed = replyContent.value.trim();
+  if (!trimmed) return;
+  replySubmitting.value = true;
+  const data = await addFeedReplySupabase({
+    feedId: feed.value.feed_id,
+    userId: currentUserId.value,
+    content: trimmed,
+  });
+  replySubmitting.value = false;
+  if (!data) return;
+  replies.value = [
+    ...replies.value,
+    {
+      ...data,
+      author: data.users?.nickname || t("用户"),
+      authorAvatar: data.users?.avatar_url || "",
+      authorInitial: getInitials(data.users?.nickname || t("用户")),
+      createdLabel: formatFeedTimestamp(data.created_at),
+    },
+  ];
+  replyContent.value = "";
+};
+
+const goLogin = () => {
+  router.push("/login");
+};
+
+const canSubmitReply = computed(() => replyContent.value.trim().length > 0);
 
 onMounted(loadUser);
 onMounted(loadFeed);
@@ -639,5 +740,139 @@ onBeforeUnmount(() => {
 
 .share-toast.show {
   opacity: 1;
+}
+
+.reply-panel {
+  margin-top: 16px;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+}
+
+.reply-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.reply-count {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.reply-form {
+  display: grid;
+  gap: 8px;
+}
+
+.reply-input {
+  min-height: 72px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  padding: 8px 10px;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.reply-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.reply-hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.reply-submit {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.reply-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.reply-login {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.reply-list {
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+}
+
+.reply-item {
+  display: flex;
+  gap: 10px;
+}
+
+.reply-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  background: var(--panel);
+  color: var(--ink);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.reply-body {
+  flex: 1;
+  display: grid;
+  gap: 4px;
+}
+
+.reply-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.reply-author {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.reply-content {
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.reply-empty {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
 }
 </style>

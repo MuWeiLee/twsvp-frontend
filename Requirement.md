@@ -395,7 +395,10 @@
 - 互动区
   - 点赞、收藏、分享
   - 互动数
-  - （可选）评论区（你未提，MVP 可不做）
+  - 留言区（Reply）
+    - 留言列表（按时间）
+    - 留言输入框（登录可用）
+    - 留言发布按钮
 
 ### 主要操作
 - 点赞/取消点赞
@@ -409,11 +412,16 @@
   - expired：显示“已到期”
   - verified：显示“已验证结果”（后期）
 - 互动防重复（幂等）
+- 留言规则：
+  - 必须登录才可留言
+  - 留言内容必填、长度限制
+  - 每条留言绑定当前 Feed
 
 ### 关键字段
 - view: direction, horizon, expired_at, status
 - content: summary, reasons[], risks
 - interactions: is_liked, is_bookmarked, counts
+- replies: reply_id, feed_id, user_id, content, created_at
 
 ## Feed 生命周期与状态定义（全局）
 
