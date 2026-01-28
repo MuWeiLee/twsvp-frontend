@@ -204,15 +204,24 @@
   - 选择交易券商（跳 BrokerSelection）
   - 登出
 
+### BrokerSelection 模块
+- 顶部搜索：券商搜索
+- 券商分组列表（按首字母分组）
+
 ### 交易券商列表（MVP）
-- 中信亮點
-- 國泰證券
-- 國泰樹精靈
-- 富邦 AI Pro
-- 台新 PhoneEZ
-- 元大投資先生
-- 永豐大戶投
-- 富果 FUGLE
+- F
+  - 富邦 AI Pro
+  - 富果 FUGLE
+- G
+  - 國泰證券
+  - 國泰樹精靈
+- T
+  - 台新 PhoneEZ
+- Y
+  - 元大投資先生
+  - 永豐大戶投
+- Z
+  - 中信亮點
 
 ### App Store 链接（MVP）
 - 中信亮點：https://apps.apple.com/tw/app/%E4%B8%AD%E4%BF%A1%E4%BA%AE%E9%BB%9E/id1411101548?l=en-GB
@@ -221,12 +230,14 @@
 
 ### 主要操作
 - 选择/切换交易券商
+- 搜索券商
 - 前往 App Store（如果有对应链接）
 - 退出登录
 
 ### 状态与规则
 - 券商未设置：展示「未设置」
 - 已设置：显示券商名称
+- 列表按 F / G / T / Y / Z 首字母分组排序
 
 ### 关键字段
 - broker_id, broker_name, app_store_url

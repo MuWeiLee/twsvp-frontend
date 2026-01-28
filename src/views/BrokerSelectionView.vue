@@ -23,23 +23,43 @@
         <p class="subtitle">{{ t("用于快捷交易跳转") }}</p>
       </header>
 
+      <section class="search-bar-shell slide-in">
+        <div class="search-bar">
+          <div class="search-input-wrap">
+            <input
+              id="broker-search"
+              v-model="searchQuery"
+              class="search-input"
+              type="search"
+              :placeholder="t('券商搜索')"
+              :aria-label="t('券商搜索')"
+            />
+          </div>
+        </div>
+      </section>
+
       <section class="card slide-in">
-        <div class="broker-list">
-          <button
-            v-for="broker in brokers"
-            :key="broker.id"
-            class="broker-item"
-            type="button"
-            @click="selectBroker(broker.id)"
-          >
-            <div class="broker-meta">
-              <strong>{{ broker.name }}</strong>
-              <span>{{ broker.appStoreUrl ? t("App Store") : t("可用") }}</span>
+        <div class="broker-groups">
+          <div v-for="group in groupedBrokers" :key="group.key" class="broker-group">
+            <div class="group-title">{{ group.label }}</div>
+            <div class="broker-list">
+              <button
+                v-for="broker in group.items"
+                :key="broker.id"
+                class="broker-item"
+                type="button"
+                @click="selectBroker(broker.id)"
+              >
+                <div class="broker-meta">
+                  <strong>{{ broker.name }}</strong>
+                  <span>{{ broker.appStoreUrl ? t("App Store") : t("可用") }}</span>
+                </div>
+                <span class="broker-status" :class="{ active: broker.id === selectedId }">
+                  {{ broker.id === selectedId ? t("已选择") : t("选择") }}
+                </span>
+              </button>
             </div>
-            <span class="broker-status" :class="{ active: broker.id === selectedId }">
-              {{ broker.id === selectedId ? t("已选择") : t("选择") }}
-            </span>
-          </button>
+          </div>
         </div>
       </section>
     </div>
@@ -47,7 +67,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { t } from "../services/i18n.js";
@@ -61,6 +81,29 @@ const router = useRouter();
 const brokers = BROKERS;
 const selectedId = ref("");
 const userId = ref("");
+const searchQuery = ref("");
+
+const GROUPS = [
+  { key: "F", label: "F", brokerIds: ["fubon-ai-pro", "fugle"] },
+  { key: "G", label: "G", brokerIds: ["cathay-securities", "cathay-tree-elf"] },
+  { key: "T", label: "T", brokerIds: ["taishin-phoneez"] },
+  { key: "Y", label: "Y", brokerIds: ["yuanta-investment-mr", "sinopac-da-hu-tou"] },
+  { key: "Z", label: "Z", brokerIds: ["ctbc-bright"] },
+];
+
+const groupedBrokers = computed(() => {
+  const keyword = searchQuery.value.trim().toLowerCase();
+  const brokerMap = new Map(brokers.map((broker) => [broker.id, broker]));
+
+  return GROUPS.map((group) => {
+    const items = group.brokerIds
+      .map((id) => brokerMap.get(id))
+      .filter(Boolean)
+      .filter((broker) => !keyword || broker.name.toLowerCase().includes(keyword));
+
+    return { ...group, items };
+  }).filter((group) => group.items.length > 0);
+});
 
 onMounted(async () => {
   const user = await getCurrentUserSupabase();
@@ -169,6 +212,51 @@ const handleBack = () => {
   border: 1px solid var(--border);
   display: grid;
   gap: 14px;
+}
+
+.search-bar-shell {
+  padding: 0 4px 14px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+}
+
+.search-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+}
+
+.search-input-wrap {
+  position: relative;
+  flex: 1;
+}
+
+.search-input {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: transparent;
+  color: var(--ink);
+  width: 100%;
+}
+
+.broker-groups {
+  display: grid;
+  gap: 16px;
+}
+
+.broker-group {
+  display: grid;
+  gap: 10px;
+}
+
+.group-title {
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
 }
 
 .broker-list {
