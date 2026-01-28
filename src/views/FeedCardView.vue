@@ -107,6 +107,7 @@ import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { t } from "../services/i18n.js";
+import { applyShareMeta } from "../services/shareMeta.js";
 import { supabase } from "../services/supabase.js";
 import {
   addFeedLikeSupabase,
@@ -323,6 +324,8 @@ const loadFeed = async () => {
     canEdit: canEditFeed(data),
     isLiked: false,
   };
+  const shareName = feed.value.target_name || feed.value.target_symbol || t("观点");
+  applyShareMeta({ name: shareName, url: window.location.href });
   await loadLikedIds(data.feed_id);
 };
 
