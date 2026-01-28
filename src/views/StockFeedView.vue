@@ -336,6 +336,7 @@ import {
 import { supabase } from "../services/supabase.js";
 import { fetchStockByIdSupabase, fetchStockPricesSupabase } from "../services/stocks.js";
 import { t } from "../services/i18n.js";
+import { applyShareMeta } from "../services/shareMeta.js";
 import {
   fetchBrokerPreferenceSupabase,
   getAppStoreDeepLink,
@@ -614,6 +615,7 @@ const loadData = async () => {
     market: stockInfo?.market || "",
     ...counts,
   };
+  applyShareMeta({ name: stock.value.name, url: window.location.href });
   isLoading.value = false;
   activeMenuId.value = null;
 };

@@ -154,6 +154,8 @@ import { useRoute, useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { getProfileSupabase, getUserGroupNamesSupabase } from "../services/profile.js";
 import { t } from "../services/i18n.js";
+import { applyShareMeta } from "../services/shareMeta.js";
+import { decodeShareId, encodeShareId } from "../services/shareLinks.js";
 import {
   addFeedLikeSupabase,
   fetchFeedsSupabase,
@@ -188,6 +190,14 @@ const isLoadingMore = ref(false);
 const PAGE_SIZE = 20;
 const showShareToast = ref(false);
 let shareToastTimer = null;
+
+const resolvedUserId = computed(() => {
+  const idParam = route.params.id;
+  if (typeof idParam === "string") return idParam;
+  const codeParam = route.params.code;
+  if (typeof codeParam === "string") return decodeShareId(codeParam);
+  return "";
+});
 
 const formatDate = (value) => {
   if (!value) return "—";
@@ -244,8 +254,8 @@ const filteredViews = computed(() => {
 });
 
 const loadFeeds = async ({ append = false } = {}) => {
-  const userId = route.params.id;
-  if (!userId || Array.isArray(userId)) {
+  const userId = resolvedUserId.value;
+  if (!userId) {
     return;
   }
   const data = await fetchFeedsSupabase({
@@ -287,7 +297,8 @@ const copyText = async (text) => {
 };
 
 const handleShare = async () => {
-  const url = window.location.href;
+  const shareId = encodeShareId(resolvedUserId.value);
+  const url = shareId ? `${window.location.origin}/u/${shareId}` : window.location.href;
   const ok = await copyText(url);
   if (ok) {
     showShareToastMessage();
@@ -295,8 +306,8 @@ const handleShare = async () => {
 };
 
 const loadProfile = async () => {
-  const userId = route.params.id;
-  if (!userId || Array.isArray(userId)) {
+  const userId = resolvedUserId.value;
+  if (!userId) {
     return;
   }
 
@@ -319,6 +330,9 @@ const loadProfile = async () => {
     tags,
     joined: formatDate(profile?.created_at),
   };
+  const shareId = encodeShareId(userId);
+  const shareUrl = shareId ? `${window.location.origin}/u/${shareId}` : window.location.href;
+  applyShareMeta({ name: nickname, url: shareUrl });
   page.value = 1;
   hasMore.value = true;
   await loadFeeds();

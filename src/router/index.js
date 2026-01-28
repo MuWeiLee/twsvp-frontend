@@ -32,6 +32,7 @@ const routes = [
   { path: "/notifications", component: NotificationsView },
   { path: "/personal-setting", component: PersonalSettingView },
   { path: "/user/:id", component: PersonalViewerView },
+  { path: "/u/:code", component: PersonalViewerView },
   { path: "/profile", component: ProfileView },
   { path: "/settings", component: SettingsView },
   { path: "/broker-selection", component: BrokerSelectionView },
@@ -47,7 +48,7 @@ const router = createRouter({
     if (to.hash) {
       return { el: to.hash, behavior: "smooth" };
     }
-    return { top: 0 };
+    return { left: 0, top: 0 };
   },
 });
 

@@ -44,7 +44,7 @@
             :placeholder="t('搜索并选择标的')"
           />
           <div class="helper" :class="{ error: showTargetError }">
-            {{ t("请输入正确的公司名称/股票代码") }}
+            {{ t("请输入公司名称或股票代码进行搜索") }}
           </div>
           <div v-if="isStockLoading && !stockResults.length" class="search-tip">
             {{ t("正在搜索...") }}
@@ -443,8 +443,14 @@ onMounted(() => {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
+  right: 0;
   font-size: 12px;
   color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  z-index: 5;
 }
 
 .search-results {
