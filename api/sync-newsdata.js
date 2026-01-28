@@ -87,7 +87,7 @@ export default async function handler(req, res) {
     const dryRun = `${params.dry_run || ""}` === "1";
     const chunkSize = Number(params.chunk_size || process.env.NEWSDATA_CHUNK_SIZE || 200);
 
-    const buildUrl = ({ includeSize = true } = {}) => {
+    const buildUrl = ({ includeSize = true, includeFullContent = true } = {}) => {
       const url = new URL(NEWSDATA_ENDPOINT);
       url.searchParams.set("apikey", apiKey);
       if (q) url.searchParams.set("q", q);
@@ -99,46 +99,67 @@ export default async function handler(req, res) {
       if (domain) url.searchParams.set("domain", domain);
       if (timeframe) url.searchParams.set("timeframe", timeframe);
       if (size && includeSize) url.searchParams.set("size", size);
-      if (fullContent) url.searchParams.set("full_content", fullContent);
+      if (fullContent && includeFullContent) {
+        url.searchParams.set("full_content", fullContent);
+      }
       if (page) url.searchParams.set("page", page);
       return url;
     };
 
     let url = buildUrl();
     let response = await fetch(url);
-    if (!response.ok) {
-      let detail = null;
+    let detail = null;
+
+    const readErrorDetail = async () => {
       try {
-        detail = await response.json();
+        return await response.json();
       } catch (error) {
-        detail = await response.text();
+        return await response.text();
       }
+    };
 
-      const isSizeUnsupported =
-        response.status === 422 &&
-        detail?.results?.code === "UnsupportedFilter" &&
-        typeof detail?.results?.message === "string" &&
-        detail.results.message.toLowerCase().includes("size");
+    const shouldRetryWithoutFullContent = (payload) =>
+      response.status === 422 &&
+      payload?.results?.code === "InvalidRequest" &&
+      typeof payload?.results?.message === "string" &&
+      payload.results.message.toLowerCase().includes("full_content");
 
-      if (isSizeUnsupported) {
-        url = buildUrl({ includeSize: false });
+    const shouldRetryWithoutSize = (payload) =>
+      response.status === 422 &&
+      payload?.results?.code === "UnsupportedFilter" &&
+      typeof payload?.results?.message === "string" &&
+      payload.results.message.toLowerCase().includes("size");
+
+    if (!response.ok) {
+      detail = await readErrorDetail();
+      if (shouldRetryWithoutFullContent(detail)) {
+        url = buildUrl({ includeFullContent: false });
         response = await fetch(url);
       }
+    }
 
-      if (!response.ok) {
-        const safeUrl = new URL(url);
-        safeUrl.searchParams.set("apikey", "***");
-        console.error("NewsData request failed:", {
-          status: response.status,
-          detail,
-          url: safeUrl.toString(),
-        });
-        res.status(response.status).json({
-          error: "NewsData request failed",
-          detail,
-        });
-        return;
+    if (!response.ok) {
+      detail = detail ?? (await readErrorDetail());
+      if (shouldRetryWithoutSize(detail)) {
+        url = buildUrl({ includeSize: false, includeFullContent: false });
+        response = await fetch(url);
       }
+    }
+
+    if (!response.ok) {
+      detail = detail ?? (await readErrorDetail());
+      const safeUrl = new URL(url);
+      safeUrl.searchParams.set("apikey", "***");
+      console.error("NewsData request failed:", {
+        status: response.status,
+        detail,
+        url: safeUrl.toString(),
+      });
+      res.status(response.status).json({
+        error: "NewsData request failed",
+        detail,
+      });
+      return;
     }
 
     const payload = await response.json();
