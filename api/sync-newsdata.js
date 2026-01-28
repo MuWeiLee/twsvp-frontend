@@ -87,21 +87,25 @@ export default async function handler(req, res) {
     const dryRun = `${params.dry_run || ""}` === "1";
     const chunkSize = Number(params.chunk_size || process.env.NEWSDATA_CHUNK_SIZE || 200);
 
-    const url = new URL(NEWSDATA_ENDPOINT);
-    url.searchParams.set("apikey", apiKey);
-    if (q) url.searchParams.set("q", q);
-    if (qInTitle) url.searchParams.set("qInTitle", qInTitle);
-    if (qInMeta) url.searchParams.set("qInMeta", qInMeta);
-    if (country) url.searchParams.set("country", country);
-    if (language) url.searchParams.set("language", language);
-    if (category) url.searchParams.set("category", category);
-    if (domain) url.searchParams.set("domain", domain);
-    if (timeframe) url.searchParams.set("timeframe", timeframe);
-    if (size) url.searchParams.set("size", size);
-    if (fullContent) url.searchParams.set("full_content", fullContent);
-    if (page) url.searchParams.set("page", page);
+    const buildUrl = ({ includeSize = true } = {}) => {
+      const url = new URL(NEWSDATA_ENDPOINT);
+      url.searchParams.set("apikey", apiKey);
+      if (q) url.searchParams.set("q", q);
+      if (qInTitle) url.searchParams.set("qInTitle", qInTitle);
+      if (qInMeta) url.searchParams.set("qInMeta", qInMeta);
+      if (country) url.searchParams.set("country", country);
+      if (language) url.searchParams.set("language", language);
+      if (category) url.searchParams.set("category", category);
+      if (domain) url.searchParams.set("domain", domain);
+      if (timeframe) url.searchParams.set("timeframe", timeframe);
+      if (size && includeSize) url.searchParams.set("size", size);
+      if (fullContent) url.searchParams.set("full_content", fullContent);
+      if (page) url.searchParams.set("page", page);
+      return url;
+    };
 
-    const response = await fetch(url);
+    let url = buildUrl();
+    let response = await fetch(url);
     if (!response.ok) {
       let detail = null;
       try {
@@ -109,18 +113,32 @@ export default async function handler(req, res) {
       } catch (error) {
         detail = await response.text();
       }
-      const safeUrl = new URL(url);
-      safeUrl.searchParams.set("apikey", "***");
-      console.error("NewsData request failed:", {
-        status: response.status,
-        detail,
-        url: safeUrl.toString(),
-      });
-      res.status(response.status).json({
-        error: "NewsData request failed",
-        detail,
-      });
-      return;
+
+      const isSizeUnsupported =
+        response.status === 422 &&
+        detail?.results?.code === "UnsupportedFilter" &&
+        typeof detail?.results?.message === "string" &&
+        detail.results.message.toLowerCase().includes("size");
+
+      if (isSizeUnsupported) {
+        url = buildUrl({ includeSize: false });
+        response = await fetch(url);
+      }
+
+      if (!response.ok) {
+        const safeUrl = new URL(url);
+        safeUrl.searchParams.set("apikey", "***");
+        console.error("NewsData request failed:", {
+          status: response.status,
+          detail,
+          url: safeUrl.toString(),
+        });
+        res.status(response.status).json({
+          error: "NewsData request failed",
+          detail,
+        });
+        return;
+      }
     }
 
     const payload = await response.json();
