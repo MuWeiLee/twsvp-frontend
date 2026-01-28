@@ -208,10 +208,12 @@
 - 國泰樹精靈
 - 富邦 AI Pro
 - 元大投資先生
+- 永豐大戶投
 - 富果 FUGLE
 
 ### App Store 链接（MVP）
 - 中信亮點：https://apps.apple.com/tw/app/%E4%B8%AD%E4%BF%A1%E4%BA%AE%E9%BB%9E/id1411101548?l=en-GB
+- 永豐大戶投：https://apps.apple.com/tw/app/%E6%B0%B8%E8%B1%90%E9%87%91%E8%AD%89%E5%88%B8%E5%A4%A7%E6%88%B6%E6%8A%95-%E6%99%BA%E8%83%BD%E7%B1%8C%E7%A2%BC%E6%AC%8A%E5%A8%81%E5%8D%87%E7%B4%9A/id1551600164?l=en-GB
 
 ### 主要操作
 - 选择/切换交易券商

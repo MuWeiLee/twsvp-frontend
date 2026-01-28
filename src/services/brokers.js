@@ -39,6 +39,13 @@ export const BROKERS = [
     appScheme: "",
   },
   {
+    id: "sinopac-da-hu-tou",
+    name: "永豐大戶投",
+    appStoreUrl:
+      "https://apps.apple.com/tw/app/%E6%B0%B8%E8%B1%90%E9%87%91%E8%AD%89%E5%88%B8%E5%A4%A7%E6%88%B6%E6%8A%95-%E6%99%BA%E8%83%BD%E7%B1%8C%E7%A2%BC%E6%AC%8A%E5%A8%81%E5%8D%87%E7%B4%9A/id1551600164?l=en-GB",
+    appScheme: "",
+  },
+  {
     id: "fugle",
     name: "富果 FUGLE",
     appStoreUrl:
