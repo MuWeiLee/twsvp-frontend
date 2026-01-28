@@ -24,43 +24,32 @@
       <section class="chart-card">
         <div class="chart-header">
           <div class="chart-title">{{ t("日K 行情") }}</div>
-          <div v-if="activePrice" class="hint-card">
-            <div class="hint-row">
-              <span class="hint-date">{{ activePrice.dateLabel }}</span>
-              <span class="hint-meta">
-                {{ t("观点数量：{count} 条", { count: activePrice.feedCount }) }}
-              </span>
-            </div>
-            <div class="hint-grid">
-              <div>
-                {{ t("收盘价：{value}元", { value: formatPrice(activePrice.close) }) }}
-              </div>
-              <div>
-                {{ t("涨跌幅：{value}", { value: formatPercent(activePrice.changePct) }) }}
-              </div>
-              <div>
-                {{ t("开盘价：{value}元", { value: formatPrice(activePrice.open) }) }}
-              </div>
-              <div>{{ t("振幅") }}：{{ formatPercent(activePrice.amplitude) }}</div>
-              <div>
-                {{ t("最高：{value}元", { value: formatPrice(activePrice.high) }) }}
-              </div>
-              <div>
-                {{ t("最低：{value}元", { value: formatPrice(activePrice.low) }) }}
-              </div>
-            </div>
-          </div>
         </div>
-        <div class="chart-body">
-          <div v-if="chartPrices.length" class="candles">
+        <div class="chart-body" ref="chartBodyRef" @click.self="clearActivePrice">
+          <template v-if="chartPrices.length">
+            <div class="chart-axis y-axis left">
+              <span v-for="label in axisLabels.price" :key="label">{{ label }}</span>
+            </div>
+            <div class="chart-axis y-axis right">
+              <span v-for="label in axisLabels.pct" :key="label">{{ label }}</span>
+            </div>
+            <svg class="ma-lines" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <path
+                v-for="line in maLines"
+                :key="line.key"
+                class="ma-line"
+                :class="line.key"
+                :d="line.path"
+              />
+            </svg>
+            <div class="candles">
             <button
               v-for="price in chartPrices"
               :key="price.trade_date"
               class="candle"
               :class="price.direction"
               type="button"
-              @mouseenter="hoveredPrice = price"
-              @mouseleave="hoveredPrice = null"
+              @click="selectPrice(price, $event)"
               :style="{
                 '--wick-top': price.wickTop,
                 '--wick-bottom': price.wickBottom,
@@ -71,7 +60,39 @@
               <span class="wick"></span>
               <span class="body"></span>
             </button>
-          </div>
+            </div>
+            <div class="x-axis">
+              <span>{{ axisLabels.timeStart }}</span>
+              <span>{{ axisLabels.timeMid }}</span>
+              <span>{{ axisLabels.timeEnd }}</span>
+            </div>
+            <div v-if="activePrice" class="hint-card chart-hint" :class="hintPlacement">
+              <div class="hint-row">
+                <span class="hint-date">{{ activePrice.dateLabel }}</span>
+                <span class="hint-meta">
+                  {{ t("观点数量：{count} 条", { count: activePrice.feedCount }) }}
+                </span>
+              </div>
+              <div class="hint-grid">
+                <div>
+                  {{ t("收盘价：{value}元", { value: formatPrice(activePrice.close) }) }}
+                </div>
+                <div>
+                  {{ t("涨跌幅：{value}", { value: formatPercent(activePrice.changePct) }) }}
+                </div>
+                <div>
+                  {{ t("开盘价：{value}元", { value: formatPrice(activePrice.open) }) }}
+                </div>
+                <div>{{ t("振幅") }}：{{ formatPercent(activePrice.amplitude) }}</div>
+                <div>
+                  {{ t("最高：{value}元", { value: formatPrice(activePrice.high) }) }}
+                </div>
+                <div>
+                  {{ t("最低：{value}元", { value: formatPrice(activePrice.low) }) }}
+                </div>
+              </div>
+            </div>
+          </template>
           <div v-else class="chart-empty">{{ t("暂无行情数据") }}</div>
         </div>
       </section>
@@ -366,7 +387,9 @@ const likedIds = ref(new Set());
 const isCreateOpen = ref(false);
 const hiddenIds = ref(new Set());
 const activeMenuId = ref(null);
-const hoveredPrice = ref(null);
+const selectedPrice = ref(null);
+const hintPlacement = ref("bottom-right");
+const chartBodyRef = ref(null);
 const isEditOpen = ref(false);
 const isEditSaving = ref(false);
 const editingFeed = ref(null);
@@ -374,6 +397,9 @@ const page = ref(1);
 const hasMore = ref(true);
 const isLoadingMore = ref(false);
 const PAGE_SIZE = 20;
+const MAX_CANDLES = 30;
+const PRICE_FETCH_SIZE = 60;
+const MA_PERIODS = [5, 10, 20, 60];
 const activeSymbol = ref("");
 const brokerId = ref("");
 const showShareToast = ref(false);
@@ -422,6 +448,21 @@ const formatPercent = (value) => {
   if (Number.isNaN(num)) return "—";
   const sign = num > 0 ? "+" : "";
   return `${sign}${num.toFixed(2)}%`;
+};
+
+const selectPrice = (price, event) => {
+  selectedPrice.value = price;
+  const rect = chartBodyRef.value?.getBoundingClientRect();
+  if (!rect || !event) return;
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  const horizontal = x < rect.width / 2 ? "right" : "left";
+  const vertical = y < rect.height / 2 ? "bottom" : "top";
+  hintPlacement.value = `${vertical}-${horizontal}`;
+};
+
+const clearActivePrice = () => {
+  selectedPrice.value = null;
 };
 
 const loadHiddenIds = () => {
@@ -473,14 +514,45 @@ const feedCountByDate = computed(() => {
   return counts;
 });
 
-const chartPrices = computed(() => {
+const getCloseValue = (item) => Number(item.close ?? item.open ?? 0);
+
+const displaySeries = computed(() => {
   const list = priceSeries.value.slice();
   if (!list.length) return [];
-  const highs = list.map((item) => Number(item.high ?? item.close ?? item.open ?? 0));
-  const lows = list.map((item) => Number(item.low ?? item.close ?? item.open ?? 0));
+  const start = Math.max(0, list.length - MAX_CANDLES);
+  return list.slice(start).map((item, index) => ({
+    ...item,
+    seriesIndex: start + index,
+  }));
+});
+
+const chartRange = computed(() => {
+  if (!displaySeries.value.length) {
+    return { min: 0, max: 0, range: 1 };
+  }
+  const highs = displaySeries.value.map((item) =>
+    Number(item.high ?? item.close ?? item.open ?? 0)
+  );
+  const lows = displaySeries.value.map((item) =>
+    Number(item.low ?? item.close ?? item.open ?? 0)
+  );
   const max = Math.max(...highs);
   const min = Math.min(...lows);
-  const range = max - min || 1;
+  return { min, max, range: max - min || 1 };
+});
+
+const calcMA = (index, period) => {
+  if (index < period - 1) return null;
+  const slice = priceSeries.value.slice(index - period + 1, index + 1);
+  if (slice.length < period) return null;
+  const sum = slice.reduce((acc, item) => acc + getCloseValue(item), 0);
+  return sum / period;
+};
+
+const chartPrices = computed(() => {
+  const list = displaySeries.value;
+  if (!list.length) return [];
+  const { max, range } = chartRange.value;
   return list.map((item) => {
     const open = Number(item.open ?? item.close ?? 0);
     const close = Number(item.close ?? item.open ?? 0);
@@ -514,9 +586,46 @@ const chartPrices = computed(() => {
   });
 });
 
+const maLines = computed(() => {
+  if (!displaySeries.value.length) return [];
+  const { max, range } = chartRange.value;
+  const lastIndex = displaySeries.value.length - 1;
+  const widthStep = lastIndex > 0 ? 100 / lastIndex : 0;
+  return MA_PERIODS.map((period) => {
+    let path = "";
+    displaySeries.value.forEach((item, idx) => {
+      const value = calcMA(item.seriesIndex, period);
+      if (value === null) return;
+      const x = idx * widthStep;
+      const y = ((max - value) / range) * 100;
+      path += path ? ` L ${x} ${y}` : `M ${x} ${y}`;
+    });
+    return { key: `ma${period}`, path };
+  }).filter((line) => line.path);
+});
+
+const axisLabels = computed(() => {
+  if (!displaySeries.value.length) {
+    return { price: [], pct: [], timeStart: "—", timeMid: "—", timeEnd: "—" };
+  }
+  const { min, max } = chartRange.value;
+  const mid = (min + max) / 2;
+  const base = getCloseValue(displaySeries.value[0]) || 1;
+  const priceLabels = [max, mid, min].map((value) => formatPrice(value));
+  const pctLabels = [max, mid, min].map((value) => {
+    const pct = ((value - base) / base) * 100;
+    return formatPercent(pct);
+  });
+  const lastIndex = displaySeries.value.length - 1;
+  const midIndex = Math.floor(lastIndex / 2);
+  const timeStart = formatHintDate(displaySeries.value[0].trade_date);
+  const timeMid = formatHintDate(displaySeries.value[midIndex].trade_date);
+  const timeEnd = formatHintDate(displaySeries.value[lastIndex].trade_date);
+  return { price: priceLabels, pct: pctLabels, timeStart, timeMid, timeEnd };
+});
+
 const activePrice = computed(() => {
-  if (hoveredPrice.value) return hoveredPrice.value;
-  return chartPrices.value[chartPrices.value.length - 1] || null;
+  return selectedPrice.value;
 });
 
 const buildViews = (list) =>
@@ -595,10 +704,10 @@ const loadData = async () => {
   isLoading.value = true;
   const [stockInfo, prices] = await Promise.all([
     fetchStockByIdSupabase(symbol),
-    fetchStockPricesSupabase(symbol, 60),
+    fetchStockPricesSupabase(symbol, PRICE_FETCH_SIZE),
   ]);
   priceSeries.value = prices;
-  hoveredPrice.value = null;
+  selectedPrice.value = null;
   await loadFeeds();
   const counts = views.value.reduce(
     (acc, view) => {
@@ -1019,6 +1128,7 @@ watch(isCreateOpen, (value) => {
 .chart-body {
   height: 220px;
   position: relative;
+  padding: 12px 34px 26px;
 }
 
 .candles {
@@ -1026,6 +1136,8 @@ watch(isCreateOpen, (value) => {
   align-items: stretch;
   gap: 6px;
   height: 100%;
+  position: relative;
+  z-index: 2;
 }
 
 .candle {
@@ -1065,6 +1177,94 @@ watch(isCreateOpen, (value) => {
 
 .candle.down {
   color: var(--price-down);
+}
+
+.chart-axis {
+  position: absolute;
+  top: 12px;
+  bottom: 26px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--muted);
+  z-index: 1;
+}
+
+.chart-axis.left {
+  left: 6px;
+  text-align: left;
+}
+
+.chart-axis.right {
+  right: 6px;
+  text-align: right;
+}
+
+.ma-lines {
+  position: absolute;
+  inset: 12px 34px 26px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.ma-line {
+  fill: none;
+  stroke-width: 1.2;
+}
+
+.ma-line.ma5 {
+  stroke: #f59e0b;
+}
+
+.ma-line.ma10 {
+  stroke: #10b981;
+}
+
+.ma-line.ma20 {
+  stroke: #3b82f6;
+}
+
+.ma-line.ma60 {
+  stroke: #8b5cf6;
+}
+
+.x-axis {
+  position: absolute;
+  left: 34px;
+  right: 34px;
+  bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--muted);
+  z-index: 2;
+}
+
+.chart-hint {
+  position: absolute;
+  max-width: 220px;
+  z-index: 3;
+}
+
+.chart-hint.top-left {
+  top: 8px;
+  left: 8px;
+}
+
+.chart-hint.top-right {
+  top: 8px;
+  right: 8px;
+}
+
+.chart-hint.bottom-left {
+  bottom: 8px;
+  left: 8px;
+}
+
+.chart-hint.bottom-right {
+  bottom: 8px;
+  right: 8px;
 }
 
 .chart-empty {
