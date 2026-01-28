@@ -6,6 +6,7 @@ import NotificationsView from "../views/NotificationsView.vue";
 import PersonalSettingView from "../views/PersonalSettingView.vue";
 import PersonalViewerView from "../views/PersonalViewerView.vue";
 import ProfileView from "../views/ProfileView.vue";
+import NewsView from "../views/NewsView.vue";
 import SearchView from "../views/SearchView.vue";
 import SettingsView from "../views/SettingsView.vue";
 import BrokerSelectionView from "../views/BrokerSelectionView.vue";
@@ -29,6 +30,7 @@ const routes = [
   { path: "/stock/:symbol", component: StockFeedView },
   { path: "/sector/:id", component: SectorFeedView },
   { path: "/search", component: SearchView },
+  { path: "/news", component: NewsView },
   { path: "/notifications", component: NotificationsView },
   { path: "/personal-setting", component: PersonalSettingView },
   { path: "/user/:id", component: PersonalViewerView },

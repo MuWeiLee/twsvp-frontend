@@ -25,14 +25,24 @@
       </span>
       <span class="tab-label">{{ t("观点") }}</span>
     </router-link>
-    <router-link class="tab-item" active-class="active" to="/search">
+    <router-link class="tab-item" active-class="active" to="/news">
       <span class="tab-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none">
-          <circle cx="11" cy="11" r="6" stroke="currentColor" stroke-width="1.6" />
-          <path d="M16.5 16.5L20 20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          <path
+            d="M5 5h12a2 2 0 0 1 2 2v9a3 3 0 0 1-3 3H7a2 2 0 0 1-2-2V5z"
+            stroke="currentColor"
+            stroke-width="1.4"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M8 9h8M8 12h8M8 15h5"
+            stroke="currentColor"
+            stroke-width="1.4"
+            stroke-linecap="round"
+          />
         </svg>
       </span>
-      <span class="tab-label">{{ t("搜索") }}</span>
+      <span class="tab-label">{{ t("资讯") }}</span>
     </router-link>
     <router-link class="tab-item" active-class="active" to="/create-feed">
       <span class="tab-icon" aria-hidden="true">

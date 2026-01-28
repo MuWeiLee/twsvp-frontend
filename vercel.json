@@ -11,6 +11,10 @@
     {
       "path": "/api/sync-feed-expiry-notifications",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/sync-newsdata",
+      "schedule": "0 * * * *"
     }
   ]
 }
