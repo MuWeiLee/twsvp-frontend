@@ -105,7 +105,32 @@
 ### 关键字段
 - query, result_type, stock(symbol,name), sector(name), user(nickname,avatar), view(summary,stock,direction)
 
-## 4) StockFeed（个股详情）
+## 4) News（资讯）
+
+### 目标
+快速浏览平台资讯内容
+
+### 模块
+- 顶部导航
+  - 方形 Logo
+  - 标题左对齐
+- 资讯列表
+  - 标题 + 摘要 + 时间来源
+  - 空态/加载态/下拉刷新
+- 免责声明/观点提示语
+  - 贴近底部 Tabbar
+  - 左对齐
+
+### 主要操作
+- 点击资讯跳转外部链接
+- 下拉刷新与滚动加载更多
+
+### 状态与规则
+- 列表分页加载
+- 导航栏固定，列表可滚动
+- 免责声明固定在 Tabbar 上方，不参与滚动
+
+## 5) StockFeed（个股详情）
 
 ### 目标
 提供个股行情与观点列表，并在底部提供快捷操作入口
@@ -136,7 +161,7 @@
 ### 关键字段
 - symbol, name, market
 
-## 5) Notification（通知：互动 + 到期提醒）
+## 6) Notification（通知：互动 + 到期提醒）
 
 ### 目标
 记录与提醒：被点赞/收藏/分享、观点即将到期/到期
@@ -165,7 +190,7 @@
 - actor_user_id, target_view_id, created_at, read_at
 - expire_at, days_left
 
-## 5) PersonalUser（个人中心：本人视角）
+## 7) PersonalUser（个人中心：本人视角）
 
 ### 目标
 展示个人资料 + 观点绩效/胜率 + 管理观点
@@ -204,7 +229,7 @@
 
 # 2 级页面（二级聚合 / 详情类）
 
-## 6) Setting（设置）
+## 8) Setting（设置）
 
 ### 目标
 管理账号资料与交易券商跳转配置
@@ -255,7 +280,7 @@
 ### 关键字段
 - broker_id, broker_name, app_store_url
 
-## 7) PersonalViewer（他人视角的个人页）
+## 9) PersonalViewer（他人视角的个人页）
 
 ### 目标
 建立信任：看这个人靠不靠谱
@@ -281,7 +306,7 @@
 ### 关键字段
 同 PersonalUser，但少了管理权限字段
 
-## 8) StockFeed（个股观点汇总 + 近期看法总结）
+## 10) StockFeed（个股观点汇总 + 近期看法总结）
 
 ### 目标
 围绕单一标的聚合观点，并给出“近期市场看法摘要”
@@ -316,7 +341,7 @@
 - summary: long_ratio, short_ratio, neutral_ratio, key_points[]
 - views list
 
-## 9) SectorFeed（概念观点汇总 + 近期看法总结）
+## 11) SectorFeed（概念观点汇总 + 近期看法总结）
 
 ### 目标
 围绕概念/行业聚合观点（注意：你这页叫 SectorFeed，但概念与行业可能不同）
@@ -346,7 +371,7 @@
 
 # 3 级页面（内容详情 / 表单流程）
 
-## 10) PersonalSetting（首次登录后完善资料）
+## 12) PersonalSetting（首次登录后完善资料）
 
 ### 目标
 完成可用的个人画像：昵称、介绍、感兴趣行业
@@ -376,7 +401,7 @@
 ### 依赖基础表
 - industry(id, name, order)
 
-## 11) FeedCard（观点详情）
+## 13) FeedCard（观点详情）
 
 ### 目标
 完整展示观点内容 + 互动

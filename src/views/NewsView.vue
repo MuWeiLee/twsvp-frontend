@@ -200,6 +200,8 @@ onUnmounted(() => {
   min-height: 100vh;
   background: var(--surface);
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .nav {
@@ -207,7 +209,8 @@ onUnmounted(() => {
   top: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 12px;
   padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px 14px;
   height: calc(64px + env(safe-area-inset-top, 0px));
   background: var(--surface);
@@ -221,7 +224,7 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -234,10 +237,12 @@ onUnmounted(() => {
 .nav-title {
   font-size: 18px;
   font-weight: 600;
+  margin-right: auto;
+  text-align: left;
 }
 
 .nav-space {
-  width: 32px;
+  margin-left: auto;
 }
 
 .refresh-indicator {
@@ -260,6 +265,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  flex: 1;
 }
 
 .news-card {
@@ -313,9 +319,9 @@ onUnmounted(() => {
 }
 
 .legal {
-  text-align: center;
+  text-align: left;
   font-size: 12px;
   color: var(--muted);
-  padding: 8px 16px 90px;
+  padding: 8px 16px calc(64px + env(safe-area-inset-bottom, 0px));
 }
 </style>
