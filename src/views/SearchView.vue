@@ -45,13 +45,16 @@
         <div class="search-body">
           <div v-if="isSearching" class="search-loading">{{ t("正在搜索...") }}</div>
 
-          <section v-if="query && (isSuggesting || suggestedStocks.length)" class="suggest-panel">
-            <div v-if="isSuggesting && !suggestedStocks.length" class="suggest-tip">
+          <section
+            v-if="query && (isSuggesting || visibleSuggestedStocks.length)"
+            class="suggest-panel"
+          >
+            <div v-if="isSuggesting && !visibleSuggestedStocks.length" class="suggest-tip">
               {{ t("正在联想...") }}
             </div>
-            <div v-if="suggestedStocks.length" class="suggest-list">
+            <div v-if="visibleSuggestedStocks.length" class="suggest-list">
               <button
-                v-for="stock in suggestedStocks"
+                v-for="stock in visibleSuggestedStocks"
                 :key="stock.stock_id"
                 type="button"
                 class="suggest-item"
@@ -475,6 +478,7 @@ const isLoadingMoreStocks = ref(false);
 const isLoadingMoreFeeds = ref(false);
 const isLoadingMoreUsers = ref(false);
 const PAGE_SIZE = 20;
+const SUGGESTION_LIMIT = 5;
 let suggestTimer = null;
 const route = useRoute();
 const router = useRouter();
@@ -513,10 +517,14 @@ const searchSuggestions = () => {
   }
   suggestTimer = setTimeout(async () => {
     isSuggesting.value = true;
-    suggestedStocks.value = await searchStocksSupabase(q, 8);
+    suggestedStocks.value = await searchStocksSupabase(q, SUGGESTION_LIMIT);
     isSuggesting.value = false;
   }, 200);
 };
+
+const visibleSuggestedStocks = computed(() =>
+  suggestedStocks.value.slice(0, SUGGESTION_LIMIT)
+);
 
 const selectSuggestedStock = (stock) => {
   if (!stock) return;
@@ -998,6 +1006,8 @@ watch(activeResultTab, () => {
   padding: 18px 16px 24px;
   display: grid;
   gap: 18px;
+  align-content: start;
+  align-items: start;
 }
 
 .search-loading {
@@ -1069,6 +1079,7 @@ watch(activeResultTab, () => {
   padding: 8px;
   display: grid;
   gap: 6px;
+  align-self: start;
 }
 
 .suggest-tip {
