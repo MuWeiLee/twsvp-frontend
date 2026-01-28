@@ -103,7 +103,19 @@ export default async function handler(req, res) {
 
     const response = await fetch(url);
     if (!response.ok) {
-      const detail = await response.text();
+      let detail = null;
+      try {
+        detail = await response.json();
+      } catch (error) {
+        detail = await response.text();
+      }
+      const safeUrl = new URL(url);
+      safeUrl.searchParams.set("apikey", "***");
+      console.error("NewsData request failed:", {
+        status: response.status,
+        detail,
+        url: safeUrl.toString(),
+      });
       res.status(response.status).json({
         error: "NewsData request failed",
         detail,
