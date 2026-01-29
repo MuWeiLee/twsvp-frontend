@@ -42,6 +42,15 @@ const normalizeDateRange = (startDate, endDate) => {
   return { startDate: safeStart, endDate: safeEnd || safeStart };
 };
 
+const resolveSleepMs = (explicitValue, rateLimitPerHour, fallbackMs = 250) => {
+  if (Number.isFinite(explicitValue)) return explicitValue;
+  const limit = Number(rateLimitPerHour);
+  if (Number.isFinite(limit) && limit > 0) {
+    return Math.ceil(3600000 / limit);
+  }
+  return fallbackMs;
+};
+
 const fetchLatestTradeDate = async (supabase) => {
   const { data, error } = await supabase
     .from("stock_prices")
@@ -145,14 +154,17 @@ const upsertRows = async (supabase, table, rows, chunkSize, onConflict) => {
   }
 };
 
-const fetchStockIds = async (supabase, markets, offset, limit) => {
-  const { data, error } = await supabase
+const fetchStockIds = async (supabase, markets, offset, limit, includeInactive) => {
+  let query = supabase
     .from("stocks")
     .select("stock_id")
     .in("market", markets)
-    .eq("is_active", true)
     .order("stock_id", { ascending: true })
     .range(offset, offset + limit - 1);
+  if (!includeInactive) {
+    query = query.eq("is_active", true);
+  }
+  const { data, error } = await query;
   if (error) {
     throw new Error(`Supabase stocks query failed: ${error.message}`);
   }
@@ -223,7 +235,13 @@ export default async function handler(req, res) {
   const explicitStartDate = params.start_date || params.startDate || null;
   const rawEndDate = params.end_date || params.endDate || formatDate(new Date());
   const chunkSize = Number(params.chunk_size || params.chunkSize || 500);
-  const sleepMs = Number(params.sleep_ms || params.sleepMs || 250);
+  const rateLimitPerHour =
+    params.rate_limit_per_hour || process.env.STOCK_PRICE_SYNC_RATE_LIMIT_PER_HOUR || null;
+  const sleepMs = resolveSleepMs(
+    params.sleep_ms ? Number(params.sleep_ms) : Number(params.sleepMs),
+    rateLimitPerHour,
+    250
+  );
   const incremental =
     `${params.incremental || params.incremental_sync || process.env.STOCK_PRICE_SYNC_INCREMENTAL || "1"}` ===
     "1";
@@ -231,10 +249,13 @@ export default async function handler(req, res) {
   const purge = `${params.purge || params.purge_prices || ""}` === "1";
   const purgeAll = `${params.purge_all || params.purgeAll || ""}` === "1";
   const purgeConfirm = `${params.purge_confirm || params.purgeConfirm || ""}`;
-  const markets = (params.markets || "上市,上櫃")
+  const markets = (params.markets || "上市,上櫃,興櫃")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
+  const includeInactive =
+    `${params.include_inactive || process.env.STOCK_PRICE_SYNC_INCLUDE_INACTIVE || "1"}` ===
+    "1";
   const dataset = `${params.dataset || "TaiwanStockPrice"}`.trim();
   const stockIdParam = `${params.stock_id || params.stockId || ""}`.trim();
   const stockIdsParam = `${params.stock_ids || params.stockIds || ""}`
@@ -255,6 +276,9 @@ export default async function handler(req, res) {
     purge,
     purgeAll,
     incremental,
+    includeInactive,
+    rateLimitPerHour,
+    sleepMs,
     minStartDate: MIN_START_DATE,
   };
 
@@ -309,7 +333,13 @@ export default async function handler(req, res) {
     } else if (stockIdsParam.length) {
       stockIds = stockIdsParam;
     } else {
-      stockIds = await fetchStockIds(supabase, markets, stockOffset, maxStocks);
+      stockIds = await fetchStockIds(
+        supabase,
+        markets,
+        stockOffset,
+        maxStocks,
+        includeInactive
+      );
     }
 
     for (const stockId of stockIds) {
