@@ -194,6 +194,7 @@
 - 已读/未读
 - 去重（同一观点短时间多次点赞可聚合：可后期做）
 - 下拉刷新在内容区触发，列表区下拉刷新不影响整页滚动
+- 通知列表背景为浅灰，卡片白底无圆角，内容间距紧凑
 
 ### 关键字段
 - noti_id, type(like/bookmark/share/comment/expire_soon/expired)

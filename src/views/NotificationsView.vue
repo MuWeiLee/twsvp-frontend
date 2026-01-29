@@ -519,6 +519,7 @@ watch(activeTab, () => {
   padding: calc(124px + env(safe-area-inset-top, 0px)) 16px
     calc(96px + env(safe-area-inset-bottom, 0px));
   overscroll-behavior: contain;
+  background: var(--bg);
 }
 
 .refresh-indicator {
@@ -546,15 +547,15 @@ watch(activeTab, () => {
 
 .list {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   padding-top: 72px;
 }
 
 .item {
   border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  padding: 12px 14px;
-  background: var(--surface);
+  border-radius: 0;
+  padding: 8px 10px;
+  background: #fff;
   cursor: pointer;
 }
 
@@ -581,7 +582,7 @@ watch(activeTab, () => {
 
 .item-body {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .notice {
@@ -608,7 +609,7 @@ watch(activeTab, () => {
 .meta {
   font-size: 12px;
   color: var(--muted);
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .avatar {
