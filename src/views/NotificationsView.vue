@@ -26,41 +26,53 @@
         </button>
       </div>
 
-      <section class="list">
-        <div
-          v-for="item in filteredItems"
-          :key="item.id"
-          class="item"
-          @click="goFeed(item.feedId)"
-        >
-          <div class="item-main">
-            <button
-              v-if="item.actorId"
-              class="avatar"
-              type="button"
-              @click.stop="goProfile(item)"
-            >
-              <img v-if="item.actorAvatar" :src="item.actorAvatar" alt="" />
-              <span v-else>{{ item.actorInitial }}</span>
-            </button>
-            <div v-else class="avatar system">{{ t("系") }}</div>
-            <div class="item-body">
-              <span class="notice">{{ item.title }}</span>
-              <strong v-if="item.stockLabel" class="stock-title">{{ item.stockLabel }}</strong>
-              <span v-if="item.summary" class="summary">{{ item.summary }}</span>
-              <span class="meta">{{ item.time }}</span>
+      <div
+        ref="scrollContainer"
+        class="notifications-scroll"
+        @touchstart="handleTouchStart"
+        @touchmove="handleTouchMove"
+        @touchend="handleTouchEnd"
+        @touchcancel="handleTouchEnd"
+      >
+        <div class="refresh-indicator" :style="{ height: `${pullDistance}px` }">
+          <span :class="{ active: pullDistance >= PULL_THRESHOLD }">{{ refreshLabel }}</span>
+        </div>
+        <section class="list">
+          <div
+            v-for="item in filteredItems"
+            :key="item.id"
+            class="item"
+            @click="goFeed(item.feedId)"
+          >
+            <div class="item-main">
+              <button
+                v-if="item.actorId"
+                class="avatar"
+                type="button"
+                @click.stop="goProfile(item)"
+              >
+                <img v-if="item.actorAvatar" :src="item.actorAvatar" alt="" />
+                <span v-else>{{ item.actorInitial }}</span>
+              </button>
+              <div v-else class="avatar system">{{ t("系") }}</div>
+              <div class="item-body">
+                <span class="notice">{{ item.title }}</span>
+                <strong v-if="item.stockLabel" class="stock-title">{{ item.stockLabel }}</strong>
+                <span v-if="item.summary" class="summary">{{ item.summary }}</span>
+                <span class="meta">{{ item.time }}</span>
+              </div>
             </div>
           </div>
-        </div>
-        <div v-if="!isLoading && !filteredItems.length" class="empty">
-          {{ t("暂无通知") }}
-        </div>
-        <div ref="loadTrigger" class="load-trigger">
-          <span v-if="isLoading || isLoadingMore">{{ t("加载中...") }}</span>
-          <span v-else-if="hasMore">{{ t("下滑加载更多") }}</span>
-          <span v-else>{{ t("已加载全部") }}</span>
-        </div>
-      </section>
+          <div v-if="!isLoading && !filteredItems.length" class="empty">
+            {{ t("暂无通知") }}
+          </div>
+          <div ref="loadTrigger" class="load-trigger">
+            <span v-if="isLoading || isLoadingMore">{{ t("加载中...") }}</span>
+            <span v-else-if="hasMore">{{ t("下滑加载更多") }}</span>
+            <span v-else>{{ t("已加载全部") }}</span>
+          </div>
+        </section>
+      </div>
 
       <p class="legal">
         {{ t("任何观点仅作为记录与回溯，不作为预测价格与投资建议。") }}
@@ -92,8 +104,20 @@ const page = ref(1);
 const hasMore = ref(true);
 const isLoadingMore = ref(false);
 const PAGE_SIZE = 20;
+const PULL_THRESHOLD = 60;
+const PULL_MAX = 90;
+const isRefreshing = ref(false);
 const loadTrigger = ref(null);
+const scrollContainer = ref(null);
+const pullDistance = ref(0);
+const touchStartY = ref(null);
 let loadObserver = null;
+
+const refreshLabel = computed(() => {
+  if (isRefreshing.value) return t("刷新中...");
+  if (pullDistance.value >= PULL_THRESHOLD) return t("松开刷新");
+  return t("下拉刷新");
+});
 
 const getInitials = (name) => {
   if (!name) return "";
@@ -236,6 +260,18 @@ const loadMore = async () => {
   await loadNotifications({ append: true });
 };
 
+const refreshNotifications = async () => {
+  if (isRefreshing.value) return;
+  isRefreshing.value = true;
+  page.value = 1;
+  hasMore.value = true;
+  await loadNotifications({ append: false });
+  if (scrollContainer.value) {
+    scrollContainer.value.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  isRefreshing.value = false;
+};
+
 const goFeed = (feedId) => {
   if (!feedId) return;
   router.push(`/feed/${feedId}`);
@@ -251,8 +287,35 @@ const goProfile = (item) => {
   }
 };
 
+const handleTouchStart = (event) => {
+  if (isRefreshing.value || isLoading.value) return;
+  if (!scrollContainer.value || scrollContainer.value.scrollTop > 0) return;
+  const touch = event.touches?.[0];
+  if (!touch) return;
+  touchStartY.value = touch.clientY;
+};
+
+const handleTouchMove = (event) => {
+  if (touchStartY.value === null) return;
+  const touch = event.touches?.[0];
+  if (!touch) return;
+  const delta = touch.clientY - touchStartY.value;
+  if (delta <= 0) return;
+  event.preventDefault();
+  pullDistance.value = Math.min(PULL_MAX, delta);
+};
+
+const handleTouchEnd = async () => {
+  if (touchStartY.value === null) return;
+  if (pullDistance.value >= PULL_THRESHOLD) {
+    await refreshNotifications();
+  }
+  pullDistance.value = 0;
+  touchStartY.value = null;
+};
+
 const handleScroll = () => {
-  const current = window.scrollY || 0;
+  const current = scrollContainer.value?.scrollTop || 0;
   if (current <= 4) {
     showTabs.value = true;
     lastScrollY.value = current;
@@ -275,28 +338,35 @@ const setupInfiniteScroll = () => {
         loadMore();
       }
     },
-    { rootMargin: "160px 0px" }
+    { root: scrollContainer.value, rootMargin: "160px 0px" }
   );
   loadObserver.observe(loadTrigger.value);
 };
 
 onMounted(loadNotifications);
-onMounted(() => {
-  lastScrollY.value = window.scrollY || 0;
-  window.addEventListener("scroll", handleScroll, { passive: true });
+onMounted(async () => {
+  await nextTick();
+  if (scrollContainer.value) {
+    lastScrollY.value = scrollContainer.value.scrollTop || 0;
+    scrollContainer.value.addEventListener("scroll", handleScroll, { passive: true });
+  }
 });
 onMounted(async () => {
   await nextTick();
   setupInfiniteScroll();
 });
 onUnmounted(() => {
-  window.removeEventListener("scroll", handleScroll);
+  if (scrollContainer.value) {
+    scrollContainer.value.removeEventListener("scroll", handleScroll);
+  }
   if (loadObserver) {
     loadObserver.disconnect();
   }
 });
 watch(activeTab, () => {
-  window.scrollTo({ top: 0, behavior: "auto" });
+  if (scrollContainer.value) {
+    scrollContainer.value.scrollTo({ top: 0, behavior: "auto" });
+  }
 });
 </script>
 
@@ -314,9 +384,9 @@ watch(activeTab, () => {
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: calc(124px + env(safe-area-inset-top, 0px)) 16px
-    calc(96px + env(safe-area-inset-bottom, 0px));
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .nav {
@@ -422,6 +492,31 @@ watch(activeTab, () => {
 .tab-btn.active {
   color: var(--ink);
   border-color: var(--ink);
+}
+
+.notifications-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: calc(124px + env(safe-area-inset-top, 0px)) 16px
+    calc(96px + env(safe-area-inset-bottom, 0px));
+  overscroll-behavior: contain;
+}
+
+.refresh-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  transition: height 0.2s ease;
+}
+
+.refresh-indicator span.active {
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .load-trigger {
@@ -537,7 +632,7 @@ watch(activeTab, () => {
 }
 
 @media (max-width: 480px) {
-  .phone-frame {
+  .notifications-scroll {
     padding: 68px 16px 140px;
   }
 }
