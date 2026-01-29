@@ -75,6 +75,7 @@ const translations = {
     "{actorName} 與另外 {others} 個人點讚了你的觀點。",
   "{actorName} 点赞了你的观点。": "{actorName} 點讚了你的觀點。",
   "{actorName}在你的观点下留言": "{actorName}在你的觀點下留言",
+  "未填写留言内容": "未填寫留言內容",
   "观点被收藏": "觀點被收藏",
   "{actorName}收藏了{target}": "{actorName}收藏了{target}",
   "观点被分享": "觀點被分享",

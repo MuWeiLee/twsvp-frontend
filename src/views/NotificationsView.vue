@@ -176,7 +176,15 @@ const buildItem = (row) => {
     if (!row.title) {
       title = t("{actorName}在你的观点下留言", { actorName });
     }
-    detail = row.detail || row.comment || row.content || "";
+    detail =
+      row.detail ||
+      row.comment_content ||
+      row.comment ||
+      row.content ||
+      "";
+    if (!detail) {
+      detail = t("未填写留言内容");
+    }
     summary = detail || summary;
     tab = "comment";
   } else if (row.type === "share") {
