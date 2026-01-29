@@ -16,7 +16,7 @@
               <input
                 class="search-input"
                 type="text"
-                :placeholder="t('搜索股票、代码、话题或作者')"
+                :placeholder="t('搜索股票、代码、资讯或作者')"
                 v-model="query"
                 @input="handleInput"
                 @keyup.enter="handleSearch"
@@ -75,7 +75,11 @@
               >
                 {{
                   t("全部 {count}", {
-                    count: stockResults.length + visibleFeedResults.length + userResults.length,
+                    count:
+                      stockResults.length +
+                      visibleFeedResults.length +
+                      userResults.length +
+                      newsResults.length,
                   })
                 }}
               </button>
@@ -85,6 +89,13 @@
                 @click="activeResultTab = 'stock'"
               >
                 {{ t("股票 {count}", { count: stockResults.length }) }}
+              </button>
+              <button
+                class="tab-btn"
+                :class="{ active: activeResultTab === 'news' }"
+                @click="activeResultTab = 'news'"
+              >
+                {{ t("资讯 {count}", { count: newsResults.length }) }}
               </button>
               <button
                 class="tab-btn"
@@ -124,6 +135,38 @@
                     @click="loadMoreStocks"
                   >
                     {{ isLoadingMoreStocks ? t("加载中...") : t("加载更多") }}
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="newsResults.length" class="result-section">
+                <div class="result-title">{{ t("资讯") }}</div>
+                <div class="news-list">
+                  <div
+                    v-for="item in newsResults"
+                    :key="item.article_id"
+                    class="news-item"
+                    @click="openNews(item.link)"
+                  >
+                    <div class="news-title">{{ item.title || "—" }}</div>
+                    <div v-if="item.description || item.content" class="news-summary">
+                      {{ item.description || item.content }}
+                    </div>
+                    <div class="news-meta">
+                      <span>{{ formatNewsTime(item.pub_date) }}</span>
+                      <span class="dot">·</span>
+                      <span>{{ formatNewsCreator(item.creator) }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="hasMoreNews" class="load-more">
+                  <button
+                    class="btn-secondary"
+                    type="button"
+                    :disabled="isLoadingMoreNews"
+                    @click="loadMoreNews"
+                  >
+                    {{ isLoadingMoreNews ? t("加载中...") : t("加载更多") }}
                   </button>
                 </div>
               </div>
@@ -267,7 +310,12 @@
               </div>
 
               <div
-                v-if="!stockResults.length && !visibleFeedResults.length && !userResults.length"
+                v-if="
+                  !stockResults.length &&
+                  !visibleFeedResults.length &&
+                  !userResults.length &&
+                  !newsResults.length
+                "
                 class="empty"
               >
                 {{ t("暂无相关结果") }}
@@ -297,6 +345,38 @@
                 </button>
               </div>
               <div v-else class="empty">{{ t("暂无相关股票") }}</div>
+            </div>
+
+            <div v-else-if="activeResultTab === 'news'">
+              <div v-if="newsResults.length" class="news-list">
+                <div
+                  v-for="item in newsResults"
+                  :key="item.article_id"
+                  class="news-item"
+                  @click="openNews(item.link)"
+                >
+                  <div class="news-title">{{ item.title || "—" }}</div>
+                  <div v-if="item.description || item.content" class="news-summary">
+                    {{ item.description || item.content }}
+                  </div>
+                  <div class="news-meta">
+                    <span>{{ formatNewsTime(item.pub_date) }}</span>
+                    <span class="dot">·</span>
+                    <span>{{ formatNewsCreator(item.creator) }}</span>
+                  </div>
+                </div>
+              </div>
+              <div v-if="hasMoreNews" class="load-more">
+                <button
+                  class="btn-secondary"
+                  type="button"
+                  :disabled="isLoadingMoreNews"
+                  @click="loadMoreNews"
+                >
+                  {{ isLoadingMoreNews ? t("加载中...") : t("加载更多") }}
+                </button>
+              </div>
+              <div v-else class="empty">{{ t("暂无相关资讯") }}</div>
             </div>
 
             <div v-else-if="activeResultTab === 'feed'">
@@ -464,6 +544,7 @@ import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
 import FeedEditSheet from "../components/FeedEditSheet.vue";
 import { getCurrentUserSupabase } from "../services/auth.js";
+import { searchNewsSupabase } from "../services/news.js";
 import { searchUsersSupabase } from "../services/profile.js";
 import { searchStocksSupabase } from "../services/stocks.js";
 import { t } from "../services/i18n.js";
@@ -484,6 +565,7 @@ import {
 const query = ref("");
 const submittedQuery = ref("");
 const stockResults = ref([]);
+const newsResults = ref([]);
 const feedResults = ref([]);
 const userResults = ref([]);
 const suggestedStocks = ref([]);
@@ -498,12 +580,15 @@ const isEditOpen = ref(false);
 const isEditSaving = ref(false);
 const editingFeed = ref(null);
 const stockPage = ref(1);
+const newsPage = ref(1);
 const feedPage = ref(1);
 const userPage = ref(1);
 const hasMoreStocks = ref(true);
+const hasMoreNews = ref(true);
 const hasMoreFeeds = ref(true);
 const hasMoreUsers = ref(true);
 const isLoadingMoreStocks = ref(false);
+const isLoadingMoreNews = ref(false);
 const isLoadingMoreFeeds = ref(false);
 const isLoadingMoreUsers = ref(false);
 const PAGE_SIZE = 20;
@@ -517,12 +602,15 @@ const handleInput = () => {
   if (!trimmed) {
     submittedQuery.value = "";
     stockResults.value = [];
+    newsResults.value = [];
     feedResults.value = [];
     userResults.value = [];
     stockPage.value = 1;
+    newsPage.value = 1;
     feedPage.value = 1;
     userPage.value = 1;
     hasMoreStocks.value = true;
+    hasMoreNews.value = true;
     hasMoreFeeds.value = true;
     hasMoreUsers.value = true;
     suggestedStocks.value = [];
@@ -570,6 +658,7 @@ const handleSearch = async () => {
   isSuggesting.value = false;
   submittedQuery.value = q;
   stockPage.value = 1;
+  newsPage.value = 1;
   feedPage.value = 1;
   userPage.value = 1;
   await runSearch(q);
@@ -580,12 +669,15 @@ const clearSearch = () => {
   query.value = "";
   submittedQuery.value = "";
   stockResults.value = [];
+  newsResults.value = [];
   feedResults.value = [];
   userResults.value = [];
   stockPage.value = 1;
+  newsPage.value = 1;
   feedPage.value = 1;
   userPage.value = 1;
   hasMoreStocks.value = true;
+  hasMoreNews.value = true;
   hasMoreFeeds.value = true;
   hasMoreUsers.value = true;
   suggestedStocks.value = [];
@@ -618,15 +710,18 @@ const mapFeedResults = (feeds) =>
 const runSearch = async (q, preferredTab = activeResultTab.value) => {
   isSearching.value = true;
   try {
-    const [stocks, feeds, users] = await Promise.all([
+    const [stocks, news, feeds, users] = await Promise.all([
       searchStocksSupabase(q, { page: stockPage.value, pageSize: PAGE_SIZE }),
+      searchNewsSupabase(q, { page: newsPage.value, pageSize: PAGE_SIZE }),
       searchFeedsSupabase(q, { page: feedPage.value, pageSize: PAGE_SIZE }),
       searchUsersSupabase(q, { page: userPage.value, pageSize: PAGE_SIZE }),
     ]);
     stockResults.value = stocks;
+    newsResults.value = news;
     feedResults.value = mapFeedResults(feeds);
     userResults.value = users;
     hasMoreStocks.value = stocks.length === PAGE_SIZE;
+    hasMoreNews.value = news.length === PAGE_SIZE;
     hasMoreFeeds.value = feeds.length === PAGE_SIZE;
     hasMoreUsers.value = users.length === PAGE_SIZE;
     activeResultTab.value = getAvailableTab(preferredTab);
@@ -658,7 +753,7 @@ const visibleFeedResults = computed(() =>
 );
 
 const normalizeTab = (tab) => {
-  if (tab === "stock" || tab === "feed" || tab === "user" || tab === "all") {
+  if (tab === "stock" || tab === "news" || tab === "feed" || tab === "user" || tab === "all") {
     return tab;
   }
   return "all";
@@ -667,6 +762,7 @@ const normalizeTab = (tab) => {
 const getAvailableTab = (preferred) => {
   const tab = normalizeTab(preferred);
   if (tab === "stock" && !stockResults.value.length) return "all";
+  if (tab === "news" && !newsResults.value.length) return "all";
   if (tab === "feed" && !feedResults.value.length) return "all";
   if (tab === "user" && !userResults.value.length) return "all";
   return tab;
@@ -704,6 +800,7 @@ const refreshFeedResults = async () => {
   const q = submittedQuery.value || query.value.trim();
   if (!q) return;
   stockPage.value = 1;
+  newsPage.value = 1;
   feedPage.value = 1;
   userPage.value = 1;
   await runSearch(q, activeResultTab.value);
@@ -787,6 +884,18 @@ const loadMoreStocks = async () => {
   isLoadingMoreStocks.value = false;
 };
 
+const loadMoreNews = async () => {
+  if (!hasMoreNews.value || isLoadingMoreNews.value) return;
+  const q = submittedQuery.value || query.value.trim();
+  if (!q) return;
+  isLoadingMoreNews.value = true;
+  newsPage.value += 1;
+  const news = await searchNewsSupabase(q, { page: newsPage.value, pageSize: PAGE_SIZE });
+  newsResults.value = [...newsResults.value, ...news];
+  hasMoreNews.value = news.length === PAGE_SIZE;
+  isLoadingMoreNews.value = false;
+};
+
 const loadMoreFeeds = async () => {
   if (!hasMoreFeeds.value || isLoadingMoreFeeds.value) return;
   const q = submittedQuery.value || query.value.trim();
@@ -842,6 +951,19 @@ const goUser = (user) => {
   }
 };
 
+const formatNewsTime = (value) => formatFeedTimestamp(value);
+
+const formatNewsCreator = (creator) => {
+  if (!creator) return "—";
+  if (Array.isArray(creator)) return creator.filter(Boolean).join(" ");
+  return `${creator}`;
+};
+
+const openNews = (link) => {
+  if (!link) return;
+  window.open(link, "_blank", "noopener");
+};
+
 const toggleLike = async (view) => {
   if (!currentUserId.value) {
     router.replace("/login");
@@ -884,6 +1006,7 @@ onMounted(async () => {
   query.value = q;
   submittedQuery.value = q;
   stockPage.value = 1;
+  newsPage.value = 1;
   feedPage.value = 1;
   userPage.value = 1;
   await runSearch(q, route.query.tab);
@@ -900,6 +1023,7 @@ watch(
     query.value = q;
     submittedQuery.value = q;
     stockPage.value = 1;
+    newsPage.value = 1;
     feedPage.value = 1;
     userPage.value = 1;
     await runSearch(q, nextTab);
@@ -1177,6 +1301,50 @@ watch(activeResultTab, () => {
   justify-content: space-between;
   font-size: 13px;
   cursor: pointer;
+}
+
+.news-list {
+  display: grid;
+  gap: 10px;
+}
+
+.news-item {
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.news-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+.news-summary {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.news-meta {
+  font-size: 11px;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.news-meta .dot {
+  font-size: 12px;
 }
 
 .user-list {
