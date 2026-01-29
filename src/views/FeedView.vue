@@ -87,103 +87,115 @@
         </div>
       </header>
 
-      <section class="feed">
-        <div v-for="view in filteredViews" :key="view.feed_id" class="thread slide-in">
-          <div class="thread-card" @click="goFeed(view.feed_id)">
-            <div class="thread-header">
-              <div class="header-left">
-                <div class="stock" @click.stop="goStock(view)">
-                  <span class="stock-name">{{ view.target_name }}</span>
-                  <span class="stock-code">{{ view.target_symbol }}</span>
+      <div
+        ref="scrollContainer"
+        class="feed-scroll"
+        @touchstart="handleTouchStart"
+        @touchmove="handleTouchMove"
+        @touchend="handleTouchEnd"
+        @touchcancel="handleTouchEnd"
+      >
+        <div class="refresh-indicator" :style="{ height: `${pullDistance}px` }">
+          <span :class="{ active: pullDistance >= PULL_THRESHOLD }">{{ refreshLabel }}</span>
+        </div>
+        <section class="feed">
+          <div v-for="view in filteredViews" :key="view.feed_id" class="thread slide-in">
+            <div class="thread-card" @click="goFeed(view.feed_id)">
+              <div class="thread-header">
+                <div class="header-left">
+                  <div class="stock" @click.stop="goStock(view)">
+                    <span class="stock-name">{{ view.target_name }}</span>
+                    <span class="stock-code">{{ view.target_symbol }}</span>
+                  </div>
+                  <span class="direction" :class="view.direction">
+                    {{ view.directionLabel }}
+                  </span>
                 </div>
-                <span class="direction" :class="view.direction">
-                  {{ view.directionLabel }}
-                </span>
+                <div class="more-wrap">
+                  <button class="more-btn" type="button" @click.stop="toggleMenu(view.feed_id)">
+                    ...
+                  </button>
+                  <div v-if="activeMenuId === view.feed_id" class="more-menu">
+                    <template v-if="view.isAuthor">
+                      <button
+                        v-if="view.canEdit"
+                        class="menu-item"
+                        type="button"
+                        @click.stop="handleEditFeed(view)"
+                      >
+                        {{ t("编辑观点") }}
+                      </button>
+                      <button
+                        v-if="view.statusPhase !== 'ended'"
+                        class="menu-item"
+                        type="button"
+                        @click.stop="handleEndFeed(view)"
+                      >
+                        {{ t("手动结束") }}
+                      </button>
+                      <button class="menu-item danger" type="button" @click.stop="handleDeleteFeed(view)">
+                        {{ t("删除观点") }}
+                      </button>
+                    </template>
+                    <button
+                      v-else
+                      class="menu-item"
+                      type="button"
+                      @click.stop="handleHideFeed(view)"
+                    >
+                      {{ t("不看这条") }}
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div class="more-wrap">
-                <button class="more-btn" type="button" @click.stop="toggleMenu(view.feed_id)">
-                  ...
-                </button>
-                <div v-if="activeMenuId === view.feed_id" class="more-menu">
-                  <template v-if="view.isAuthor">
-                    <button
-                      v-if="view.canEdit"
-                      class="menu-item"
-                      type="button"
-                      @click.stop="handleEditFeed(view)"
-                    >
-                      {{ t("编辑观点") }}
-                    </button>
-                    <button
-                      v-if="view.statusPhase !== 'ended'"
-                      class="menu-item"
-                      type="button"
-                      @click.stop="handleEndFeed(view)"
-                    >
-                      {{ t("手动结束") }}
-                    </button>
-                    <button class="menu-item danger" type="button" @click.stop="handleDeleteFeed(view)">
-                      {{ t("删除观点") }}
-                    </button>
-                  </template>
+              <div class="thread-meta">
+                <div class="author" @click.stop="goProfile(view)">
+                  <span class="avatar" :class="{ empty: !view.authorAvatar }">
+                    <img v-if="view.authorAvatar" :src="view.authorAvatar" alt="" />
+                    <span v-else>{{ view.authorInitial }}</span>
+                  </span>
+                  <span class="author-name">{{ view.author }}</span>
+                </div>
+                <span class="status">{{ view.statusDisplay }}</span>
+              </div>
+              <div class="summary" @click.stop="goFeed(view.feed_id)">{{ view.content }}</div>
+              <div class="thread-footer">
+                <span class="created-at">{{ view.createdDateLabel }}</span>
+                <div class="thread-actions">
+                  <span class="reply-count" aria-label="留言数">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-4 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                    {{ view.replyCount }}
+                  </span>
                   <button
-                    v-else
-                    class="menu-item"
+                    class="like-btn"
                     type="button"
-                    @click.stop="handleHideFeed(view)"
+                    :class="{ active: view.isLiked }"
+                    @click.stop="toggleLike(view)"
                   >
-                    {{ t("不看这条") }}
+                    👍 {{ view.like_count }}
                   </button>
                 </div>
               </div>
             </div>
-            <div class="thread-meta">
-              <div class="author" @click.stop="goProfile(view)">
-                <span class="avatar" :class="{ empty: !view.authorAvatar }">
-                  <img v-if="view.authorAvatar" :src="view.authorAvatar" alt="" />
-                  <span v-else>{{ view.authorInitial }}</span>
-                </span>
-                <span class="author-name">{{ view.author }}</span>
-              </div>
-              <span class="status">{{ view.statusDisplay }}</span>
-            </div>
-            <div class="summary" @click.stop="goFeed(view.feed_id)">{{ view.content }}</div>
-            <div class="thread-footer">
-              <span class="created-at">{{ view.createdDateLabel }}</span>
-              <div class="thread-actions">
-                <span class="reply-count" aria-label="留言数">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-4 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                  {{ view.replyCount }}
-                </span>
-                <button
-                  class="like-btn"
-                  type="button"
-                  :class="{ active: view.isLiked }"
-                  @click.stop="toggleLike(view)"
-                >
-                  👍 {{ view.like_count }}
-                </button>
-              </div>
-            </div>
           </div>
-        </div>
-        <div v-if="!isLoading && !filteredViews.length" class="empty">
-          {{ t("暂无观点，先发布一条吧。") }}
-        </div>
-        <div ref="loadTrigger" class="load-trigger">
-          <span v-if="isLoadingMore">{{ t("加载中...") }}</span>
-          <span v-else-if="hasMore">{{ t("下滑加载更多") }}</span>
-          <span v-else>{{ t("已加载全部") }}</span>
-        </div>
-      </section>
+          <div v-if="!isLoading && !filteredViews.length" class="empty">
+            {{ t("暂无观点，先发布一条吧。") }}
+          </div>
+          <div ref="loadTrigger" class="load-trigger">
+            <span v-if="isLoadingMore">{{ t("加载中...") }}</span>
+            <span v-else-if="hasMore">{{ t("下滑加载更多") }}</span>
+            <span v-else>{{ t("已加载全部") }}</span>
+          </div>
+        </section>
+      </div>
 
       <BottomTabbar />
 
@@ -246,9 +258,21 @@ const lastScrollY = ref(0);
 const page = ref(1);
 const hasMore = ref(true);
 const isLoadingMore = ref(false);
+const isRefreshing = ref(false);
 const PAGE_SIZE = 20;
+const PULL_THRESHOLD = 60;
+const PULL_MAX = 90;
 const loadTrigger = ref(null);
+const scrollContainer = ref(null);
+const pullDistance = ref(0);
+const touchStartY = ref(null);
 let loadObserver = null;
+
+const refreshLabel = computed(() => {
+  if (isRefreshing.value) return t("刷新中...");
+  if (pullDistance.value >= PULL_THRESHOLD) return t("松开刷新");
+  return t("下拉刷新");
+});
 
 const filteredViews = computed(() => {
   const list = feeds.value
@@ -342,10 +366,15 @@ const loadFeeds = async ({ append = false } = {}) => {
 };
 
 const refreshFeeds = async () => {
+  if (isRefreshing.value) return;
+  isRefreshing.value = true;
   page.value = 1;
   hasMore.value = true;
   await loadFeeds();
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  if (scrollContainer.value) {
+    scrollContainer.value.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  isRefreshing.value = false;
 };
 
 const loadMore = async () => {
@@ -494,8 +523,35 @@ const goProfile = (view) => {
   }
 };
 
+const handleTouchStart = (event) => {
+  if (isRefreshing.value || isLoading.value) return;
+  if (!scrollContainer.value || scrollContainer.value.scrollTop > 0) return;
+  const touch = event.touches?.[0];
+  if (!touch) return;
+  touchStartY.value = touch.clientY;
+};
+
+const handleTouchMove = (event) => {
+  if (touchStartY.value === null) return;
+  const touch = event.touches?.[0];
+  if (!touch) return;
+  const delta = touch.clientY - touchStartY.value;
+  if (delta <= 0) return;
+  event.preventDefault();
+  pullDistance.value = Math.min(PULL_MAX, delta);
+};
+
+const handleTouchEnd = async () => {
+  if (touchStartY.value === null) return;
+  if (pullDistance.value >= PULL_THRESHOLD) {
+    await refreshFeeds();
+  }
+  pullDistance.value = 0;
+  touchStartY.value = null;
+};
+
 const handleScroll = () => {
-  const current = window.scrollY || 0;
+  const current = scrollContainer.value?.scrollTop || 0;
   if (current <= 4) {
     showTabs.value = true;
     lastScrollY.value = current;
@@ -518,7 +574,7 @@ const setupInfiniteScroll = () => {
         loadMore();
       }
     },
-    { rootMargin: "160px 0px" }
+    { root: scrollContainer.value, rootMargin: "160px 0px" }
   );
   loadObserver.observe(loadTrigger.value);
 };
@@ -526,16 +582,21 @@ const setupInfiniteScroll = () => {
 onMounted(loadUser);
 onMounted(loadFeeds);
 onMounted(loadHiddenIds);
-onMounted(() => {
-  lastScrollY.value = window.scrollY || 0;
-  window.addEventListener("scroll", handleScroll, { passive: true });
+onMounted(async () => {
+  await nextTick();
+  if (scrollContainer.value) {
+    lastScrollY.value = scrollContainer.value.scrollTop || 0;
+    scrollContainer.value.addEventListener("scroll", handleScroll, { passive: true });
+  }
 });
 onMounted(async () => {
   await nextTick();
   setupInfiniteScroll();
 });
 onUnmounted(() => {
-  window.removeEventListener("scroll", handleScroll);
+  if (scrollContainer.value) {
+    scrollContainer.value.removeEventListener("scroll", handleScroll);
+  }
   if (loadObserver) {
     loadObserver.disconnect();
   }
@@ -544,7 +605,9 @@ watch([statusFilter, sortKey], async () => {
   page.value = 1;
   hasMore.value = true;
   await loadFeeds();
-  window.scrollTo({ top: 0, behavior: "auto" });
+  if (scrollContainer.value) {
+    scrollContainer.value.scrollTo({ top: 0, behavior: "auto" });
+  }
 });
 </script>
 
@@ -565,10 +628,9 @@ watch([statusFilter, sortKey], async () => {
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: calc(var(--nav-height) + var(--tabs-height) + var(--header-gap) + env(safe-area-inset-top, 0px))
-    16px
-    calc(140px + env(safe-area-inset-bottom, 0px));
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .nav {
@@ -693,6 +755,32 @@ watch([statusFilter, sortKey], async () => {
 .tab-btn.active {
   color: var(--ink);
   border-color: var(--ink);
+}
+
+.feed-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: calc(var(--nav-height) + var(--tabs-height) + var(--header-gap) + env(safe-area-inset-top, 0px))
+    16px
+    calc(140px + env(safe-area-inset-bottom, 0px));
+  overscroll-behavior: contain;
+}
+
+.refresh-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  transition: height 0.2s ease;
+}
+
+.refresh-indicator span.active {
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .load-trigger {
@@ -974,7 +1062,7 @@ watch([statusFilter, sortKey], async () => {
 }
 
 @media (max-width: 480px) {
-  .phone-frame {
+  .feed-scroll {
     padding: calc(var(--nav-height) + var(--tabs-height) + var(--header-gap) + env(safe-area-inset-top, 0px))
       16px
       calc(140px + env(safe-area-inset-bottom, 0px));
