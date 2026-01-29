@@ -554,29 +554,32 @@ const roundUpToStep = (value, step) => {
 };
 const roundDownToStep = (value, step) => Math.floor(value / step) * step;
 
-const spreadAxisLabels = (labels, minGap = 0.08) => {
-  if (!labels.length) return labels;
-  const sorted = labels
-    .map((label) => ({ ...label }))
-    .sort((a, b) => a.pos - b.pos);
-  for (let i = 1; i < sorted.length; i += 1) {
-    if (sorted[i].pos - sorted[i - 1].pos < minGap) {
-      sorted[i].pos = sorted[i - 1].pos + minGap;
+const getNiceStep = (range, reference = 1) => {
+  if (!Number.isFinite(range) || range <= 0) {
+    if (reference >= 100) return 5;
+    if (reference >= 10) return 1;
+    if (reference >= 1) return 0.5;
+    if (reference >= 0.1) return 0.05;
+    return 0.005;
+  }
+  const rough = range / 4;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(rough)));
+  const normalized = rough / magnitude;
+  const baseSteps = [0.05, 0.1, 0.5, 1, 2.5, 5, 10];
+  let step = baseSteps[baseSteps.length - 1] * magnitude;
+  for (const base of baseSteps) {
+    if (base >= normalized) {
+      step = base * magnitude;
+      break;
     }
   }
-  const last = sorted[sorted.length - 1];
-  if (last.pos > 1) {
-    const overflow = last.pos - 1;
-    for (const label of sorted) {
-      label.pos = Math.max(0, label.pos - overflow);
-    }
-    for (let i = 1; i < sorted.length; i += 1) {
-      if (sorted[i].pos - sorted[i - 1].pos < minGap) {
-        sorted[i].pos = Math.min(1, sorted[i - 1].pos + minGap);
-      }
-    }
-  }
-  return sorted;
+  return Math.max(step, 0.005);
+};
+
+const getPriceDecimals = (step) => {
+  if (step < 0.1) return 3;
+  if (step < 1) return 2;
+  return 2;
 };
 
 const chartRange = computed(() => {
@@ -589,6 +592,7 @@ const chartRange = computed(() => {
       rawLow: 0,
       latest: 0,
       baseOpen: 1,
+      step: 1,
     };
   }
   const highs = displaySeries.value.map((item) =>
@@ -599,16 +603,20 @@ const chartRange = computed(() => {
   );
   const rawHigh = Math.max(...highs);
   const rawLow = Math.min(...lows);
-  const step = 5;
-  const max = roundUpToStep(rawHigh, step);
+  const step = getNiceStep(rawHigh - rawLow, rawHigh || rawLow || 1);
+  let max = roundUpToStep(rawHigh, step);
   let min = roundDownToStep(rawLow, step);
+  if (max <= rawHigh) max += step;
   if (min >= rawLow) min -= step;
+  if (max - min < step * 4) {
+    max = min + step * 4;
+  }
   const range = max - min || 1;
   const latestItem = displaySeries.value[displaySeries.value.length - 1] || {};
   const latest = Number(latestItem.close ?? latestItem.open ?? 0);
   const baseItem = displaySeries.value[0] || {};
   const baseOpen = Number(baseItem.open ?? baseItem.close ?? 0) || 1;
-  return { min, max, range, rawHigh, rawLow, latest, baseOpen };
+  return { min, max, range, rawHigh, rawLow, latest, baseOpen, step };
 });
 
 
@@ -654,39 +662,18 @@ const axisLabels = computed(() => {
   if (!displaySeries.value.length) {
     return { price: [], pct: [], timeStart: "—", timeMid: "—", timeEnd: "—" };
   }
-  const { min, max, range, rawHigh, rawLow, latest, baseOpen } = chartRange.value;
-  const values = [
-    { key: "max", value: max },
-    { key: "high", value: rawHigh },
-    { key: "latest", value: latest },
-    { key: "low", value: rawLow },
-    { key: "min", value: min },
-  ];
-  const seen = new Set();
-  const labels = values
-    .map((item) => ({ ...item, value: Number(item.value) }))
-    .filter((item) => {
-      if (Number.isNaN(item.value)) return false;
-      const key = item.value.toFixed(4);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .map((item) => {
-      const pos = range ? (max - item.value) / range : 0;
-      return { ...item, pos: Math.min(1, Math.max(0, pos)) };
-    });
-  const spaced = spreadAxisLabels(labels, 0.08);
-
-  const priceLabels = spaced.map((label) => ({
-    key: label.key || label.value.toFixed(4),
-    pos: label.pos,
-    text: formatPrice(label.value),
+  const { min, max, range, baseOpen, step } = chartRange.value;
+  const decimals = getPriceDecimals(step);
+  const ticks = Array.from({ length: 5 }, (_, idx) => min + step * idx);
+  const priceLabels = ticks.map((value, index) => ({
+    key: `${value.toFixed(4)}-${index}`,
+    pos: range ? (max - value) / range : 0,
+    text: value.toFixed(decimals),
   }));
-  const pctLabels = spaced.map((label) => ({
-    key: label.key || label.value.toFixed(4),
-    pos: label.pos,
-    text: formatPercent(((label.value - baseOpen) / baseOpen) * 100),
+  const pctLabels = ticks.map((value, index) => ({
+    key: `${value.toFixed(4)}-${index}`,
+    pos: range ? (max - value) / range : 0,
+    text: formatPercent(((value - baseOpen) / baseOpen) * 100),
   }));
   const lastIndex = displaySeries.value.length - 1;
   const midIndex = Math.floor(lastIndex / 2);
@@ -1315,6 +1302,30 @@ watch(isCreateOpen, (value) => {
   font-size: 11px;
   color: var(--muted);
   z-index: 2;
+}
+
+@media (max-width: 420px) {
+  .chart-plot {
+    inset: 12px 56px 26px 56px;
+  }
+
+  .x-axis {
+    left: 56px;
+    right: 56px;
+    font-size: 10px;
+  }
+
+  .chart-axis {
+    font-size: 10px;
+  }
+
+  .chart-axis.left {
+    width: 48px;
+  }
+
+  .chart-axis.right {
+    width: 52px;
+  }
 }
 
 .chart-hint {
