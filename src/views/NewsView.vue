@@ -225,14 +225,14 @@ onUnmounted(() => {
   min-height: 100vh;
   display: flex;
   justify-content: center;
-  background: var(--background);
+  background: var(--bg);
   color: var(--ink);
 }
 
 .phone-frame {
   width: min(600px, 100%);
   min-height: 100vh;
-  background: var(--surface);
+  background: var(--bg);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -319,20 +319,14 @@ onUnmounted(() => {
 }
 
 .news-card {
-  background: var(--card);
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 12px 14px;
+  border-radius: 0;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.news-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
 }
 
 .news-title {
