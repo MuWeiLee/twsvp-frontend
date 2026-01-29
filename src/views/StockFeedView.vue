@@ -554,6 +554,31 @@ const roundUpToStep = (value, step) => {
 };
 const roundDownToStep = (value, step) => Math.floor(value / step) * step;
 
+const spreadAxisLabels = (labels, minGap = 0.08) => {
+  if (!labels.length) return labels;
+  const sorted = labels
+    .map((label) => ({ ...label }))
+    .sort((a, b) => a.pos - b.pos);
+  for (let i = 1; i < sorted.length; i += 1) {
+    if (sorted[i].pos - sorted[i - 1].pos < minGap) {
+      sorted[i].pos = sorted[i - 1].pos + minGap;
+    }
+  }
+  const last = sorted[sorted.length - 1];
+  if (last.pos > 1) {
+    const overflow = last.pos - 1;
+    for (const label of sorted) {
+      label.pos = Math.max(0, label.pos - overflow);
+    }
+    for (let i = 1; i < sorted.length; i += 1) {
+      if (sorted[i].pos - sorted[i - 1].pos < minGap) {
+        sorted[i].pos = Math.min(1, sorted[i - 1].pos + minGap);
+      }
+    }
+  }
+  return sorted;
+};
+
 const chartRange = computed(() => {
   if (!displaySeries.value.length) {
     return {
@@ -630,28 +655,36 @@ const axisLabels = computed(() => {
     return { price: [], pct: [], timeStart: "—", timeMid: "—", timeEnd: "—" };
   }
   const { min, max, range, rawHigh, rawLow, latest, baseOpen } = chartRange.value;
-  const values = [max, rawHigh, latest, rawLow, min];
+  const values = [
+    { key: "max", value: max },
+    { key: "high", value: rawHigh },
+    { key: "latest", value: latest },
+    { key: "low", value: rawLow },
+    { key: "min", value: min },
+  ];
   const seen = new Set();
   const labels = values
-    .map((value) => Number(value))
-    .filter((value) => {
-      const key = value.toFixed(4);
+    .map((item) => ({ ...item, value: Number(item.value) }))
+    .filter((item) => {
+      if (Number.isNaN(item.value)) return false;
+      const key = item.value.toFixed(4);
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     })
-    .map((value) => {
-      const pos = range ? (max - value) / range : 0;
-      return { value, pos: Math.min(1, Math.max(0, pos)) };
+    .map((item) => {
+      const pos = range ? (max - item.value) / range : 0;
+      return { ...item, pos: Math.min(1, Math.max(0, pos)) };
     });
+  const spaced = spreadAxisLabels(labels, 0.08);
 
-  const priceLabels = labels.map((label) => ({
-    key: label.value.toFixed(4),
+  const priceLabels = spaced.map((label) => ({
+    key: label.key || label.value.toFixed(4),
     pos: label.pos,
     text: formatPrice(label.value),
   }));
-  const pctLabels = labels.map((label) => ({
-    key: label.value.toFixed(4),
+  const pctLabels = spaced.map((label) => ({
+    key: label.key || label.value.toFixed(4),
     pos: label.pos,
     text: formatPercent(((label.value - baseOpen) / baseOpen) * 100),
   }));
@@ -1172,7 +1205,7 @@ watch(isCreateOpen, (value) => {
 
 .chart-plot {
   position: absolute;
-  inset: 12px 40px 26px 40px;
+  inset: 12px 64px 26px 64px;
 }
 
 .chart-grid {
@@ -1247,22 +1280,35 @@ watch(isCreateOpen, (value) => {
   position: absolute;
   transform: translateY(-50%);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  padding: 0 2px;
+  background: var(--surface);
 }
 
 .chart-axis.left {
   left: 6px;
   text-align: left;
+  width: 54px;
 }
 
 .chart-axis.right {
   right: 6px;
   text-align: right;
+  width: 60px;
+}
+
+.chart-axis.left .axis-label {
+  left: 0;
+}
+
+.chart-axis.right .axis-label {
+  right: 0;
 }
 
 .x-axis {
   position: absolute;
-  left: 34px;
-  right: 34px;
+  left: 64px;
+  right: 64px;
   bottom: 4px;
   display: flex;
   justify-content: space-between;
