@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const FINMIND_ENDPOINT =
   process.env.FINMIND_ENDPOINT || "https://api.finmindtrade.com/api/v4/data";
-const MIN_START_DATE = process.env.STOCK_PRICE_MIN_START_DATE || "2000-01-01";
+const MIN_START_DATE = process.env.STOCK_PRICE_MIN_START_DATE || "2026-01-01";
 
 const requiredEnv = (key) => {
   const value = process.env[key];
@@ -42,6 +42,15 @@ const normalizeMode = (value) => {
     return "date";
   }
   return "date";
+};
+
+const resolveSleepMs = (explicitValue, rateLimitPerHour, fallbackMs = 250) => {
+  if (Number.isFinite(explicitValue)) return explicitValue;
+  const limit = Number(rateLimitPerHour);
+  if (Number.isFinite(limit) && limit > 0) {
+    return Math.ceil(3600000 / limit);
+  }
+  return fallbackMs;
 };
 
 const addDays = (dateString, days) => {
@@ -87,6 +96,11 @@ const fetchFinmindPrices = async (
     throw new Error(`FinMind request failed ${response.status} ${response.statusText}`);
   }
   const payload = await response.json();
+  if (payload?.status && payload.status !== 200) {
+    throw new Error(
+      `FinMind response status ${payload.status} ${payload.msg || ""}`.trim()
+    );
+  }
   if (!payload || !Array.isArray(payload.data)) {
     throw new Error("FinMind response invalid");
   }
@@ -142,14 +156,17 @@ const upsertRows = async (supabase, table, rows, chunkSize, onConflict) => {
   }
 };
 
-const fetchStockIds = async (supabase, markets, offset, limit) => {
-  const { data, error } = await supabase
+const fetchStockIds = async (supabase, markets, offset, limit, includeInactive) => {
+  let query = supabase
     .from("stocks")
     .select("stock_id")
     .in("market", markets)
-    .eq("is_active", true)
     .order("stock_id", { ascending: true })
     .range(offset, offset + limit - 1);
+  if (!includeInactive) {
+    query = query.eq("is_active", true);
+  }
+  const { data, error } = await query;
   if (error) {
     throw new Error(`Supabase stocks query failed: ${error.message}`);
   }
@@ -273,23 +290,31 @@ export default async function handler(req, res) {
   let dataset = `${params.dataset || process.env.BACKFILL_DATASET || "TaiwanStockPrice"}`.trim();
   const mode =
     normalizeMode(
-      params.mode || params.backfill_mode || process.env.BACKFILL_MODE || "date"
-    ) || "date";
+      params.mode || params.backfill_mode || process.env.BACKFILL_MODE || "stock"
+    ) || "stock";
   const startDateParam =
     params.start_date || process.env.BACKFILL_START_DATE || MIN_START_DATE;
   const explicitEndDate = params.end_date || process.env.BACKFILL_END_DATE || null;
+  const backfillRateLimit =
+    params.rate_limit_per_hour || process.env.BACKFILL_RATE_LIMIT_PER_HOUR || 600;
   const requestedMaxStocks = Number(
-    params.max_stocks || process.env.BACKFILL_MAX_STOCKS || 200
+    params.max_stocks || process.env.BACKFILL_MAX_STOCKS || backfillRateLimit || 200
   );
-  const maxStocks = mode === "stock" ? 1 : requestedMaxStocks;
+  const maxStocks = Math.max(1, Number.isFinite(requestedMaxStocks) ? requestedMaxStocks : 1);
   const chunkSize = Number(
     params.chunk_size || process.env.BACKFILL_CHUNK_SIZE || 500
   );
-  const sleepMs = Number(params.sleep_ms || process.env.BACKFILL_SLEEP_MS || 250);
-  const markets = (params.markets || process.env.BACKFILL_MARKETS || "上市,上櫃")
+  const sleepMs = resolveSleepMs(
+    params.sleep_ms ? Number(params.sleep_ms) : Number(process.env.BACKFILL_SLEEP_MS),
+    backfillRateLimit,
+    250
+  );
+  const markets = (params.markets || process.env.BACKFILL_MARKETS || "上市,上櫃,興櫃")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
+  const includeInactive =
+    `${params.include_inactive || process.env.BACKFILL_INCLUDE_INACTIVE || "1"}` === "1";
   const dryRun = `${params.dry_run || ""}` === "1";
   const reset = `${params.reset || ""}` === "1";
   const autoExtend =
@@ -401,6 +426,8 @@ export default async function handler(req, res) {
             mode,
             stockOffset,
             maxStocks,
+            includeInactive,
+            sleepMs,
           },
         },
       });
@@ -414,10 +441,16 @@ export default async function handler(req, res) {
 
     const token = requiredEnv("FINMIND_TOKEN");
     if (mode === "stock") {
-      const stockIds = await fetchStockIds(supabase, markets, stockOffset, maxStocks);
+      const stockIds = await fetchStockIds(
+        supabase,
+        markets,
+        stockOffset,
+        maxStocks,
+        includeInactive
+      );
       if (!stockIds.length) {
         if (stockOffset === 0) {
-          throw new Error("No active stocks found for markets.");
+          throw new Error("No stocks found for markets.");
         }
         const nextCursorDate = addDays(currentDate, -1);
         const status =
@@ -449,6 +482,8 @@ export default async function handler(req, res) {
                 mode,
                 stockOffset,
                 maxStocks,
+                includeInactive,
+                sleepMs,
               },
               summary: [],
             },
@@ -480,7 +515,10 @@ export default async function handler(req, res) {
           totalRows += rows.length;
         } catch (error) {
           errorMessage = error.message;
-          if (errorMessage && /402|Payment Required/i.test(errorMessage)) {
+          if (
+            errorMessage &&
+            /402|403|429|Payment Required|rate limit|quota/i.test(errorMessage)
+          ) {
             rateLimited = true;
           }
         }
@@ -496,10 +534,16 @@ export default async function handler(req, res) {
         nextOffset = stockOffset + stockIds.length;
       }
     } else {
-      const stockIds = await fetchStockIds(supabase, markets, stockOffset, maxStocks);
+      const stockIds = await fetchStockIds(
+        supabase,
+        markets,
+        stockOffset,
+        maxStocks,
+        includeInactive
+      );
       if (!stockIds.length) {
         if (stockOffset === 0) {
-          throw new Error("No active stocks found for markets.");
+          throw new Error("No stocks found for markets.");
         }
         currentDate = addDays(currentDate, -1);
         stockOffset = 0;
@@ -529,6 +573,8 @@ export default async function handler(req, res) {
                 mode,
                 stockOffset,
                 maxStocks,
+                includeInactive,
+                sleepMs,
               },
               summary: [],
             },
@@ -566,7 +612,10 @@ export default async function handler(req, res) {
           totalRows += rows.length;
         } catch (error) {
           errorMessage = error.message;
-          if (errorMessage && /402|Payment Required/i.test(errorMessage)) {
+          if (
+            errorMessage &&
+            /402|403|429|Payment Required|rate limit|quota/i.test(errorMessage)
+          ) {
             rateLimited = true;
           }
         }
@@ -629,6 +678,8 @@ export default async function handler(req, res) {
               mode,
               stockOffset,
               maxStocks,
+              includeInactive,
+              sleepMs,
             },
             summary,
           },
@@ -695,6 +746,8 @@ export default async function handler(req, res) {
             mode,
             stockOffset,
             maxStocks,
+            includeInactive,
+            sleepMs,
           },
           summary,
         },

@@ -85,6 +85,11 @@ const fetchFinmindPrices = async (
     throw new Error(`FinMind request failed ${response.status} ${response.statusText}`);
   }
   const payload = await response.json();
+  if (payload?.status && payload.status !== 200) {
+    throw new Error(
+      `FinMind response status ${payload.status} ${payload.msg || ""}`.trim()
+    );
+  }
   if (!payload || !Array.isArray(payload.data)) {
     throw new Error("FinMind response invalid");
   }
