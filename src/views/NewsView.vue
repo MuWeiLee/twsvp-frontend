@@ -31,6 +31,22 @@
             />
           </svg>
         </router-link>
+        <router-link class="nav-btn" to="/notifications" :aria-label="t('通知')">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M12 4c-3 0-5 2.2-5 5.2v3.2l-1.6 2.4c-.4.6 0 1.2.7 1.2h11.8c.7 0 1.1-.6.7-1.2L17 12.4V9.2C17 6.2 15 4 12 4z"
+              stroke="currentColor"
+              stroke-width="1.4"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M10 18a2 2 0 0 0 4 0"
+              stroke="currentColor"
+              stroke-width="1.4"
+              stroke-linecap="round"
+            />
+          </svg>
+        </router-link>
       </nav>
 
       <div class="refresh-indicator" :style="{ height: `${pullDistance}px` }">
@@ -272,6 +288,11 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.nav-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .refresh-indicator {
