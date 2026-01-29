@@ -184,6 +184,8 @@ NotificationType:
 - like / share / comment / reply：行为发生即生成
 - expire_soon：距离 expired_at = 3 天（可配置）
 - expired：到期当日生成
+  - comment / reply 需写入 comment_content 与 comment_id
+  - 行为人与观点作者一致时不生成留言通知
 
 #### 去重规则
 - 同一 Feed 短时间多次互动可聚合（后期）
