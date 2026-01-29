@@ -508,7 +508,6 @@ const submitReply = async () => {
     feedId: feed.value.feed_id,
     userId: currentUserId.value,
     content: trimmed,
-    feedOwnerId: feed.value.user_id,
   });
   replySubmitting.value = false;
   if (!data) return;

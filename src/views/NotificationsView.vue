@@ -19,13 +19,6 @@
         </button>
         <button
           class="tab-btn"
-          :class="{ active: activeTab === 'comment' }"
-          @click="activeTab = 'comment'"
-        >
-          {{ t("留言") }}
-        </button>
-        <button
-          class="tab-btn"
           :class="{ active: activeTab === 'expire' }"
           @click="activeTab = 'expire'"
         >
@@ -173,20 +166,7 @@ const buildItem = (row) => {
     }
     tab = "like";
   } else if (row.type === "comment" || row.type === "reply") {
-    if (!row.title) {
-      title = t("{actorName}在你的观点下留言", { actorName });
-    }
-    detail =
-      row.detail ||
-      row.comment_content ||
-      row.comment ||
-      row.content ||
-      "";
-    if (!detail) {
-      detail = t("未填写留言内容");
-    }
-    summary = detail || summary;
-    tab = "comment";
+    return null;
   } else if (row.type === "share") {
     if (!row.title) {
       title = t("观点被分享");
@@ -224,8 +204,7 @@ const buildItem = (row) => {
     tab = "expire";
   }
 
-  const stockLabel =
-    tab === "comment" ? "" : [feed.target_name, feed.target_symbol].filter(Boolean).join(" ");
+  const stockLabel = [feed.target_name, feed.target_symbol].filter(Boolean).join(" ");
 
   return {
     id: row.noti_id,
@@ -269,7 +248,8 @@ const loadNotifications = async ({ append = false } = {}) => {
   const nextItems = rows
     .filter((row) => row.type !== "share")
     .filter((row) => !row.feeds || !row.feeds.deleted_at)
-    .map(buildItem);
+    .map(buildItem)
+    .filter(Boolean);
   items.value = append ? [...items.value, ...nextItems] : nextItems;
   hasMore.value = rows.length === PAGE_SIZE;
   if (append) {
