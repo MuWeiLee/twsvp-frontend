@@ -235,7 +235,7 @@ export async function fetchFeedRepliesSupabase(feedId) {
   return data || [];
 }
 
-export async function addFeedReplySupabase({ feedId, userId, content }) {
+export async function addFeedReplySupabase({ feedId, userId, content, feedOwnerId }) {
   if (!feedId || !userId || !content) return null;
   const { data, error } = await supabase
     .from("feed_replies")
@@ -248,6 +248,34 @@ export async function addFeedReplySupabase({ feedId, userId, content }) {
   if (error) {
     console.error("创建 feed_replies 失败:", error);
     return null;
+  }
+
+  let ownerId = feedOwnerId;
+  if (!ownerId) {
+    const { data: feed, error: feedError } = await supabase
+      .from("feeds")
+      .select("user_id")
+      .eq("feed_id", feedId)
+      .maybeSingle();
+    if (feedError) {
+      console.error("读取 feed owner 失败:", feedError);
+    } else {
+      ownerId = feed?.user_id;
+    }
+  }
+
+  if (ownerId && ownerId !== userId) {
+    const { error: notificationError } = await supabase.from("notifications").insert({
+      user_id: ownerId,
+      actor_user_id: userId,
+      type: "comment",
+      target_feed_id: feedId,
+      comment_content: content,
+      comment_id: data.reply_id,
+    });
+    if (notificationError) {
+      console.error("创建留言通知失败:", notificationError);
+    }
   }
 
   return data;
