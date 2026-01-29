@@ -12,7 +12,25 @@
           <img :src="logoUrl" alt="TWSVP" />
         </router-link>
         <div class="nav-title">{{ t("资讯") }}</div>
-        <span class="nav-space" aria-hidden="true"></span>
+        <router-link class="nav-btn" to="/search" :aria-label="t('搜索')">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle
+              cx="11"
+              cy="11"
+              r="7"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <path
+              d="M20 20l-4-4"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+        </router-link>
       </nav>
 
       <div class="refresh-indicator" :style="{ height: `${pullDistance}px` }">
@@ -241,8 +259,19 @@ onUnmounted(() => {
   text-align: left;
 }
 
-.nav-space {
-  margin-left: auto;
+.nav-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 10px;
+  height: 32px;
+  width: 32px;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .refresh-indicator {
