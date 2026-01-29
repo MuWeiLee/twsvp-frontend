@@ -44,6 +44,7 @@
 - **包含模块**：
   - 通知类型 Tab
     - 点赞
+    - 留言
     - 分享
     - 即期观点（到期提醒）
 - **作用说明**：
@@ -77,6 +78,7 @@
 - **模块类型**：Tab
 - **枚举值**：
   - like（点赞）
+  - comment（留言）
   - share（分享）
   - expire（即期观点）
 - **行为规则**：
@@ -118,17 +120,34 @@
 - **状态**：
   - 空态：暂无到期观点
 
+### 4.4 留言通知列表（CommentNotificationList）
+- **对应**：留言 / 回复
+- **模块目标**：展示用户收到的留言提醒，清晰呈现留言内容
+- **模块类型**：列表
+- **单条通知结构**：
+  - 行为用户头像
+  - 行为文案（在你的观点下留言）
+  - 留言内容（最多 2 行，缺省时显示「未填写留言内容」）
+  - 发生时间
+- **主要交互**：
+  - 点击通知 → FeedCard
+  - 点击用户头像 → PersonalViewer
+- **状态**：
+  - 空态：暂无留言通知
+
 ## 5. 核心字段与数据结构（Data）
 
 ### 5.1 核心字段
 | 字段名 | 类型 | 来源 | 是否必需 | 说明 |
 |-------|------|------|----------|------|
 | noti_id | string | notifications | 是 | 通知 ID |
-| type | enum | notifications | 是 | like / share / expire_soon / expired |
+| type | enum | notifications | 是 | like / share / comment / reply / expire_soon / expired |
 | actor_user_id | string | notifications | 否 | 行为人（到期类为空） |
 | target_feed_id | string | notifications | 是 | 关联 Feed |
 | created_at | datetime | notifications | 是 | 通知时间 |
 | read_at | datetime | notifications | 否 | 已读时间 |
+| comment_content | string | notifications | 否 | 留言内容（comment / reply 使用） |
+| comment_id | string | notifications | 否 | 关联留言 ID（comment / reply 使用） |
 | days_left | number | system | 否 | 到期剩余天数 |
 
 ### 5.2 枚举值
@@ -136,6 +155,8 @@
 NotificationType:
 - like
 - share
+- comment
+- reply
 - expire_soon
 - expired
 ```
@@ -160,7 +181,7 @@ NotificationType:
 ### 7.2 业务规则
 
 #### 通知生成规则（MVP）
-- like / share：行为发生即生成
+- like / share / comment / reply：行为发生即生成
 - expire_soon：距离 expired_at = 3 天（可配置）
 - expired：到期当日生成
 
@@ -192,7 +213,7 @@ NotificationType:
 - **上游页面**：FeedFlow
 - **下游页面**：FeedCard / PersonalViewer
 - **依赖基础数据表**：
-  - notifications
+  - notifications（需包含 comment_content / comment_id）
   - feeds
   - users
 
