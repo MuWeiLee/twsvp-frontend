@@ -121,9 +121,9 @@ export const formatFeedPrice = (value, decimals = 2) => {
 };
 
 export const formatFeedPercent = (value, decimals = 2) => {
-  if (value === null || value === undefined) return "—";
+  if (value === null || value === undefined) return "- - %";
   const num = Number(value);
-  if (Number.isNaN(num)) return "—";
+  if (Number.isNaN(num)) return "- - %";
   const sign = num > 0 ? "+" : "";
   return `${sign}${num.toFixed(decimals)}%`;
 };

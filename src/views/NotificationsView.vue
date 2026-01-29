@@ -539,15 +539,15 @@ watch(activeTab, () => {
 
 .list {
   display: grid;
-  gap: 8px;
-  padding-top: 72px;
+  gap: 12px;
+  padding-top: 12px;
 }
 
 .item {
   border: 1px solid var(--border);
-  border-radius: 0;
-  padding: 8px 10px;
-  background: #fff;
+  border-radius: var(--radius-card);
+  padding: 12px;
+  background: var(--surface);
   cursor: pointer;
 }
 

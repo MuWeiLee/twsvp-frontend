@@ -626,6 +626,7 @@ watch([statusFilter, sortKey], async () => {
   margin: 0 auto;
   background: var(--bg);
   min-height: 100vh;
+  height: 100vh;
   --nav-height: 64px;
   --tabs-height: 52px;
   --header-gap: 0px;
@@ -634,12 +635,14 @@ watch([statusFilter, sortKey], async () => {
 .phone-frame {
   width: 100%;
   min-height: 100vh;
+  height: 100vh;
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
   position: relative;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .nav {
