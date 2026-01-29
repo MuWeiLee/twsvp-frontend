@@ -176,9 +176,11 @@
 ### 模块
 - Tab（建议）
   - 互动通知
+  - 留言
   - 到期提醒
 - 通知列表
   - 互动类：谁对哪条观点做了什么、时间
+  - 留言类：头像 +「昵称在你的观点下留言」+ 留言内容
   - 到期类：哪条观点何时到期、剩余多久
 - 空态
 
@@ -194,8 +196,9 @@
 - 下拉刷新在内容区触发，列表区下拉刷新不影响整页滚动
 
 ### 关键字段
-- noti_id, type(like/bookmark/share/expire_soon/expired)
+- noti_id, type(like/bookmark/share/comment/expire_soon/expired)
 - actor_user_id, target_view_id, created_at, read_at
+- comment_id, comment_content
 - expire_at, days_left
 
 ## 7) PersonalUser（个人中心：本人视角）

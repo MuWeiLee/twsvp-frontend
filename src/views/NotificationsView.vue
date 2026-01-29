@@ -19,6 +19,13 @@
         </button>
         <button
           class="tab-btn"
+          :class="{ active: activeTab === 'comment' }"
+          @click="activeTab = 'comment'"
+        >
+          {{ t("留言") }}
+        </button>
+        <button
+          class="tab-btn"
           :class="{ active: activeTab === 'expire' }"
           @click="activeTab = 'expire'"
         >
@@ -137,7 +144,7 @@ const buildItem = (row) => {
   const actor = row.actor || {};
   const actorName = actor.nickname || t("用户");
   const targetLabel = [feed.target_symbol, feed.target_name].filter(Boolean).join(" ");
-  const summary = feed.summary || feed.content || "";
+  let summary = feed.summary || feed.content || "";
   const daysLeft = getDaysLeft(feed.expires_at);
   let title = row.title || t("通知");
   let detail = row.detail || "";
@@ -165,6 +172,13 @@ const buildItem = (row) => {
       });
     }
     tab = "like";
+  } else if (row.type === "comment" || row.type === "reply") {
+    if (!row.title) {
+      title = t("{actorName}在你的观点下留言", { actorName });
+    }
+    detail = row.detail || row.comment || row.content || "";
+    summary = detail || summary;
+    tab = "comment";
   } else if (row.type === "share") {
     if (!row.title) {
       title = t("观点被分享");
@@ -202,13 +216,16 @@ const buildItem = (row) => {
     tab = "expire";
   }
 
+  const stockLabel =
+    tab === "comment" ? "" : [feed.target_name, feed.target_symbol].filter(Boolean).join(" ");
+
   return {
     id: row.noti_id,
     type: tab,
     feedId: row.target_feed_id || feed.feed_id,
     title,
     detail,
-    stockLabel: [feed.target_name, feed.target_symbol].filter(Boolean).join(" "),
+    stockLabel,
     summary,
     time: formatFeedTimestamp(row.created_at),
     actorId: row.actor_user_id,
