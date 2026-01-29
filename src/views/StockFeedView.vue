@@ -28,10 +28,24 @@
         <div class="chart-body" ref="chartBodyRef" @click.self="clearActivePrice">
           <template v-if="chartPrices.length">
             <div class="chart-axis y-axis left">
-              <span v-for="label in axisLabels.price" :key="label">{{ label }}</span>
+              <span
+                v-for="label in axisLabels.price"
+                :key="`price-${label.key}`"
+                class="axis-label"
+                :style="{ top: `${label.pos * 100}%` }"
+              >
+                {{ label.text }}
+              </span>
             </div>
             <div class="chart-axis y-axis right">
-              <span v-for="label in axisLabels.pct" :key="label">{{ label }}</span>
+              <span
+                v-for="label in axisLabels.pct"
+                :key="`pct-${label.key}`"
+                class="axis-label"
+                :style="{ top: `${label.pos * 100}%` }"
+              >
+                {{ label.text }}
+              </span>
             </div>
             <div class="chart-plot">
               <div class="chart-grid" aria-hidden="true"></div>
@@ -534,9 +548,20 @@ const displaySeries = computed(() => {
   }));
 });
 
+const roundUpToStep = (value, step) => Math.ceil(value / step) * step;
+const roundDownToStep = (value, step) => Math.floor(value / step) * step;
+
 const chartRange = computed(() => {
   if (!displaySeries.value.length) {
-    return { min: 0, max: 0, range: 1 };
+    return {
+      min: 0,
+      max: 0,
+      range: 1,
+      rawHigh: 0,
+      rawLow: 0,
+      latest: 0,
+      baseOpen: 1,
+    };
   }
   const highs = displaySeries.value.map((item) =>
     Number(item.high ?? item.close ?? item.open ?? 0)
@@ -544,9 +569,19 @@ const chartRange = computed(() => {
   const lows = displaySeries.value.map((item) =>
     Number(item.low ?? item.close ?? item.open ?? 0)
   );
-  const max = Math.max(...highs);
-  const min = Math.min(...lows);
-  return { min, max, range: max - min || 1 };
+  const rawHigh = Math.max(...highs);
+  const rawLow = Math.min(...lows);
+  const step = 5;
+  let max = roundUpToStep(rawHigh, step);
+  if (max <= rawHigh) max += step;
+  let min = roundDownToStep(rawLow, step);
+  if (min >= rawLow) min -= step;
+  const range = max - min || 1;
+  const latestItem = displaySeries.value[displaySeries.value.length - 1] || {};
+  const latest = Number(latestItem.close ?? latestItem.open ?? 0);
+  const baseItem = displaySeries.value[0] || {};
+  const baseOpen = Number(baseItem.open ?? baseItem.close ?? 0) || 1;
+  return { min, max, range, rawHigh, rawLow, latest, baseOpen };
 });
 
 
@@ -592,14 +627,32 @@ const axisLabels = computed(() => {
   if (!displaySeries.value.length) {
     return { price: [], pct: [], timeStart: "—", timeMid: "—", timeEnd: "—" };
   }
-  const { min, max } = chartRange.value;
-  const mid = (min + max) / 2;
-  const base = getCloseValue(displaySeries.value[0]) || 1;
-  const priceLabels = [max, mid, min].map((value) => formatPrice(value));
-  const pctLabels = [max, mid, min].map((value) => {
-    const pct = ((value - base) / base) * 100;
-    return formatPercent(pct);
-  });
+  const { min, max, range, rawHigh, rawLow, latest, baseOpen } = chartRange.value;
+  const values = [max, rawHigh, latest, rawLow, min];
+  const seen = new Set();
+  const labels = values
+    .map((value) => Number(value))
+    .filter((value) => {
+      const key = value.toFixed(4);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((value) => {
+      const pos = range ? (max - value) / range : 0;
+      return { value, pos: Math.min(1, Math.max(0, pos)) };
+    });
+
+  const priceLabels = labels.map((label) => ({
+    key: label.value.toFixed(4),
+    pos: label.pos,
+    text: formatPrice(label.value),
+  }));
+  const pctLabels = labels.map((label) => ({
+    key: label.value.toFixed(4),
+    pos: label.pos,
+    text: formatPercent(((label.value - baseOpen) / baseOpen) * 100),
+  }));
   const lastIndex = displaySeries.value.length - 1;
   const midIndex = Math.floor(lastIndex / 2);
   const timeStart = formatHintDate(displaySeries.value[0].trade_date);
@@ -1181,12 +1234,17 @@ watch(isCreateOpen, (value) => {
   position: absolute;
   top: 12px;
   bottom: 26px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  display: block;
+  pointer-events: none;
   font-size: 11px;
   color: var(--muted);
   z-index: 1;
+}
+
+.axis-label {
+  position: absolute;
+  transform: translateY(-50%);
+  white-space: nowrap;
 }
 
 .chart-axis.left {
