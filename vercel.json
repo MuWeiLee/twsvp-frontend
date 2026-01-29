@@ -13,6 +13,10 @@
       "schedule": "0 1 * * *"
     },
     {
+      "path": "/api/sync-feed-performance",
+      "schedule": "0 9 * * 1-5"
+    },
+    {
       "path": "/api/sync-newsdata",
       "schedule": "0 * * * *"
     }

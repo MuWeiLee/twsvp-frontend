@@ -103,6 +103,11 @@
                     {{ view.directionLabel }}
                   </span>
                 </div>
+                <div class="header-right">
+                  <span class="performance" :class="view.performanceDirection">
+                    {{ t("绩效：{value}", { value: view.performanceLabel }) }}
+                  </span>
+                </div>
               </div>
               <div class="thread-meta">
                 <div class="author" @click.stop="goProfile(view)">
@@ -174,6 +179,7 @@ import {
   addFeedLikeSupabase,
   fetchFeedsSupabase,
   fetchFeedLikesSupabase,
+  formatFeedPercent,
   formatFeedTimestamp,
   getReplyCount,
   getRemainingDays,
@@ -233,6 +239,10 @@ const viewsWithStatus = computed(() =>
   feeds.value.map((view) => {
     const phase = getStatusPhase(view);
     const author = view.users?.nickname || user.value.name || t("用户");
+    const performancePct = view.performance_pct ?? null;
+    const performanceDirection =
+      performancePct > 0 ? "up" : performancePct < 0 ? "down" : "neutral";
+    const performanceLabel = formatFeedPercent(performancePct);
     return {
       ...view,
       statusPhase: phase,
@@ -247,6 +257,9 @@ const viewsWithStatus = computed(() =>
       authorInitial: getInitials(author),
       isLiked: likedIds.value.has(view.feed_id),
       replyCount: getReplyCount(view),
+      performancePct,
+      performanceDirection,
+      performanceLabel,
     };
   })
 );
@@ -656,6 +669,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .header-left {
@@ -663,6 +677,14 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 10px;
   font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.header-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .stock {
@@ -679,6 +701,24 @@ onBeforeUnmount(() => {
 
 .stock-code {
   font-size: 12px;
+  color: var(--muted);
+}
+
+.performance {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.performance.up {
+  color: var(--price-up);
+}
+
+.performance.down {
+  color: var(--price-down);
+}
+
+.performance.neutral {
   color: var(--muted);
 }
 

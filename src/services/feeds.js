@@ -113,6 +113,21 @@ export const getStatusDisplay = (view, phase) => {
   return t("观点剩 {days} 天 ｜ 进行中", { days: remaining });
 };
 
+export const formatFeedPrice = (value, decimals = 2) => {
+  if (value === null || value === undefined) return "—";
+  const num = Number(value);
+  if (Number.isNaN(num)) return "—";
+  return num.toFixed(decimals);
+};
+
+export const formatFeedPercent = (value, decimals = 2) => {
+  if (value === null || value === undefined) return "—";
+  const num = Number(value);
+  if (Number.isNaN(num)) return "—";
+  const sign = num > 0 ? "+" : "";
+  return `${sign}${num.toFixed(decimals)}%`;
+};
+
 const horizonDays = {
   ultra_short: 5,
   short: 20,
@@ -138,6 +153,37 @@ const normalizePagination = (page = 1, pageSize = 20) => {
   const from = (safePage - 1) * safeSize;
   const to = from + safeSize - 1;
   return { from, to, page: safePage, pageSize: safeSize };
+};
+
+const fetchFeedPerformanceMap = async (feedIds = []) => {
+  if (!feedIds.length) return new Map();
+  const { data, error } = await supabase
+    .from("feed_performance")
+    .select("feed_id, base_open, end_close, performance_pct, base_date, end_date")
+    .in("feed_id", feedIds);
+
+  if (error) {
+    console.error("读取 feed_performance 失败:", error);
+    return new Map();
+  }
+
+  const map = new Map();
+  (data || []).forEach((row) => {
+    map.set(row.feed_id, row);
+  });
+  return map;
+};
+
+const attachFeedPerformance = async (feeds = []) => {
+  if (!feeds.length) return feeds;
+  const feedIds = feeds.map((row) => row.feed_id).filter(Boolean);
+  if (!feedIds.length) return feeds;
+  const perfMap = await fetchFeedPerformanceMap(feedIds);
+  if (!perfMap.size) return feeds;
+  return feeds.map((row) => {
+    const perf = perfMap.get(row.feed_id);
+    return perf ? { ...row, ...perf } : row;
+  });
 };
 
 export async function createFeedSupabase({
@@ -216,7 +262,7 @@ export async function fetchFeedsSupabase({
     return [];
   }
 
-  return data || [];
+  return attachFeedPerformance(data || []);
 }
 
 export async function fetchFeedRepliesSupabase(feedId) {
@@ -282,7 +328,7 @@ export async function fetchFeedsBySymbolSupabase(
     return [];
   }
 
-  return data || [];
+  return attachFeedPerformance(data || []);
 }
 
 export async function fetchFeedByIdSupabase(feedId) {
@@ -303,7 +349,8 @@ export async function fetchFeedByIdSupabase(feedId) {
     return null;
   }
 
-  return data;
+  const [withPerf] = await attachFeedPerformance(data ? [data] : []);
+  return withPerf || data;
 }
 
 export async function updateFeedLikeCountSupabase(feedId, delta) {
@@ -400,7 +447,7 @@ export async function searchFeedsSupabase(query, limitOrOptions = {}) {
     return [];
   }
 
-  return data || [];
+  return attachFeedPerformance(data || []);
 }
 
 export const getReplyCount = (view) => {

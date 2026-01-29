@@ -102,18 +102,31 @@
                     {{ view.directionLabel }}
                   </span>
                 </div>
-                <div class="more-wrap">
-                  <button class="more-btn" type="button" @click.stop="toggleMenu(view.feed_id)">
-                    ...
-                  </button>
-                  <div v-if="activeMenuId === view.feed_id" class="more-menu">
-                    <button
-                      class="menu-item danger"
-                      type="button"
-                      @click.stop="handleDeleteFeed(view)"
-                    >
-                      {{ t("删除观点") }}
+                <div class="header-right">
+                  <span class="performance" :class="view.performanceDirection">
+                    {{ t("绩效：{value}", { value: view.performanceLabel }) }}
+                  </span>
+                  <div class="more-wrap">
+                    <button class="more-btn" type="button" @click.stop="toggleMenu(view.feed_id)">
+                      ...
                     </button>
+                    <div v-if="activeMenuId === view.feed_id" class="more-menu">
+                      <button
+                        v-if="view.statusPhase !== 'ended'"
+                        class="menu-item"
+                        type="button"
+                        @click.stop="handleEndFeed(view)"
+                      >
+                        {{ t("手动结束") }}
+                      </button>
+                      <button
+                        class="menu-item danger"
+                        type="button"
+                        @click.stop="handleDeleteFeed(view)"
+                      >
+                        {{ t("删除观点") }}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -186,6 +199,7 @@ import {
   addFeedLikeSupabase,
   fetchFeedsSupabase,
   fetchFeedLikesSupabase,
+  formatFeedPercent,
   formatFeedTimestamp,
   getReplyCount,
   getRemainingDays,
@@ -236,6 +250,10 @@ const viewsWithStatus = computed(() =>
   feeds.value.map((view) => {
     const phase = getStatusPhase(view);
     const author = view.users?.nickname || user.value.name || t("用户");
+    const performancePct = view.performance_pct ?? null;
+    const performanceDirection =
+      performancePct > 0 ? "up" : performancePct < 0 ? "down" : "neutral";
+    const performanceLabel = formatFeedPercent(performancePct);
     return {
       ...view,
       statusPhase: phase,
@@ -250,6 +268,9 @@ const viewsWithStatus = computed(() =>
       authorInitial: getInitials(author),
       isLiked: likedIds.value.has(view.feed_id),
       replyCount: getReplyCount(view),
+      performancePct,
+      performanceDirection,
+      performanceLabel,
     };
   })
 );
@@ -402,6 +423,17 @@ const handleDeleteFeed = async (view) => {
     .update({ deleted_at: new Date().toISOString() })
     .eq("feed_id", view.feed_id);
   feeds.value = feeds.value.filter((item) => item.feed_id !== view.feed_id);
+  closeMenu();
+};
+
+const handleEndFeed = async (view) => {
+  const confirmed = window.confirm(t("确定结束这条观点吗？"));
+  if (!confirmed) return;
+  await supabase
+    .from("feeds")
+    .update({ status: "expired", expires_at: new Date().toISOString() })
+    .eq("feed_id", view.feed_id);
+  await loadFeeds();
   closeMenu();
 };
 
@@ -682,6 +714,7 @@ watch(mode, () => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .more-wrap {
@@ -734,6 +767,14 @@ watch(mode, () => {
   align-items: center;
   gap: 10px;
   font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.header-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .stock {
@@ -750,6 +791,24 @@ watch(mode, () => {
 
 .stock-code {
   font-size: 12px;
+  color: var(--muted);
+}
+
+.performance {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.performance.up {
+  color: var(--price-up);
+}
+
+.performance.down {
+  color: var(--price-down);
+}
+
+.performance.neutral {
   color: var(--muted);
 }
 

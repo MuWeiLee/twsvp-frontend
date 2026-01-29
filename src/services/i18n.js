@@ -43,6 +43,7 @@ const translations = {
   "观点数量：{count} 条": "觀點數量：{count} 條",
   "收盘价：{value}元": "收盤價：{value}元",
   "涨跌幅：{value}": "漲跌幅：{value}",
+  "绩效：{value}": "績效：{value}",
   "开盘价：{value}元": "開盤價：{value}元",
   "最高：{value}元": "最高：{value}元",
   "最低：{value}元": "最低：{value}元",

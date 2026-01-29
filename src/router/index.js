@@ -19,6 +19,7 @@ import PrivacyPolicyView from "../views/PrivacyPolicyView.vue";
 import { getCurrentUserSupabase, getMe, getProfileCompletionSupabase } from "../services/auth.js";
 import { getProfileSupabase } from "../services/profile.js";
 import { applyLanguagePreference, getLanguagePreference } from "../services/preferences.js";
+import { trackPageView } from "../services/analytics.js";
 
 const routes = [
   { path: "/", component: LoginView },
@@ -110,6 +111,10 @@ router.beforeEach(async (to) => {
   }
 
   return user ? true : "/login";
+});
+
+router.afterEach((to) => {
+  trackPageView(to.path, document.title);
 });
 
 export default router;

@@ -40,33 +40,38 @@
               {{ feed.directionLabel }}
             </span>
           </div>
-          <div class="more-wrap">
-            <button class="more-btn" type="button" @click.stop="toggleMenu">...</button>
-            <div v-if="menuOpen" class="more-menu">
-              <template v-if="feed.isAuthor">
-                <button
-                  v-if="feed.canEdit"
-                  class="menu-item"
-                  type="button"
-                  @click.stop="handleEditFeed"
-                >
-                  {{ t("编辑观点") }}
+          <div class="header-right">
+            <span class="performance" :class="feed.performanceDirection">
+              {{ t("绩效：{value}", { value: feed.performanceLabel }) }}
+            </span>
+            <div class="more-wrap">
+              <button class="more-btn" type="button" @click.stop="toggleMenu">...</button>
+              <div v-if="menuOpen" class="more-menu">
+                <template v-if="feed.isAuthor">
+                  <button
+                    v-if="feed.canEdit"
+                    class="menu-item"
+                    type="button"
+                    @click.stop="handleEditFeed"
+                  >
+                    {{ t("编辑观点") }}
+                  </button>
+                  <button
+                    v-if="feed.statusPhase !== 'ended'"
+                    class="menu-item"
+                    type="button"
+                    @click.stop="handleEndFeed"
+                  >
+                    {{ t("手动结束") }}
+                  </button>
+                  <button class="menu-item danger" type="button" @click.stop="handleDeleteFeed">
+                    {{ t("删除观点") }}
+                  </button>
+                </template>
+                <button v-else class="menu-item" type="button" @click.stop="handleHideFeed">
+                  {{ t("不看这条") }}
                 </button>
-                <button
-                  v-if="feed.statusPhase !== 'ended'"
-                  class="menu-item"
-                  type="button"
-                  @click.stop="handleEndFeed"
-                >
-                  {{ t("手动结束") }}
-                </button>
-                <button class="menu-item danger" type="button" @click.stop="handleDeleteFeed">
-                  {{ t("删除观点") }}
-                </button>
-              </template>
-              <button v-else class="menu-item" type="button" @click.stop="handleHideFeed">
-                {{ t("不看这条") }}
-              </button>
+              </div>
             </div>
           </div>
         </div>
@@ -192,6 +197,7 @@ import {
   fetchFeedByIdSupabase,
   fetchFeedLikesSupabase,
   fetchFeedRepliesSupabase,
+  formatFeedPercent,
   formatFeedTimestamp,
   getStatusDisplay,
   getStatusPhase,
@@ -453,6 +459,10 @@ const loadFeed = async () => {
   }
 
   const phase = getStatusPhase(data);
+  const performancePct = data.performance_pct ?? null;
+  const performanceDirection =
+    performancePct > 0 ? "up" : performancePct < 0 ? "down" : "neutral";
+  const performanceLabel = formatFeedPercent(performancePct);
   feed.value = {
     ...data,
     statusDisplay: getStatusDisplay(data, phase),
@@ -466,6 +476,9 @@ const loadFeed = async () => {
     isAuthor: currentUserId.value && data.user_id === currentUserId.value,
     canEdit: canEditFeed(data),
     isLiked: false,
+    performancePct,
+    performanceDirection,
+    performanceLabel,
   };
   const shareName = feed.value.target_name || feed.value.target_symbol || t("观点");
   applyShareMeta({ name: shareName, url: window.location.href });
@@ -618,6 +631,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .header-left {
@@ -625,6 +639,14 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 10px;
   font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.header-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .stock {
@@ -642,6 +664,24 @@ onBeforeUnmount(() => {
 
 .stock-code {
   font-size: 12px;
+  color: var(--muted);
+}
+
+.performance {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.performance.up {
+  color: var(--price-up);
+}
+
+.performance.down {
+  color: var(--price-down);
+}
+
+.performance.neutral {
   color: var(--muted);
 }
 

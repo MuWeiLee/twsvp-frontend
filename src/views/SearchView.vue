@@ -186,48 +186,53 @@
                             {{ view.directionLabel }}
                           </span>
                         </div>
-                        <div class="more-wrap">
-                          <button
-                            class="more-btn"
-                            type="button"
-                            @click.stop="toggleMenu(view.feed_id)"
-                          >
-                            ...
-                          </button>
-                          <div v-if="activeMenuId === view.feed_id" class="more-menu">
-                            <template v-if="isAuthor(view)">
-                              <button
-                                v-if="canEditFeed(view)"
-                                class="menu-item"
-                                type="button"
-                                @click.stop="handleEditFeed(view)"
-                              >
-                                {{ t("编辑观点") }}
-                              </button>
-                              <button
-                                v-if="view.statusPhase !== 'ended'"
-                                class="menu-item"
-                                type="button"
-                                @click.stop="handleEndFeed(view)"
-                              >
-                                {{ t("手动结束") }}
-                              </button>
-                              <button
-                                class="menu-item danger"
-                                type="button"
-                                @click.stop="handleDeleteFeed(view)"
-                              >
-                                {{ t("删除观点") }}
-                              </button>
-                            </template>
+                        <div class="header-right">
+                          <span class="performance" :class="view.performanceDirection">
+                            {{ t("绩效：{value}", { value: view.performanceLabel }) }}
+                          </span>
+                          <div class="more-wrap">
                             <button
-                              v-else
-                              class="menu-item"
+                              class="more-btn"
                               type="button"
-                              @click.stop="handleHideFeed(view)"
+                              @click.stop="toggleMenu(view.feed_id)"
                             >
-                              {{ t("不看这条") }}
+                              ...
                             </button>
+                            <div v-if="activeMenuId === view.feed_id" class="more-menu">
+                              <template v-if="isAuthor(view)">
+                                <button
+                                  v-if="canEditFeed(view)"
+                                  class="menu-item"
+                                  type="button"
+                                  @click.stop="handleEditFeed(view)"
+                                >
+                                  {{ t("编辑观点") }}
+                                </button>
+                                <button
+                                  v-if="view.statusPhase !== 'ended'"
+                                  class="menu-item"
+                                  type="button"
+                                  @click.stop="handleEndFeed(view)"
+                                >
+                                  {{ t("手动结束") }}
+                                </button>
+                                <button
+                                  class="menu-item danger"
+                                  type="button"
+                                  @click.stop="handleDeleteFeed(view)"
+                                >
+                                  {{ t("删除观点") }}
+                                </button>
+                              </template>
+                              <button
+                                v-else
+                                class="menu-item"
+                                type="button"
+                                @click.stop="handleHideFeed(view)"
+                              >
+                                {{ t("不看这条") }}
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -393,48 +398,53 @@
                           {{ view.directionLabel }}
                         </span>
                       </div>
-                      <div class="more-wrap">
-                        <button
-                          class="more-btn"
-                          type="button"
-                          @click.stop="toggleMenu(view.feed_id)"
-                        >
-                          ...
-                        </button>
-                        <div v-if="activeMenuId === view.feed_id" class="more-menu">
-                          <template v-if="isAuthor(view)">
-                            <button
-                              v-if="canEditFeed(view)"
-                              class="menu-item"
-                              type="button"
-                              @click.stop="handleEditFeed(view)"
-                            >
-                              {{ t("编辑观点") }}
-                            </button>
-                            <button
-                              v-if="view.statusPhase !== 'ended'"
-                              class="menu-item"
-                              type="button"
-                              @click.stop="handleEndFeed(view)"
-                            >
-                              {{ t("手动结束") }}
-                            </button>
-                            <button
-                              class="menu-item danger"
-                              type="button"
-                              @click.stop="handleDeleteFeed(view)"
-                            >
-                              {{ t("删除观点") }}
-                            </button>
-                          </template>
+                      <div class="header-right">
+                        <span class="performance" :class="view.performanceDirection">
+                          {{ t("绩效：{value}", { value: view.performanceLabel }) }}
+                        </span>
+                        <div class="more-wrap">
                           <button
-                            v-else
-                            class="menu-item"
+                            class="more-btn"
                             type="button"
-                            @click.stop="handleHideFeed(view)"
+                            @click.stop="toggleMenu(view.feed_id)"
                           >
-                            {{ t("不看这条") }}
+                            ...
                           </button>
+                          <div v-if="activeMenuId === view.feed_id" class="more-menu">
+                            <template v-if="isAuthor(view)">
+                              <button
+                                v-if="canEditFeed(view)"
+                                class="menu-item"
+                                type="button"
+                                @click.stop="handleEditFeed(view)"
+                              >
+                                {{ t("编辑观点") }}
+                              </button>
+                              <button
+                                v-if="view.statusPhase !== 'ended'"
+                                class="menu-item"
+                                type="button"
+                                @click.stop="handleEndFeed(view)"
+                              >
+                                {{ t("手动结束") }}
+                              </button>
+                              <button
+                                class="menu-item danger"
+                                type="button"
+                                @click.stop="handleDeleteFeed(view)"
+                              >
+                                {{ t("删除观点") }}
+                              </button>
+                            </template>
+                            <button
+                              v-else
+                              class="menu-item"
+                              type="button"
+                              @click.stop="handleHideFeed(view)"
+                            >
+                              {{ t("不看这条") }}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -552,6 +562,7 @@ import { supabase } from "../services/supabase.js";
 import {
   addFeedLikeSupabase,
   fetchFeedLikesSupabase,
+  formatFeedPercent,
   formatFeedTimestamp,
   getReplyCount,
   getStatusDisplay,
@@ -692,6 +703,10 @@ const mapFeedResults = (feeds) =>
   feeds.map((view) => {
     const phase = getStatusPhase(view);
     const author = view.users?.nickname || t("用户");
+    const performancePct = view.performance_pct ?? null;
+    const performanceDirection =
+      performancePct > 0 ? "up" : performancePct < 0 ? "down" : "neutral";
+    const performanceLabel = formatFeedPercent(performancePct);
     return {
       ...view,
       statusPhase: phase,
@@ -704,6 +719,9 @@ const mapFeedResults = (feeds) =>
       createdDateLabel: formatFeedTimestamp(view.created_at),
       isLiked: false,
       replyCount: getReplyCount(view),
+      performancePct,
+      performanceDirection,
+      performanceLabel,
     };
   });
 
@@ -1419,6 +1437,14 @@ watch(activeResultTab, () => {
   align-items: center;
   gap: 10px;
   font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.header-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .stock {
@@ -1465,6 +1491,7 @@ watch(activeResultTab, () => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .more-wrap {
@@ -1541,6 +1568,24 @@ watch(activeResultTab, () => {
 .direction.neutral {
   color: var(--muted);
   border-color: var(--border);
+}
+
+.performance {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.performance.up {
+  color: var(--price-up);
+}
+
+.performance.down {
+  color: var(--price-down);
+}
+
+.performance.neutral {
+  color: var(--muted);
 }
 
 .author {
