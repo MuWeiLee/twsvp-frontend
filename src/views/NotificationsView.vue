@@ -393,6 +393,8 @@ watch(activeTab, () => {
   margin: 0 auto;
   background: var(--bg);
   min-height: 100vh;
+  --nav-height: 64px;
+  --tabs-height: 52px;
 }
 
 .phone-frame {
@@ -473,11 +475,13 @@ watch(activeTab, () => {
 .tabs {
   display: flex;
   gap: 16px;
+  border-bottom: 1px solid var(--border);
+  margin-top: 6px;
 }
 
 .tabs-wrap {
   position: fixed;
-  top: calc(64px + env(safe-area-inset-top, 0px));
+  top: calc(var(--nav-height) + env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
   width: 100%;
@@ -486,7 +490,7 @@ watch(activeTab, () => {
   background: var(--bg);
   border-bottom: 1px solid var(--border);
   z-index: 4;
-  padding: 6px 16px 12px;
+  padding: 0 16px;
   transition: transform 0.2s ease;
 }
 
@@ -516,7 +520,7 @@ watch(activeTab, () => {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: calc(124px + env(safe-area-inset-top, 0px)) 16px
+  padding: calc(var(--nav-height) + var(--tabs-height) + env(safe-area-inset-top, 0px)) 16px
     calc(96px + env(safe-area-inset-bottom, 0px));
   overscroll-behavior: contain;
   background: var(--bg);
