@@ -548,7 +548,10 @@ const displaySeries = computed(() => {
   }));
 });
 
-const roundUpToStep = (value, step) => Math.ceil(value / step) * step;
+const roundUpToStep = (value, step) => {
+  const rounded = Math.ceil(value / step) * step;
+  return rounded > value ? rounded : rounded + step;
+};
 const roundDownToStep = (value, step) => Math.floor(value / step) * step;
 
 const chartRange = computed(() => {
@@ -572,8 +575,7 @@ const chartRange = computed(() => {
   const rawHigh = Math.max(...highs);
   const rawLow = Math.min(...lows);
   const step = 5;
-  let max = roundUpToStep(rawHigh, step);
-  if (max <= rawHigh) max += step;
+  const max = roundUpToStep(rawHigh, step);
   let min = roundDownToStep(rawLow, step);
   if (min >= rawLow) min -= step;
   const range = max - min || 1;
@@ -1170,7 +1172,7 @@ watch(isCreateOpen, (value) => {
 
 .chart-plot {
   position: absolute;
-  inset: 12px 34px 26px;
+  inset: 12px 40px 26px 40px;
 }
 
 .chart-grid {
