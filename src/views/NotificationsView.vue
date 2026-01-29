@@ -383,6 +383,7 @@ watch(activeTab, () => {
   min-height: 100vh;
   --nav-height: 64px;
   --tabs-height: 52px;
+  --tabs-gap: 8px;
 }
 
 .phone-frame {
@@ -464,7 +465,7 @@ watch(activeTab, () => {
   display: flex;
   gap: 16px;
   border-bottom: 1px solid var(--border);
-  margin-top: 6px;
+  margin-top: var(--tabs-gap);
 }
 
 .tabs-wrap {
@@ -508,8 +509,10 @@ watch(activeTab, () => {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: calc(var(--nav-height) + var(--tabs-height) + env(safe-area-inset-top, 0px)) 16px
-    calc(96px + env(safe-area-inset-bottom, 0px));
+  padding: calc(
+      var(--nav-height) + var(--tabs-height) + var(--tabs-gap) + env(safe-area-inset-top, 0px)
+    )
+    16px calc(96px + env(safe-area-inset-bottom, 0px));
   overscroll-behavior: contain;
   background: var(--bg);
 }
@@ -643,7 +646,11 @@ watch(activeTab, () => {
 
 @media (max-width: 480px) {
   .notifications-scroll {
-    padding: 68px 16px 140px;
+    padding: calc(
+        var(--nav-height) + var(--tabs-height) + var(--tabs-gap) +
+          env(safe-area-inset-top, 0px)
+      )
+      16px calc(140px + env(safe-area-inset-bottom, 0px));
   }
 }
 </style>
