@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const FINMIND_ENDPOINT =
   process.env.FINMIND_ENDPOINT || "https://api.finmindtrade.com/api/v4/data";
-const MIN_START_DATE = process.env.STOCK_PRICE_MIN_START_DATE || "2026-01-01";
+const MIN_START_DATE = process.env.STOCK_PRICE_MIN_START_DATE || "2000-01-01";
 
 const requiredEnv = (key) => {
   const value = process.env[key];
@@ -24,6 +24,12 @@ const formatDate = (date) => {
 const clampStartDate = (value) => {
   if (!value) return MIN_START_DATE;
   return value < MIN_START_DATE ? MIN_START_DATE : value;
+};
+
+const normalizeDateRange = (startDate, endDate) => {
+  const safeStart = clampStartDate(startDate);
+  const safeEnd = endDate && endDate < safeStart ? safeStart : endDate;
+  return { startDate: safeStart, endDate: safeEnd || safeStart };
 };
 
 const normalizeMode = (value) => {
@@ -186,6 +192,20 @@ const parseParams = (req) => {
   return { ...(req.query || {}), ...(req.body || {}) };
 };
 
+const fetchLatestTradeDate = async (supabase) => {
+  const { data, error } = await supabase
+    .from("stock_prices")
+    .select("trade_date")
+    .order("trade_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.error("读取 stock_prices 最新日期失败:", error);
+    return null;
+  }
+  return data?.trade_date || null;
+};
+
 const loadState = async (supabase, source, dataset) => {
   const { data, error } = await supabase
     .from("stock_price_backfill_state")
@@ -257,8 +277,7 @@ export default async function handler(req, res) {
     ) || "date";
   const startDateParam =
     params.start_date || process.env.BACKFILL_START_DATE || MIN_START_DATE;
-  const endDateParam =
-    params.end_date || process.env.BACKFILL_END_DATE || formatDate(new Date());
+  const explicitEndDate = params.end_date || process.env.BACKFILL_END_DATE || null;
   const requestedMaxStocks = Number(
     params.max_stocks || process.env.BACKFILL_MAX_STOCKS || 200
   );
@@ -289,6 +308,13 @@ export default async function handler(req, res) {
       auth: { persistSession: false },
     });
 
+    const latestTradeDate = await fetchLatestTradeDate(supabase);
+    const latestAvailableDate = latestTradeDate || formatDate(new Date());
+    const defaultRange = normalizeDateRange(
+      startDateParam,
+      explicitEndDate || latestAvailableDate
+    );
+
     let state = reset ? null : await loadState(supabase, source, dataset);
     if (state && state.detail?.mode && state.detail.mode !== mode && !reset) {
       res.status(409).json({
@@ -298,13 +324,13 @@ export default async function handler(req, res) {
       return;
     }
     if (!state) {
-      const initialStartDate = clampStartDate(startDateParam);
+      const { startDate: initialStartDate, endDate: initialEndDate } = defaultRange;
       const initialState = {
         source,
         dataset,
         start_date: initialStartDate,
-        end_date: endDateParam,
-        cursor_date: initialStartDate,
+        end_date: initialEndDate,
+        cursor_date: initialEndDate,
         stock_offset: 0,
         max_stocks: maxStocks,
         status: "running",
@@ -322,12 +348,13 @@ export default async function handler(req, res) {
     }
 
     const today = formatDate(new Date());
-    let endDate = state.end_date || endDateParam;
+    const startDate = clampStartDate(state.start_date || defaultRange.startDate);
+    let endDate = state.end_date || defaultRange.endDate;
     if (endDate < MIN_START_DATE) {
       endDate = MIN_START_DATE;
     }
-    if (autoExtend && today > endDate) {
-      endDate = today;
+    if (autoExtend && latestAvailableDate > endDate) {
+      endDate = latestAvailableDate;
       if (!dryRun) {
         state = await upsertState(supabase, state.state_id, {
           end_date: endDate,
@@ -336,10 +363,13 @@ export default async function handler(req, res) {
       }
     }
 
-    let currentDate = clampStartDate(state.cursor_date || startDateParam);
+    let currentDate = state.cursor_date || endDate;
+    if (currentDate > endDate) {
+      currentDate = endDate;
+    }
     let stockOffset = state.stock_offset || 0;
 
-    if (currentDate > endDate) {
+    if (currentDate < startDate) {
       if (!dryRun) {
         state = await upsertState(supabase, state.state_id, {
           status: autoExtend ? "idle" : "completed",
@@ -389,8 +419,9 @@ export default async function handler(req, res) {
         if (stockOffset === 0) {
           throw new Error("No active stocks found for markets.");
         }
-        const nextCursorDate = addDays(endDate, 1);
-        const status = nextCursorDate > endDate ? (autoExtend ? "idle" : "completed") : "running";
+        const nextCursorDate = addDays(currentDate, -1);
+        const status =
+          nextCursorDate < startDate ? (autoExtend ? "idle" : "completed") : "running";
         if (!dryRun) {
           state = await upsertState(supabase, state.state_id, {
             cursor_date: nextCursorDate,
@@ -470,10 +501,10 @@ export default async function handler(req, res) {
         if (stockOffset === 0) {
           throw new Error("No active stocks found for markets.");
         }
-        currentDate = addDays(currentDate, 1);
+        currentDate = addDays(currentDate, -1);
         stockOffset = 0;
         const status =
-          currentDate > endDate ? (autoExtend ? "idle" : "completed") : "running";
+          currentDate < startDate ? (autoExtend ? "idle" : "completed") : "running";
         if (!dryRun) {
           state = await upsertState(supabase, state.state_id, {
             cursor_date: currentDate,
@@ -550,7 +581,7 @@ export default async function handler(req, res) {
         nextDate = currentDate;
         nextOffset = stockOffset + stockIds.length;
         if (stockIds.length < maxStocks) {
-          nextDate = addDays(currentDate, 1);
+          nextDate = addDays(currentDate, -1);
           nextOffset = 0;
         }
       }
@@ -622,7 +653,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    const status = nextDate > endDate ? (autoExtend ? "idle" : "completed") : "running";
+    const status = nextDate < startDate ? (autoExtend ? "idle" : "completed") : "running";
     if (!dryRun) {
       const lastRun =
         mode === "stock"
