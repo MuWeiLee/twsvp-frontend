@@ -32,7 +32,7 @@
                 class="chart-range-btn"
                 :class="{ active: selectedRange === option.value }"
                 type="button"
-                @click="selectedRange = option.value"
+                @click="handleRangeChange(option.value)"
               >
                 {{ t(option.label) }}
               </button>
@@ -512,6 +512,11 @@ const selectPrice = (price, event) => {
   const horizontal = x < rect.width / 2 ? "right" : "left";
   const vertical = y < rect.height / 2 ? "bottom" : "top";
   hintPlacement.value = `${vertical}-${horizontal}`;
+};
+
+const handleRangeChange = (value) => {
+  selectedRange.value = value;
+  selectedPrice.value = null;
 };
 
 const clearActivePrice = () => {
@@ -1237,16 +1242,17 @@ watch(isCreateOpen, (value) => {
 
 .chart-range {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  flex-direction: row;
+  align-items: center;
   gap: 6px;
 }
 
 .chart-range-buttons {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0;
   justify-content: flex-end;
+  white-space: nowrap;
 }
 
 .chart-range-btn {
