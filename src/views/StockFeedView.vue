@@ -24,6 +24,21 @@
       <section class="chart-card">
         <div class="chart-header">
           <div class="chart-title">{{ t("日K 行情") }}</div>
+          <div class="chart-range">
+            <span class="chart-range-label">{{ t("维度切换") }}</span>
+            <div class="chart-range-buttons">
+              <button
+                v-for="option in chartRangeOptions"
+                :key="option.value"
+                class="chart-range-btn"
+                :class="{ active: selectedRange === option.value }"
+                type="button"
+                @click="selectedRange = option.value"
+              >
+                {{ t(option.label) }}
+              </button>
+            </div>
+          </div>
         </div>
         <div class="chart-body" ref="chartBodyRef" @click.self="clearActivePrice">
           <template v-if="chartPrices.length">
@@ -431,8 +446,14 @@ const page = ref(1);
 const hasMore = ref(true);
 const isLoadingMore = ref(false);
 const PAGE_SIZE = 20;
-const MAX_CANDLES = 30;
-const PRICE_FETCH_SIZE = 60;
+const chartRangeOptions = [
+  { value: 30, label: "30日" },
+  { value: 60, label: "60日" },
+  { value: 180, label: "180日" },
+];
+const selectedRange = ref(30);
+const maxCandles = computed(() => selectedRange.value);
+const priceFetchSize = computed(() => Math.max(selectedRange.value, 60));
 const activeSymbol = ref("");
 const brokerId = ref("");
 const showShareToast = ref(false);
@@ -552,7 +573,7 @@ const getCloseValue = (item) => Number(item.close ?? item.open ?? 0);
 const displaySeries = computed(() => {
   const list = priceSeries.value.slice();
   if (!list.length) return [];
-  const start = Math.max(0, list.length - MAX_CANDLES);
+  const start = Math.max(0, list.length - maxCandles.value);
   return list.slice(start).map((item, index) => ({
     ...item,
     seriesIndex: start + index,
@@ -754,6 +775,13 @@ const filteredViews = computed(() => {
   return list;
 });
 
+const loadPrices = async (limit) => {
+  if (!activeSymbol.value) return;
+  const prices = await fetchStockPricesSupabase(activeSymbol.value, limit);
+  priceSeries.value = prices;
+  selectedPrice.value = null;
+};
+
 const loadFeeds = async ({ append = false } = {}) => {
   if (!activeSymbol.value) return;
   const feeds = await fetchFeedsBySymbolSupabase(activeSymbol.value, {
@@ -782,7 +810,7 @@ const loadData = async () => {
   isLoading.value = true;
   const [stockInfo, prices] = await Promise.all([
     fetchStockByIdSupabase(symbol),
-    fetchStockPricesSupabase(symbol, PRICE_FETCH_SIZE),
+    fetchStockPricesSupabase(symbol, priceFetchSize.value),
   ]);
   priceSeries.value = prices;
   selectedPrice.value = null;
@@ -1062,6 +1090,12 @@ watch(() => route.params.symbol, async () => {
   hasMore.value = true;
   await loadData();
 });
+watch(selectedRange, async () => {
+  if (!activeSymbol.value) return;
+  const limit = priceFetchSize.value;
+  if (priceSeries.value.length >= limit) return;
+  await loadPrices(limit);
+});
 watch(isCreateOpen, (value) => {
   document.body.style.overflow = value ? "hidden" : "";
 });
@@ -1167,6 +1201,40 @@ watch(isCreateOpen, (value) => {
 .chart-title {
   font-weight: 600;
   font-size: 14px;
+}
+
+.chart-range {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.chart-range-label {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.chart-range-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.chart-range-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.chart-range-btn.active {
+  border-color: var(--ink);
+  color: var(--ink);
 }
 
 .hint-card {
