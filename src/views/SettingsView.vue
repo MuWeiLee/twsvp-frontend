@@ -190,6 +190,7 @@ import {
   applyPriceScheme,
   getLanguagePreference,
   getPriceScheme,
+  getStoredLanguagePreference,
 } from "../services/preferences.js";
 import { fetchBrokerPreferenceSupabase, getBrokerById } from "../services/brokers.js";
 
@@ -228,7 +229,10 @@ const loadAccount = async () => {
   brokerId.value = await fetchBrokerPreferenceSupabase(currentUserId.value);
   if (currentUserId.value) {
     const profile = await getProfileSupabase(currentUserId.value);
-    if (profile?.language) {
+    const storedLanguage = getStoredLanguagePreference();
+    if (storedLanguage) {
+      language.value = applyLanguagePreference(storedLanguage);
+    } else if (profile?.language) {
       language.value = applyLanguagePreference(profile.language);
     }
   }
