@@ -589,7 +589,7 @@ const chartTimeline = computed(() => {
   }, -Infinity);
   if (!Number.isFinite(latestTimestamp)) return [];
   const today = new Date();
-  const endTimestamp = Math.min(today.getTime(), latestTimestamp);
+  const endTimestamp = Math.max(today.getTime(), latestTimestamp);
   const endDate = new Date(endTimestamp);
   const days = Math.max(1, Number(selectedRange.value) || 1);
   const timeline = [];
@@ -1379,6 +1379,7 @@ watch(isCreateOpen, (value) => {
 
 .candles {
   display: flex;
+  justify-content: flex-end;
   align-items: stretch;
   gap: var(--candle-gap, 6px);
   height: 100%;
