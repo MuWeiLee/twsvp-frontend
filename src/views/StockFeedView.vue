@@ -451,7 +451,7 @@ const PAGE_SIZE = 20;
 const chartRangeOptions = [
   { value: 30, label: "30日" },
   { value: 60, label: "60日" },
-  { value: 180, label: "180日" },
+  { value: 120, label: "120日" },
 ];
 const selectedRange = ref(30);
 const activeSymbol = ref("");
@@ -580,34 +580,33 @@ const feedCountByDate = computed(() => {
   return counts;
 });
 
+const seriesByDate = computed(() => {
+  if (!priceSeries.value.length) return new Map();
+  const sorted = [...priceSeries.value].sort((a, b) => {
+    const timeA = new Date(a.trade_date).getTime();
+    const timeB = new Date(b.trade_date).getTime();
+    return timeA - timeB;
+  });
+  const map = new Map();
+  sorted.forEach((item) => {
+    const key = formatDateKey(item.trade_date);
+    if (!key) return;
+    map.set(key, item);
+  });
+  return map;
+});
+
 const chartTimeline = computed(() => {
-  if (!priceSeries.value.length) return [];
-  const latestTimestamp = priceSeries.value.reduce((max, item) => {
-    const time = new Date(item.trade_date).getTime();
-    if (Number.isNaN(time)) return max;
-    return Math.max(max, time);
-  }, -Infinity);
-  if (!Number.isFinite(latestTimestamp)) return [];
-  const today = new Date();
-  const endTimestamp = Math.max(today.getTime(), latestTimestamp);
-  const endDate = new Date(endTimestamp);
+  const dates = [...seriesByDate.value.keys()];
+  if (!dates.length) return [];
   const days = Math.max(1, Number(selectedRange.value) || 1);
-  const timeline = [];
-  for (let offset = days - 1; offset >= 0; offset -= 1) {
-    const date = new Date(endDate);
-    date.setDate(endDate.getDate() - offset);
-    timeline.push(formatDateKey(date));
-  }
-  return timeline;
+  return dates.slice(-days);
 });
 
 const displaySeries = computed(() => {
-  if (!priceSeries.value.length || !chartTimeline.value.length) return [];
-  const seriesMap = new Map(
-    priceSeries.value.map((item) => [formatDateKey(item.trade_date), item])
-  );
+  if (!chartTimeline.value.length) return [];
   return chartTimeline.value.map((dateKey, index) => {
-    const item = seriesMap.get(dateKey);
+    const item = seriesByDate.value.get(dateKey);
     if (!item) {
       return { trade_date: dateKey, seriesIndex: index, empty: true };
     }
@@ -1277,12 +1276,6 @@ watch(isCreateOpen, (value) => {
   gap: 6px;
 }
 
-.chart-title::before,
-.chart-title::after {
-  content: "｜";
-  color: var(--border);
-}
-
 .chart-range {
   display: flex;
   flex-direction: row;
@@ -1293,7 +1286,7 @@ watch(isCreateOpen, (value) => {
 .chart-range-buttons {
   display: flex;
   flex-wrap: nowrap;
-  gap: 0;
+  gap: 12px;
   justify-content: flex-end;
   white-space: nowrap;
 }
@@ -1301,26 +1294,16 @@ watch(isCreateOpen, (value) => {
 .chart-range-btn {
   border: 0;
   background: transparent;
-  padding: 0 2px;
+  padding: 0 0 4px;
   font-size: 12px;
   color: var(--muted);
   cursor: pointer;
-}
-
-.chart-range-btn::after {
-  content: "｜";
-  color: var(--border);
-  margin-left: 4px;
-}
-
-.chart-range-btn:first-child::before {
-  content: "｜";
-  color: var(--border);
-  margin-right: 4px;
+  border-bottom: 2px solid transparent;
 }
 
 .chart-range-btn.active {
   color: var(--ink);
+  border-color: var(--ink);
 }
 
 .hint-card {
