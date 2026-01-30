@@ -582,9 +582,15 @@ const feedCountByDate = computed(() => {
 
 const chartTimeline = computed(() => {
   if (!priceSeries.value.length) return [];
-  const lastItem = priceSeries.value[priceSeries.value.length - 1];
-  const endDate = new Date(lastItem.trade_date);
-  if (Number.isNaN(endDate.getTime())) return [];
+  const latestTimestamp = priceSeries.value.reduce((max, item) => {
+    const time = new Date(item.trade_date).getTime();
+    if (Number.isNaN(time)) return max;
+    return Math.max(max, time);
+  }, -Infinity);
+  if (!Number.isFinite(latestTimestamp)) return [];
+  const today = new Date();
+  const endTimestamp = Math.max(today.getTime(), latestTimestamp);
+  const endDate = new Date(endTimestamp);
   const days = Math.max(1, Number(selectedRange.value) || 1);
   const timeline = [];
   for (let offset = days - 1; offset >= 0; offset -= 1) {
@@ -775,8 +781,8 @@ const candleLayout = computed(() => {
     return {};
   }
   const slot = width / count;
-  const gap = count > 1 ? slot * 0.25 : 0;
-  const candleWidth = slot - gap;
+  const gap = count > 1 ? slot * 0.2 : 0;
+  const candleWidth = Math.max(0, slot - gap);
   return {
     "--candle-gap": `${gap}px`,
     "--candle-width": `${candleWidth}px`,
@@ -1359,6 +1365,7 @@ watch(isCreateOpen, (value) => {
 .chart-plot {
   position: absolute;
   inset: 12px 64px 26px 64px;
+  overflow: hidden;
 }
 
 .chart-grid {
@@ -1372,9 +1379,11 @@ watch(isCreateOpen, (value) => {
 
 .candles {
   display: flex;
+  justify-content: flex-end;
   align-items: stretch;
   gap: var(--candle-gap, 6px);
   height: 100%;
+  width: 100%;
   position: relative;
   z-index: 2;
 }
