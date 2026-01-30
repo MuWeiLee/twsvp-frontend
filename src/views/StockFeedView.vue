@@ -774,11 +774,9 @@ const candleLayout = computed(() => {
   if (!count || !width) {
     return {};
   }
-  const minGap = 2;
-  const maxGap = 8;
-  const gap = Math.min(maxGap, Math.max(minGap, width / (count * 6)));
-  const totalGap = gap * (count - 1);
-  const candleWidth = Math.max(2, (width - totalGap) / count);
+  const slot = width / count;
+  const gap = count > 1 ? slot * 0.25 : 0;
+  const candleWidth = slot - gap;
   return {
     "--candle-gap": `${gap}px`,
     "--candle-width": `${candleWidth}px`,
