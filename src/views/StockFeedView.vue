@@ -61,9 +61,9 @@
                 {{ label.text }}
               </span>
             </div>
-            <div class="chart-plot">
+            <div class="chart-plot" ref="chartPlotRef">
               <div class="chart-grid" aria-hidden="true"></div>
-              <div class="candles">
+              <div class="candles" :style="candleLayout">
                 <button
                   v-for="price in chartPrices"
                   :key="price.trade_date"
@@ -439,6 +439,8 @@ const activeMenuId = ref(null);
 const selectedPrice = ref(null);
 const hintPlacement = ref("bottom-right");
 const chartBodyRef = ref(null);
+const chartPlotRef = ref(null);
+const chartPlotWidth = ref(0);
 const isEditOpen = ref(false);
 const isEditSaving = ref(false);
 const editingFeed = ref(null);
@@ -456,6 +458,7 @@ const activeSymbol = ref("");
 const brokerId = ref("");
 const showShareToast = ref(false);
 let shareToastTimer;
+let chartResizeObserver;
 
 const selectedBroker = computed(() => getBrokerById(brokerId.value));
 const createFeedStock = computed(() => {
@@ -500,6 +503,11 @@ const formatPercent = (value) => {
   if (Number.isNaN(num)) return "—";
   const sign = num > 0 ? "+" : "";
   return `${sign}${num.toFixed(2)}%`;
+};
+
+const updateChartPlotWidth = () => {
+  const rect = chartPlotRef.value?.getBoundingClientRect();
+  chartPlotWidth.value = rect ? Math.floor(rect.width) : 0;
 };
 
 const selectPrice = (price, event) => {
@@ -758,6 +766,23 @@ const axisLabels = computed(() => {
 
 const activePrice = computed(() => {
   return selectedPrice.value;
+});
+
+const candleLayout = computed(() => {
+  const count = chartPrices.value.length;
+  const width = chartPlotWidth.value;
+  if (!count || !width) {
+    return {};
+  }
+  const minGap = 2;
+  const maxGap = 8;
+  const gap = Math.min(maxGap, Math.max(minGap, width / (count * 6)));
+  const totalGap = gap * (count - 1);
+  const candleWidth = Math.max(2, (width - totalGap) / count);
+  return {
+    "--candle-gap": `${gap}px`,
+    "--candle-width": `${candleWidth}px`,
+  };
 });
 
 const buildViews = (list) =>
@@ -1112,8 +1137,22 @@ const handleShare = async () => {
 onMounted(loadUser);
 onMounted(loadHiddenIds);
 onMounted(loadData);
+onMounted(() => {
+  updateChartPlotWidth();
+  if (typeof ResizeObserver !== "undefined") {
+    chartResizeObserver = new ResizeObserver(updateChartPlotWidth);
+    if (chartPlotRef.value) {
+      chartResizeObserver.observe(chartPlotRef.value);
+    }
+  }
+  window.addEventListener("resize", updateChartPlotWidth);
+});
 onBeforeUnmount(() => {
   if (shareToastTimer) window.clearTimeout(shareToastTimer);
+  if (chartResizeObserver) {
+    chartResizeObserver.disconnect();
+  }
+  window.removeEventListener("resize", updateChartPlotWidth);
   document.body.style.overflow = "";
 });
 watch([filter, statusFilter], () => {
@@ -1336,15 +1375,15 @@ watch(isCreateOpen, (value) => {
 .candles {
   display: flex;
   align-items: stretch;
-  gap: 6px;
+  gap: var(--candle-gap, 6px);
   height: 100%;
   position: relative;
   z-index: 2;
 }
 
 .candle {
-  flex: 1 1 0;
-  min-width: 6px;
+  flex: 0 0 var(--candle-width, 6px);
+  width: var(--candle-width, 6px);
   position: relative;
   border: 0;
   background: transparent;
