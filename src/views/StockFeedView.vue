@@ -23,9 +23,8 @@
 
       <section class="chart-card">
         <div class="chart-header">
-          <div class="chart-title">{{ t("日K 行情") }}</div>
+          <div class="chart-title">{{ t("日K行情") }}</div>
           <div class="chart-range">
-            <span class="chart-range-label">{{ t("维度切换") }}</span>
             <div class="chart-range-buttons">
               <button
                 v-for="option in chartRangeOptions"
@@ -69,8 +68,9 @@
                   v-for="price in chartPrices"
                   :key="price.trade_date"
                   class="candle"
-                  :class="price.direction"
+                  :class="[price.direction, { empty: price.empty }]"
                   type="button"
+                  :disabled="price.empty"
                   @click="selectPrice(price, $event)"
                   :style="{
                     '--wick-top': price.wickTop,
@@ -452,8 +452,6 @@ const chartRangeOptions = [
   { value: 180, label: "180日" },
 ];
 const selectedRange = ref(30);
-const maxCandles = computed(() => selectedRange.value);
-const priceFetchSize = computed(() => Math.max(selectedRange.value, 60));
 const activeSymbol = ref("");
 const brokerId = ref("");
 const showShareToast = ref(false);
@@ -505,6 +503,7 @@ const formatPercent = (value) => {
 };
 
 const selectPrice = (price, event) => {
+  if (!price || price.empty) return;
   selectedPrice.value = price;
   const rect = chartBodyRef.value?.getBoundingClientRect();
   if (!rect || !event) return;
@@ -568,17 +567,36 @@ const feedCountByDate = computed(() => {
   return counts;
 });
 
-const getCloseValue = (item) => Number(item.close ?? item.open ?? 0);
+const chartTimeline = computed(() => {
+  if (!priceSeries.value.length) return [];
+  const lastItem = priceSeries.value[priceSeries.value.length - 1];
+  const endDate = new Date(lastItem.trade_date);
+  if (Number.isNaN(endDate.getTime())) return [];
+  const days = Math.max(1, Number(selectedRange.value) || 1);
+  const timeline = [];
+  for (let offset = days - 1; offset >= 0; offset -= 1) {
+    const date = new Date(endDate);
+    date.setDate(endDate.getDate() - offset);
+    timeline.push(formatDateKey(date));
+  }
+  return timeline;
+});
 
 const displaySeries = computed(() => {
-  const list = priceSeries.value.slice();
-  if (!list.length) return [];
-  const start = Math.max(0, list.length - maxCandles.value);
-  return list.slice(start).map((item, index) => ({
-    ...item,
-    seriesIndex: start + index,
-  }));
+  if (!priceSeries.value.length || !chartTimeline.value.length) return [];
+  const seriesMap = new Map(
+    priceSeries.value.map((item) => [formatDateKey(item.trade_date), item])
+  );
+  return chartTimeline.value.map((dateKey, index) => {
+    const item = seriesMap.get(dateKey);
+    if (!item) {
+      return { trade_date: dateKey, seriesIndex: index, empty: true };
+    }
+    return { ...item, trade_date: dateKey, seriesIndex: index, empty: false };
+  });
 });
+
+const dataSeries = computed(() => displaySeries.value.filter((item) => !item.empty));
 
 const roundUpToStep = (value, step) => {
   const rounded = Math.ceil(value / step) * step;
@@ -615,7 +633,7 @@ const getPriceDecimals = (step) => {
 };
 
 const chartRange = computed(() => {
-  if (!displaySeries.value.length) {
+  if (!dataSeries.value.length) {
     return {
       min: 0,
       max: 0,
@@ -627,10 +645,10 @@ const chartRange = computed(() => {
       step: 1,
     };
   }
-  const highs = displaySeries.value.map((item) =>
+  const highs = dataSeries.value.map((item) =>
     Number(item.high ?? item.close ?? item.open ?? 0)
   );
-  const lows = displaySeries.value.map((item) =>
+  const lows = dataSeries.value.map((item) =>
     Number(item.low ?? item.close ?? item.open ?? 0)
   );
   const rawHigh = Math.max(...highs);
@@ -644,9 +662,9 @@ const chartRange = computed(() => {
     max = min + step * 4;
   }
   const range = max - min || 1;
-  const latestItem = displaySeries.value[displaySeries.value.length - 1] || {};
+  const latestItem = dataSeries.value[dataSeries.value.length - 1] || {};
   const latest = Number(latestItem.close ?? latestItem.open ?? 0);
-  const baseItem = displaySeries.value[0] || {};
+  const baseItem = dataSeries.value[0] || {};
   const baseOpen = Number(baseItem.open ?? baseItem.close ?? 0) || 1;
   return { min, max, range, rawHigh, rawLow, latest, baseOpen, step };
 });
@@ -657,6 +675,24 @@ const chartPrices = computed(() => {
   if (!list.length) return [];
   const { max, range } = chartRange.value;
   return list.map((item) => {
+    if (item.empty) {
+      return {
+        ...item,
+        open: null,
+        close: null,
+        high: null,
+        low: null,
+        direction: "empty",
+        wickTop: 1,
+        wickBottom: 1,
+        bodyTop: 1,
+        bodyBottom: 1,
+        dateLabel: formatHintDate(item.trade_date),
+        feedCount: 0,
+        changePct: null,
+        amplitude: null,
+      };
+    }
     const open = Number(item.open ?? item.close ?? 0);
     const close = Number(item.close ?? item.open ?? 0);
     const high = Number(item.high ?? Math.max(open, close));
@@ -691,7 +727,7 @@ const chartPrices = computed(() => {
 
 
 const axisLabels = computed(() => {
-  if (!displaySeries.value.length) {
+  if (!chartTimeline.value.length) {
     return { price: [], pct: [], timeStart: "—", timeMid: "—", timeEnd: "—" };
   }
   const { min, max, range, baseOpen, step } = chartRange.value;
@@ -707,11 +743,11 @@ const axisLabels = computed(() => {
     pos: range ? (max - value) / range : 0,
     text: formatPercent(((value - baseOpen) / baseOpen) * 100),
   }));
-  const lastIndex = displaySeries.value.length - 1;
+  const lastIndex = chartTimeline.value.length - 1;
   const midIndex = Math.floor(lastIndex / 2);
-  const timeStart = formatHintDate(displaySeries.value[0].trade_date);
-  const timeMid = formatHintDate(displaySeries.value[midIndex].trade_date);
-  const timeEnd = formatHintDate(displaySeries.value[lastIndex].trade_date);
+  const timeStart = formatHintDate(chartTimeline.value[0]);
+  const timeMid = formatHintDate(chartTimeline.value[midIndex]);
+  const timeEnd = formatHintDate(chartTimeline.value[lastIndex]);
   return { price: priceLabels, pct: pctLabels, timeStart, timeMid, timeEnd };
 });
 
@@ -775,13 +811,6 @@ const filteredViews = computed(() => {
   return list;
 });
 
-const loadPrices = async (limit) => {
-  if (!activeSymbol.value) return;
-  const prices = await fetchStockPricesSupabase(activeSymbol.value, limit);
-  priceSeries.value = prices;
-  selectedPrice.value = null;
-};
-
 const loadFeeds = async ({ append = false } = {}) => {
   if (!activeSymbol.value) return;
   const feeds = await fetchFeedsBySymbolSupabase(activeSymbol.value, {
@@ -810,7 +839,7 @@ const loadData = async () => {
   isLoading.value = true;
   const [stockInfo, prices] = await Promise.all([
     fetchStockByIdSupabase(symbol),
-    fetchStockPricesSupabase(symbol, priceFetchSize.value),
+    fetchStockPricesSupabase(symbol),
   ]);
   priceSeries.value = prices;
   selectedPrice.value = null;
@@ -1090,12 +1119,6 @@ watch(() => route.params.symbol, async () => {
   hasMore.value = true;
   await loadData();
 });
-watch(selectedRange, async () => {
-  if (!activeSymbol.value) return;
-  const limit = priceFetchSize.value;
-  if (priceSeries.value.length >= limit) return;
-  await loadPrices(limit);
-});
 watch(isCreateOpen, (value) => {
   document.body.style.overflow = value ? "hidden" : "";
 });
@@ -1195,12 +1218,21 @@ watch(isCreateOpen, (value) => {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .chart-title {
   font-weight: 600;
   font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-title::before,
+.chart-title::after {
+  content: "｜";
+  color: var(--border);
 }
 
 .chart-range {
@@ -1210,30 +1242,35 @@ watch(isCreateOpen, (value) => {
   gap: 6px;
 }
 
-.chart-range-label {
-  font-size: 11px;
-  color: var(--muted);
-}
-
 .chart-range-buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 0;
   justify-content: flex-end;
 }
 
 .chart-range-btn {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 11px;
+  border: 0;
+  background: transparent;
+  padding: 0 2px;
+  font-size: 12px;
   color: var(--muted);
   cursor: pointer;
 }
 
+.chart-range-btn::after {
+  content: "｜";
+  color: var(--border);
+  margin-left: 4px;
+}
+
+.chart-range-btn:first-child::before {
+  content: "｜";
+  color: var(--border);
+  margin-right: 4px;
+}
+
 .chart-range-btn.active {
-  border-color: var(--ink);
   color: var(--ink);
 }
 
@@ -1307,6 +1344,15 @@ watch(isCreateOpen, (value) => {
   background: transparent;
   padding: 0;
   cursor: pointer;
+}
+
+.candle.empty {
+  cursor: default;
+}
+
+.candle.empty .wick,
+.candle.empty .body {
+  opacity: 0;
 }
 
 .candle .wick {

@@ -5,6 +5,19 @@ const PRICE_SCHEMES = {
 
 const LANGUAGES = new Set(["zh-Hans", "zh-Hant"]);
 
+const normalizeLanguage = (value) => {
+  if (!value) return null;
+  const normalized = String(value).trim().replace(/_/g, "-");
+  const lower = normalized.toLowerCase();
+  if (lower === "zh-hans" || lower === "zh-cn" || lower === "zh-sg") {
+    return "zh-Hans";
+  }
+  if (lower === "zh-hant" || lower === "zh-tw" || lower === "zh-hk" || lower === "zh-mo") {
+    return "zh-Hant";
+  }
+  return LANGUAGES.has(normalized) ? normalized : null;
+};
+
 export const getPriceScheme = () => {
   const stored = localStorage.getItem("twsvp_price_scheme");
   return stored && PRICE_SCHEMES[stored] ? stored : "red_up";
@@ -22,13 +35,18 @@ export const applyPriceScheme = (scheme) => {
 
 export const getLanguagePreference = () => {
   const stored = localStorage.getItem("twsvp_language");
-  return LANGUAGES.has(stored) ? stored : "zh-Hant";
+  return normalizeLanguage(stored) || "zh-Hant";
 };
 
 export const applyLanguagePreference = (language) => {
-  const key = LANGUAGES.has(language) ? language : "zh-Hant";
+  const key = normalizeLanguage(language) || "zh-Hant";
   document.documentElement.lang = key;
   document.documentElement.dataset.language = key;
   localStorage.setItem("twsvp_language", key);
   return key;
+};
+
+export const getStoredLanguagePreference = () => {
+  const stored = localStorage.getItem("twsvp_language");
+  return normalizeLanguage(stored);
 };

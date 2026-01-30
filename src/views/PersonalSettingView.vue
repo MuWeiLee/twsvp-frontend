@@ -87,7 +87,11 @@
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { clearAuthCache, getCurrentUserSupabase, signOutSupabase } from "../services/auth.js";
-import { applyLanguagePreference, getLanguagePreference } from "../services/preferences.js";
+import {
+  applyLanguagePreference,
+  getLanguagePreference,
+  getStoredLanguagePreference,
+} from "../services/preferences.js";
 import { t } from "../services/i18n.js";
 import {
   getIndustryGroupsSupabase,
@@ -141,9 +145,12 @@ onMounted(async () => {
   if (profile) {
     nickname.value = profile.nickname || "";
     bio.value = profile.bio || "";
-    language.value = applyLanguagePreference(
-      profile.language || getLanguagePreference()
-    );
+    const storedLanguage = getStoredLanguagePreference();
+    if (storedLanguage) {
+      language.value = applyLanguagePreference(storedLanguage);
+    } else {
+      language.value = applyLanguagePreference(profile.language || getLanguagePreference());
+    }
     profileCompleted.value = Boolean(profile.profile_completed_at);
   }
 
