@@ -725,18 +725,20 @@ const chartRange = computed(() => {
   );
   const rawHigh = Math.max(...highs);
   const rawLow = Math.min(...lows);
-  const step = getNiceStep(rawHigh - rawLow, rawHigh || rawLow || 1);
-  let max = roundUpToStep(rawHigh, step);
-  let min = roundDownToStep(rawLow, step);
-  if (max <= rawHigh) max += step;
-  if (min >= rawLow) min -= step;
+  const priceRange = rawHigh - rawLow || 1;
+  const pctHigh = baseOpen ? (rawHigh - baseOpen) / baseOpen : 0;
+  const pctLow = baseOpen ? (rawLow - baseOpen) / baseOpen : 0;
+  const paddedHigh = baseOpen ? baseOpen * (1 + pctHigh + 0.05) : rawHigh;
+  const paddedLow = baseOpen ? baseOpen * (1 + pctLow - 0.05) : rawLow;
+  const targetHigh = Math.max(rawHigh, paddedHigh);
+  const targetLow = Math.min(rawLow, paddedLow);
+  const step = getNiceStep(targetHigh - targetLow, rawHigh || rawLow || 1);
+  let max = roundUpToStep(targetHigh, step);
+  let min = roundDownToStep(targetLow, step);
+  if (max <= targetHigh) max += step;
+  if (min >= targetLow) min -= step;
   if (max - min < step * 4) {
     max = min + step * 4;
-  }
-  const pctPad = Math.abs(baseOpen) * 0.05;
-  if (Number.isFinite(pctPad) && pctPad > 0) {
-    max += pctPad;
-    min -= pctPad;
   }
   const range = max - min || 1;
   const latestItem = dataSeries.value[dataSeries.value.length - 1] || {};
