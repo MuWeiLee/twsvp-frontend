@@ -87,9 +87,15 @@
               </div>
             </div>
             <div class="x-axis">
-              <span class="x-axis-label">{{ axisLabels.timeStart }}</span>
-              <span class="x-axis-label">{{ axisLabels.timeMid }}</span>
-              <span class="x-axis-label">{{ axisLabels.timeEnd }}</span>
+              <span class="x-axis-label" :style="{ left: axisLabels.timeStartPos }">
+                {{ axisLabels.timeStart }}
+              </span>
+              <span class="x-axis-label" :style="{ left: axisLabels.timeMidPos }">
+                {{ axisLabels.timeMid }}
+              </span>
+              <span class="x-axis-label" :style="{ left: axisLabels.timeEndPos }">
+                {{ axisLabels.timeEnd }}
+              </span>
             </div>
             <div v-if="activePrice" class="hint-card chart-hint" :class="hintPlacement">
               <div class="hint-row">
@@ -451,11 +457,11 @@ const isStockFollowed = ref(false);
 const PAGE_SIZE = 20;
 const FOLLOW_STOCKS_KEY = "twsvp_followed_stocks";
 const chartRangeOptions = [
-  { value: 30, label: "30日" },
-  { value: 60, label: "60日" },
-  { value: 120, label: "120日" },
+  { value: 20, label: "20日" },
+  { value: 50, label: "50日" },
+  { value: 100, label: "100日" },
 ];
-const selectedRange = ref(30);
+const selectedRange = ref(20);
 const activeSymbol = ref("");
 const brokerId = ref("");
 const showShareToast = ref(false);
@@ -709,6 +715,8 @@ const chartRange = computed(() => {
       step: 1,
     };
   }
+  const baseItem = dataSeries.value[0] || {};
+  const baseOpen = Number(baseItem.open ?? baseItem.close ?? 0) || 1;
   const highs = dataSeries.value.map((item) =>
     Number(item.high ?? item.close ?? item.open ?? 0)
   );
@@ -725,11 +733,14 @@ const chartRange = computed(() => {
   if (max - min < step * 4) {
     max = min + step * 4;
   }
+  const pctPad = Math.abs(baseOpen) * 0.05;
+  if (Number.isFinite(pctPad) && pctPad > 0) {
+    max += pctPad;
+    min -= pctPad;
+  }
   const range = max - min || 1;
   const latestItem = dataSeries.value[dataSeries.value.length - 1] || {};
   const latest = Number(latestItem.close ?? latestItem.open ?? 0);
-  const baseItem = dataSeries.value[0] || {};
-  const baseOpen = Number(baseItem.open ?? baseItem.close ?? 0) || 1;
   return { min, max, range, rawHigh, rawLow, latest, baseOpen, step };
 });
 
@@ -798,6 +809,9 @@ const axisLabels = computed(() => {
       timeStart: "—",
       timeMid: "—",
       timeEnd: "—",
+      timeStartPos: "0%",
+      timeMidPos: "50%",
+      timeEndPos: "100%",
     };
   }
   const { min, max, range, baseOpen, step } = chartRange.value;
@@ -815,6 +829,8 @@ const axisLabels = computed(() => {
   }));
   const lastIndex = chartTimeline.value.length - 1;
   const midIndex = Math.floor(lastIndex / 2);
+  const count = chartTimeline.value.length;
+  const buildPos = (index) => `${((index + 0.5) / count) * 100}%`;
   const formatAxisDate = (value) => {
     if (!value) return "—";
     const date = new Date(value);
@@ -832,6 +848,9 @@ const axisLabels = computed(() => {
     timeStart,
     timeMid,
     timeEnd,
+    timeStartPos: buildPos(0),
+    timeMidPos: buildPos(midIndex),
+    timeEndPos: buildPos(lastIndex),
   };
 });
 
@@ -1559,8 +1578,7 @@ watch(isCreateOpen, (value) => {
   font-size: 10px;
   color: var(--muted);
   z-index: 2;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: block;
   align-items: center;
   box-sizing: border-box;
   overflow: hidden;
@@ -1570,6 +1588,8 @@ watch(isCreateOpen, (value) => {
   text-align: center;
   white-space: nowrap;
   transform: translateY(0);
+  position: absolute;
+  transform: translateX(-50%);
 }
 
 @media (max-width: 420px) {
@@ -1732,8 +1752,8 @@ watch(isCreateOpen, (value) => {
 }
 
 .list-title-spaced {
-  margin-top: 18px;
-  margin-bottom: 6px;
+  margin-top: 20px;
+  margin-bottom: 10px;
 }
 
 .tabs {
