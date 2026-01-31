@@ -10,6 +10,14 @@ const toTaipeiDate = (value) => {
   return local.toISOString().slice(0, 10);
 };
 
+const getTaipeiMinutes = (value) => {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const local = new Date(date.getTime() + TAIPEI_OFFSET_MS);
+  return local.getUTCHours() * 60 + local.getUTCMinutes();
+};
+
 const shiftDate = (dateStr, days) => {
   if (!dateStr) return null;
   const base = new Date(`${dateStr}T00:00:00Z`);
@@ -138,6 +146,15 @@ export default async function handler(req, res) {
       .map((feed) => {
         if (!feed.target_symbol) return null;
         const baseDate = toTaipeiDate(feed.created_at);
+        const minutes = getTaipeiMinutes(feed.created_at);
+        const session =
+          minutes === null
+            ? "normal"
+            : minutes < 9 * 60
+            ? "premarket"
+            : minutes >= 15 * 60
+            ? "postmarket"
+            : "normal";
         if (!baseDate) return null;
         const expiresDate = feed.expires_at ? toTaipeiDate(feed.expires_at) : null;
         const isPastExpiry = expiresDate ? expiresDate <= today : false;
@@ -148,6 +165,7 @@ export default async function handler(req, res) {
           feedId: feed.feed_id,
           symbol: `${feed.target_symbol}`.trim(),
           direction: feed.direction,
+          session,
           baseDate,
           endDate,
         };
@@ -200,7 +218,10 @@ export default async function handler(req, res) {
 
       for (const item of items) {
         processed += 1;
-        const baseIndex = findFirstOnOrAfter(dates, item.baseDate);
+        const baseIndex =
+          item.session === "postmarket"
+            ? findLastOnOrBefore(dates, item.baseDate)
+            : findFirstOnOrAfter(dates, item.baseDate);
         const endIndex = findLastOnOrBefore(dates, item.endDate);
         if (baseIndex === -1 || endIndex === -1 || baseIndex > endIndex) {
           missing.push({ feed_id: item.feedId, symbol: item.symbol, error: "price missing" });
@@ -208,7 +229,8 @@ export default async function handler(req, res) {
         }
         const baseRow = prices[baseIndex];
         const endRow = prices[endIndex];
-        const baseOpen = Number(baseRow.open);
+        const baseOpen =
+          item.session === "postmarket" ? Number(baseRow.close) : Number(baseRow.open);
         const endClose = Number(endRow.close);
         if (!Number.isFinite(baseOpen) || baseOpen <= 0 || !Number.isFinite(endClose)) {
           missing.push({
