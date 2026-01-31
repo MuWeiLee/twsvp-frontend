@@ -27,7 +27,10 @@
 
     <section class="feature-card split slide-in">
       <div class="feature-text">
-        <h2 class="section-title">{{ t("挖掘资讯") }}</h2>
+        <div class="section-heading">
+          <span class="section-index">01</span>
+          <h2 class="section-title">{{ t("挖掘资讯") }}</h2>
+        </div>
         <p class="section-subtitle">
           {{ t("聚焦台股市场的新闻资讯") }}
         </p>
@@ -57,20 +60,23 @@
 
     <section class="feature-card split slide-in">
       <div class="feature-text">
-        <h2 class="section-title">{{ t("记录观点") }}</h2>
+        <div class="section-heading">
+          <span class="section-index">02</span>
+          <h2 class="section-title">{{ t("记录观点") }}</h2>
+        </div>
         <div class="steps">
-          <div class="step-item">
-            <div class="step-title">{{ t("1. 选择标的") }}</div>
+          <div class="step-item" data-step="01">
+            <div class="step-title">{{ t("选择标的") }}</div>
             <div class="step-sub">{{ t("支持台股标的的快速检索") }}</div>
           </div>
-          <div class="step-item">
-            <div class="step-title">{{ t("2. 看多还是看空") }}</div>
+          <div class="step-item" data-step="02">
+            <div class="step-title">{{ t("看多还是看空") }}</div>
             <div class="step-sub">
               {{ t("选择看多、看空或保持中性观望") }}
             </div>
           </div>
-          <div class="step-item">
-            <div class="step-title">{{ t("3. 设置观点时效") }}</div>
+          <div class="step-item" data-step="03">
+            <div class="step-title">{{ t("设置观点时效") }}</div>
             <div class="step-sub">
               {{ t("观点时效可长可短，自动计算观点绩效") }}
             </div>
@@ -87,7 +93,10 @@
         <img src="/trade.jpeg" alt="设置交易券商" />
       </div>
       <div class="feature-text">
-        <h2 class="section-title">{{ t("设置交易") }}</h2>
+        <div class="section-heading">
+          <span class="section-index">03</span>
+          <h2 class="section-title">{{ t("设置交易") }}</h2>
+        </div>
         <p class="section-subtitle">
           {{ t("设置交易券商，看到观点立即跳转App") }}
         </p>
@@ -96,7 +105,10 @@
 
     <section class="feature-card split slide-in">
       <div class="feature-text">
-        <h2 class="section-title">{{ t("验证观点") }}</h2>
+        <div class="section-heading">
+          <span class="section-index">04</span>
+          <h2 class="section-title">{{ t("验证观点") }}</h2>
+        </div>
         <p class="section-subtitle">
           {{ t("自动/手动计算绩效，验证观点的准确性") }}
         </p>
@@ -369,7 +381,7 @@ const handleGoogleSupabase = async () => {
 }
 
 .hero-title {
-  font-size: 32px;
+  font-size: 36px;
   margin: 6px 0 2px;
   letter-spacing: -0.02em;
   font-weight: 700;
@@ -428,8 +440,23 @@ const handleGoogleSupabase = async () => {
   gap: 10px;
 }
 
+.section-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.section-index {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  padding: 4px 6px;
+  line-height: 1;
+}
+
 .section-title {
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 700;
   margin: 0;
   letter-spacing: 0.08em;
@@ -467,12 +494,24 @@ const handleGoogleSupabase = async () => {
 }
 
 .step-item {
-  padding: 10px 12px;
+  padding: 16px 14px 14px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 0;
   display: grid;
   gap: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.step-item::before {
+  content: attr(data-step);
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  font-size: 28px;
+  font-weight: 700;
+  color: rgba(18, 20, 23, 0.08);
 }
 
 .step-title {
@@ -679,7 +718,7 @@ const handleGoogleSupabase = async () => {
   }
 
   .hero-title {
-    font-size: 28px;
+    font-size: 30px;
     flex-direction: column;
     align-items: center;
     gap: 4px;
