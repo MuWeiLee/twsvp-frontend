@@ -45,6 +45,16 @@ body {
   padding: 0;
 }
 
+input,
+textarea {
+  color: var(--muted);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+}
+
 a {
   color: inherit;
 }
