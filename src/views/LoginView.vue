@@ -199,7 +199,10 @@ import {
 
 const router = useRouter();
 const language = ref(getLanguagePreference());
-const heroWords = computed(() => [t("验证"), t("挖掘"), t("记录")]);
+const heroWords = computed(() => {
+  const _lang = language.value;
+  return [t("验证"), t("挖掘"), t("记录")];
+});
 const heroWordIndex = ref(0);
 const heroWord = computed(() => heroWords.value[heroWordIndex.value]);
 
@@ -226,7 +229,7 @@ onMounted(() => {
 
 onMounted(() => {
   heroTimer = setInterval(() => {
-    heroWordIndex.value = (heroWordIndex.value + 1) % heroWords.length;
+    heroWordIndex.value = (heroWordIndex.value + 1) % heroWords.value.length;
   }, 2200);
 });
 
@@ -678,12 +681,21 @@ const handleGoogleSupabase = async () => {
   .hero-title {
     font-size: 30px;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-end;
     gap: 4px;
   }
 
   .hero-word {
     min-width: auto;
+  }
+
+  .hero {
+    text-align: right;
+    align-items: end;
+  }
+
+  .hero-rest {
+    text-align: right;
   }
 
   .split,
