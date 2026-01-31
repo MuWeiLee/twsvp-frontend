@@ -219,6 +219,7 @@ const isLoadingMore = ref(false);
 const isFollowing = ref(false);
 const PAGE_SIZE = 20;
 const showShareToast = ref(false);
+const FOLLOW_USERS_KEY = "twsvp_followed_users";
 let shareToastTimer = null;
 
 const resolvedUserId = computed(() => {
@@ -340,8 +341,36 @@ const copyText = async (text) => {
   }
 };
 
+const readFollowedUsers = () => {
+  try {
+    const raw = localStorage.getItem(FOLLOW_USERS_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return new Set((list || []).filter(Boolean));
+  } catch (error) {
+    return new Set();
+  }
+};
+
+const saveFollowedUsers = (set) => {
+  localStorage.setItem(FOLLOW_USERS_KEY, JSON.stringify([...set]));
+};
+
+const syncFollowState = (userId) => {
+  const list = readFollowedUsers();
+  isFollowing.value = userId ? list.has(userId) : false;
+};
+
 const toggleFollow = () => {
-  isFollowing.value = !isFollowing.value;
+  const userId = resolvedUserId.value;
+  if (!userId) return;
+  const list = readFollowedUsers();
+  if (list.has(userId)) {
+    list.delete(userId);
+  } else {
+    list.add(userId);
+  }
+  saveFollowedUsers(list);
+  isFollowing.value = list.has(userId);
 };
 
 const handleShare = async () => {
@@ -378,6 +407,7 @@ const loadProfile = async () => {
     tags,
     joined: formatDate(profile?.created_at),
   };
+  syncFollowState(userId);
   const shareId = encodeShareId(userId);
   const shareUrl = shareId ? `${window.location.origin}/u/${shareId}` : window.location.href;
   applyShareMeta({ name: nickname, url: shareUrl });

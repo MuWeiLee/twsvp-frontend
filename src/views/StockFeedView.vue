@@ -86,15 +86,13 @@
                 </button>
               </div>
             </div>
-            <div class="x-axis">
-              <span :style="{ left: axisLabels.timeStartPos }">
-                {{ axisLabels.timeStart }}
-              </span>
-              <span :style="{ left: axisLabels.timeMidPos }">
-                {{ axisLabels.timeMid }}
-              </span>
-              <span :style="{ left: axisLabels.timeEndPos }">
-                {{ axisLabels.timeEnd }}
+            <div class="x-axis" :style="candleLayout">
+              <span
+                v-for="price in chartPrices"
+                :key="`axis-${price.trade_date}`"
+                class="x-axis-label"
+              >
+                {{ formatAxisDate(price.trade_date) }}
               </span>
             </div>
             <div v-if="activePrice" class="hint-card chart-hint" :class="hintPlacement">
@@ -128,32 +126,28 @@
         </div>
       </section>
 
-      <section class="news-card">
-        <div class="list-title">{{ t("最新资讯") }}</div>
-        <div v-if="newsItems.length" class="news-list">
-          <button
-            v-for="item in newsItems"
-            :key="item.article_id"
-            class="news-item"
-            type="button"
-            @click="openNews(item.link)"
-          >
-            <div class="news-item-title">{{ item.title || "—" }}</div>
-            <div v-if="item.description || item.content" class="news-item-summary">
-              {{ item.description || item.content }}
-            </div>
-            <div class="news-item-meta">
-              <span>{{ formatNewsTime(item.pub_date) }}</span>
-              <span class="dot">·</span>
-              <span>{{ formatNewsCreator(item.creator) }}</span>
-            </div>
-          </button>
-        </div>
-        <div v-else class="news-empty">{{ t("暂无资讯") }}</div>
+      <div class="list-title">{{ t("最新资讯") }}</div>
+      <section v-if="newsItems.length" class="news-list">
+        <article
+          v-for="item in newsItems"
+          :key="item.article_id"
+          class="news-card"
+          @click="openNews(item.link)"
+        >
+          <h3 class="news-title">{{ item.title || "—" }}</h3>
+          <p v-if="item.description" class="news-summary">{{ item.description }}</p>
+          <p v-else-if="item.content" class="news-summary">{{ item.content }}</p>
+          <div class="news-meta">
+            <span>{{ formatNewsTime(item.pub_date) }}</span>
+            <span class="dot">·</span>
+            <span>{{ formatNewsCreator(item.creator) }}</span>
+          </div>
+        </article>
       </section>
+      <div v-else class="news-empty">{{ t("暂无资讯") }}</div>
 
+      <div class="list-title">{{ t("近 7 日观点统计") }}</div>
       <section class="sentiment-card">
-        <div class="list-title">{{ t("近 7 日观点统计") }}</div>
         <div class="sentiment-row">
           <span>{{ t("看多") }} {{ sevenDayStats.longPct }}%</span>
           <span>{{ t("中性") }} {{ sevenDayStats.neutralPct }}%</span>
@@ -459,6 +453,7 @@ const hasMore = ref(true);
 const isLoadingMore = ref(false);
 const isStockFollowed = ref(false);
 const PAGE_SIZE = 20;
+const FOLLOW_STOCKS_KEY = "twsvp_followed_stocks";
 const chartRangeOptions = [
   { value: 30, label: "30日" },
   { value: 60, label: "60日" },
@@ -472,8 +467,37 @@ let shareToastTimer;
 
 const stockFollowLabel = computed(() => (isStockFollowed.value ? t("已关注") : t("+关注")));
 
+const readFollowedStocks = () => {
+  try {
+    const raw = localStorage.getItem(FOLLOW_STOCKS_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return new Set((list || []).filter(Boolean));
+  } catch (error) {
+    return new Set();
+  }
+};
+
+const saveFollowedStocks = (set) => {
+  localStorage.setItem(FOLLOW_STOCKS_KEY, JSON.stringify([...set]));
+};
+
+const syncStockFollowState = (symbol) => {
+  const list = readFollowedStocks();
+  isStockFollowed.value = symbol ? list.has(symbol) : false;
+};
+
 const toggleStockFollow = () => {
-  isStockFollowed.value = !isStockFollowed.value;
+  const symbol = activeSymbol.value;
+  if (!symbol) return;
+  const list = readFollowedStocks();
+  const next = !list.has(symbol);
+  if (next) {
+    list.add(symbol);
+  } else {
+    list.delete(symbol);
+  }
+  saveFollowedStocks(list);
+  isStockFollowed.value = next;
 };
 let chartResizeObserver;
 
@@ -505,6 +529,15 @@ const formatHintDate = (value) => {
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
   const day = `${date.getDate()}`.padStart(2, "0");
   return `${year}/${month}/${day}`;
+};
+
+const formatAxisDate = (value) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${month}/${day}`;
 };
 
 const formatPrice = (value) => {
@@ -777,9 +810,6 @@ const axisLabels = computed(() => {
       timeStart: "—",
       timeMid: "—",
       timeEnd: "—",
-      timeStartPos: "0%",
-      timeMidPos: "50%",
-      timeEndPos: "100%",
     };
   }
   const { min, max, range, baseOpen, step } = chartRange.value;
@@ -797,8 +827,6 @@ const axisLabels = computed(() => {
   }));
   const lastIndex = chartTimeline.value.length - 1;
   const midIndex = Math.floor(lastIndex / 2);
-  const count = chartTimeline.value.length;
-  const buildPos = (index) => `${((index + 0.5) / count) * 100}%`;
   const timeStart = formatHintDate(chartTimeline.value[0]);
   const timeMid = formatHintDate(chartTimeline.value[midIndex]);
   const timeEnd = formatHintDate(chartTimeline.value[lastIndex]);
@@ -808,9 +836,6 @@ const axisLabels = computed(() => {
     timeStart,
     timeMid,
     timeEnd,
-    timeStartPos: buildPos(0),
-    timeMidPos: buildPos(midIndex),
-    timeEndPos: buildPos(lastIndex),
   };
 });
 
@@ -921,6 +946,7 @@ const loadData = async () => {
   }
   const symbol = String(symbolParam);
   activeSymbol.value = symbol;
+  syncStockFollowState(symbol);
   isLoading.value = true;
   const [stockInfo, prices] = await Promise.all([
     fetchStockByIdSupabase(symbol),
@@ -1533,16 +1559,22 @@ watch(isCreateOpen, (value) => {
   left: 64px;
   right: 64px;
   bottom: 4px;
-  height: 14px;
-  font-size: 11px;
+  height: 16px;
+  font-size: 10px;
   color: var(--muted);
   z-index: 2;
+  display: flex;
+  gap: var(--candle-gap, 6px);
+  padding: 0 var(--candle-pad, 0px);
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
-.x-axis span {
-  position: absolute;
-  transform: translateX(-50%);
+.x-axis-label {
+  width: var(--candle-width, 6px);
+  text-align: center;
   white-space: nowrap;
+  transform: translateY(0);
 }
 
 @media (max-width: 420px) {
@@ -1605,63 +1637,55 @@ watch(isCreateOpen, (value) => {
 
 .news-card {
   background: var(--surface);
-  border-radius: var(--radius-card);
-  padding: 14px 16px;
   border: 1px solid var(--border);
-  display: grid;
-  gap: 10px;
-}
-
-.news-list {
-  display: grid;
-  gap: 10px;
-}
-
-.news-item {
-  border: 0;
-  background: var(--panel);
-  border-radius: 12px;
-  padding: 10px 12px;
-  text-align: left;
-  display: grid;
+  border-radius: 0;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
   cursor: pointer;
 }
 
-.news-item-title {
-  font-size: 13px;
+.news-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.news-title {
+  font-size: 15px;
   font-weight: 600;
+  line-height: 1.4;
   color: var(--ink);
 }
 
-.news-item-summary {
-  font-size: 12px;
+.news-summary {
+  font-size: 13px;
+  line-height: 1.6;
   color: var(--muted);
-  line-height: 1.4;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.news-item-meta {
-  font-size: 11px;
+.news-meta {
+  font-size: 12px;
   color: var(--muted);
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-.news-item-meta .dot {
-  font-size: 10px;
-  opacity: 0.6;
+.news-meta .dot {
+  font-size: 12px;
 }
 
 .news-empty {
   text-align: center;
   font-size: 12px;
   color: var(--muted);
-  padding: 6px 0;
+  padding: 6px 0 4px;
 }
 
 .sentiment-card {
@@ -1710,11 +1734,6 @@ watch(isCreateOpen, (value) => {
   font-size: 14px;
   font-weight: 600;
   color: var(--ink);
-}
-
-.news-card .list-title,
-.sentiment-card .list-title {
-  margin-top: 0;
 }
 
 .tabs {

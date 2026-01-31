@@ -64,7 +64,7 @@ export async function fetchNotificationsSupabase(userId, limitOrOptions = 20) {
     const { data: feeds, error: feedError } = await supabase
       .from("feeds")
       .select(
-        "feed_id,target_symbol,target_name,summary,content,expires_at,deleted_at,like_count"
+        "feed_id,target_symbol,target_name,summary,content,expires_at,deleted_at,like_count,feed_replies(count)"
       )
       .in("feed_id", feedIds);
     if (feedError) {

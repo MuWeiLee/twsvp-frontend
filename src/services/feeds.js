@@ -174,7 +174,7 @@ const fetchFeedPerformanceMap = async (feedIds = []) => {
   return map;
 };
 
-const attachFeedPerformance = async (feeds = []) => {
+export const attachFeedPerformance = async (feeds = []) => {
   if (!feeds.length) return feeds;
   const feedIds = feeds.map((row) => row.feed_id).filter(Boolean);
   if (!feedIds.length) return feeds;
