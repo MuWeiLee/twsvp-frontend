@@ -523,7 +523,10 @@ const submitReply = async () => {
     content: trimmed,
   });
   replySubmitting.value = false;
-  if (!data) return;
+  if (!data) {
+    window.alert(t("留言失败，请稍后重试。"));
+    return;
+  }
   replies.value = [
     ...replies.value,
     {

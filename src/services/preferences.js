@@ -3,6 +3,7 @@ const PRICE_SCHEMES = {
   green_up: { up: "#76BB40", down: "#FF4015" },
 };
 
+const THEME_PREFERENCES = new Set(["system", "light", "dark"]);
 const LANGUAGES = new Set(["zh-Hans", "zh-Hant"]);
 
 const normalizeLanguage = (value) => {
@@ -30,6 +31,25 @@ export const applyPriceScheme = (scheme) => {
   root.style.setProperty("--price-up", colors.up);
   root.style.setProperty("--price-down", colors.down);
   localStorage.setItem("twsvp_price_scheme", key);
+  return key;
+};
+
+export const getThemePreference = () => {
+  const stored = localStorage.getItem("twsvp_theme");
+  return THEME_PREFERENCES.has(stored) ? stored : "system";
+};
+
+const resolveSystemTheme = () => {
+  if (typeof window === "undefined" || !window.matchMedia) return "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+};
+
+export const applyThemePreference = (theme) => {
+  const key = THEME_PREFERENCES.has(theme) ? theme : "system";
+  const root = document.documentElement;
+  const resolved = key === "system" ? resolveSystemTheme() : key;
+  root.dataset.theme = resolved;
+  localStorage.setItem("twsvp_theme", key);
   return key;
 };
 

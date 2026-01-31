@@ -97,7 +97,7 @@
                 @click="goRecommendedUser(person)"
               >
                 <strong>{{ person.nickname }}</strong>
-                <span>{{ t("暂无简介") }}</span>
+                <span>{{ person.bio || t("这个人很懒，什么都没留下") }}</span>
               </div>
             </div>
             <button class="recommend-action" type="button" @click="handleQuickFollow">
@@ -484,7 +484,7 @@ const loadRecommendations = async () => {
     const [userRows, stockRows] = await Promise.all([
       supabase
         .from("feeds")
-        .select("user_id, created_at, users!feeds_user_id_fkey(nickname)")
+        .select("user_id, created_at, users!feeds_user_id_fkey(nickname,bio)")
         .is("deleted_at", null)
         .gte("created_at", userSince)
         .order("created_at", { ascending: false })
@@ -506,10 +506,13 @@ const loadRecommendations = async () => {
     const userMap = new Map();
     (userRows.data || []).forEach((row) => {
       if (!row.user_id) return;
+      if (currentUserId.value && row.user_id === currentUserId.value) return;
       const nickname = row.users?.nickname || t("用户");
+      const bio = row.users?.bio || "";
       const entry = userMap.get(row.user_id) || {
         user_id: row.user_id,
         nickname,
+        bio,
         count: 0,
       };
       entry.count += 1;

@@ -80,10 +80,9 @@
           <div v-if="!isLoading && !filteredItems.length" class="empty">
             {{ t("暂无通知") }}
           </div>
-          <div ref="loadTrigger" class="load-trigger">
+          <div v-if="isLoading || isLoadingMore || hasMore" ref="loadTrigger" class="load-trigger">
             <span v-if="isLoading || isLoadingMore">{{ t("加载中...") }}</span>
             <span v-else-if="hasMore">{{ t("下滑加载更多") }}</span>
-            <span v-else>{{ t("已加载全部") }}</span>
           </div>
         </section>
       </div>
