@@ -18,7 +18,9 @@
           <span class="company-name">{{ stock.name || "—" }}</span>
           <span class="company-code">{{ stock.symbol }}</span>
         </div>
-        <span class="nav-space" aria-hidden="true"></span>
+        <button class="nav-follow" type="button" @click="toggleStockFollow">
+          {{ stockFollowLabel }}
+        </button>
       </nav>
 
       <section class="chart-card">
@@ -447,6 +449,7 @@ const editingFeed = ref(null);
 const page = ref(1);
 const hasMore = ref(true);
 const isLoadingMore = ref(false);
+const isStockFollowed = ref(false);
 const PAGE_SIZE = 20;
 const chartRangeOptions = [
   { value: 30, label: "30日" },
@@ -458,6 +461,12 @@ const activeSymbol = ref("");
 const brokerId = ref("");
 const showShareToast = ref(false);
 let shareToastTimer;
+
+const stockFollowLabel = computed(() => (isStockFollowed.value ? t("已关注") : t("+关注")));
+
+const toggleStockFollow = () => {
+  isStockFollowed.value = !isStockFollowed.value;
+};
 let chartResizeObserver;
 
 const selectedBroker = computed(() => getBrokerById(brokerId.value));
@@ -1239,8 +1248,17 @@ watch(isCreateOpen, (value) => {
   height: 18px;
 }
 
-.nav-space {
+.nav-follow {
   margin-left: auto;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 10px;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--ink);
 }
 
 .company-name {

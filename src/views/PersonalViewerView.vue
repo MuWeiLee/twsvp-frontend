@@ -15,6 +15,14 @@
           </svg>
         </button>
         <div class="nav-title">{{ t("个人主页") }}</div>
+        <button
+          v-if="!isOwnProfile"
+          class="nav-follow"
+          type="button"
+          @click="toggleFollow"
+        >
+          {{ followLabel }}
+        </button>
         <button class="nav-btn" type="button" :aria-label="t('分享')" @click="handleShare">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path
@@ -208,6 +216,7 @@ const currentUserId = ref("");
 const page = ref(1);
 const hasMore = ref(true);
 const isLoadingMore = ref(false);
+const isFollowing = ref(false);
 const PAGE_SIZE = 20;
 const showShareToast = ref(false);
 let shareToastTimer = null;
@@ -219,6 +228,12 @@ const resolvedUserId = computed(() => {
   if (typeof codeParam === "string") return decodeShareId(codeParam);
   return "";
 });
+
+const isOwnProfile = computed(
+  () => currentUserId.value && resolvedUserId.value === currentUserId.value
+);
+
+const followLabel = computed(() => (isFollowing.value ? t("已关注") : t("+关注")));
 
 const formatDate = (value) => {
   if (!value) return "—";
@@ -323,6 +338,10 @@ const copyText = async (text) => {
     document.body.removeChild(textarea);
     return ok;
   }
+};
+
+const toggleFollow = () => {
+  isFollowing.value = !isFollowing.value;
 };
 
 const handleShare = async () => {
@@ -524,6 +543,18 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.nav-follow {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 10px;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--ink);
 }
 
 .nav-btn svg {

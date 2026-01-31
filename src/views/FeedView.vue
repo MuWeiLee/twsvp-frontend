@@ -122,6 +122,14 @@
                     <div v-if="activeMenuId === view.feed_id" class="more-menu">
                       <template v-if="view.isAuthor">
                         <button
+                          v-if="canEditFeed(view)"
+                          class="menu-item"
+                          type="button"
+                          @click.stop="handleEditFeed(view)"
+                        >
+                          {{ t("编辑观点") }}
+                        </button>
+                        <button
                           v-if="view.statusPhase !== 'ended'"
                           class="menu-item"
                           type="button"
