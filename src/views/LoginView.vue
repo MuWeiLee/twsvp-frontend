@@ -374,34 +374,26 @@ const handleGoogleSupabase = async () => {
   content: "";
   position: absolute;
   inset: 0;
-  background-image:
-    linear-gradient(
-      90deg,
-      rgba(18, 20, 23, 0.06) 0%,
-      rgba(18, 20, 23, 0.06) 100%
+  background-image: radial-gradient(
+      rgba(18, 20, 23, 0.18) 1px,
+      transparent 1px
     ),
-    repeating-linear-gradient(
-      180deg,
-      rgba(18, 20, 23, 0.08) 0 2px,
-      transparent 2px 24px
-    );
-  opacity: 1;
+    radial-gradient(rgba(118, 187, 64, 0.22) 1px, transparent 1px);
+  background-size: 12px 12px, 22px 22px;
+  background-position: 0 0, 40px 30px;
+  opacity: 0.35;
   pointer-events: none;
 }
 
 .hero::after {
-  content: "01010101010101010101010101010101010101010101";
+  content: "";
   position: absolute;
-  top: -10px;
-  left: -20px;
-  right: -20px;
-  bottom: -10px;
-  font-size: 18px;
-  line-height: 24px;
-  letter-spacing: 6px;
-  color: rgba(18, 20, 23, 0.12);
-  white-space: pre-wrap;
-  opacity: 1;
+  inset: 0;
+  background: radial-gradient(
+    circle at 70% 20%,
+    rgba(118, 187, 64, 0.12),
+    transparent 55%
+  );
   pointer-events: none;
 }
 
