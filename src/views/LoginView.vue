@@ -1,56 +1,134 @@
 <template>
   <div class="phone-frame fade-in">
-    <header class="slide-in">
+    <header class="hero slide-in">
       <div class="brand">
         <img class="logo" :src="logoUrl" alt="TWSVP" />
-        <div>
-          <div>TWSVP</div>
-          <div style="font-size: 12px; color: var(--muted)">
-            {{ t("让每一个观点的价值被看见") }}
+        <div class="brand-text">
+          <div class="brand-name">TWSVP</div>
+          <div class="brand-slogan">
+            {{ t("让你观点的价值被看见") }}
           </div>
         </div>
       </div>
-      <h1 class="title">{{ t("准备进入TWSVP...") }}</h1>
+      <h1 class="hero-title">{{ t("记录下每一个投资观点") }}</h1>
+      <div class="hero-flow">
+        <span>{{ t("挖掘") }}</span>
+        <span class="hero-arrow">-&gt;</span>
+        <span>{{ t("记录") }}</span>
+        <span class="hero-arrow">-&gt;</span>
+        <span>{{ t("验证") }}</span>
+      </div>
+      <p class="hero-note">
+        {{ t("请使用 Safari / Chrome 浏览器开启并登录") }}
+      </p>
     </header>
 
-    <section class="login-card slide-in">
-      <p class="subtitle" style="margin: 0 0 14px">
-        {{ t("使用 Google 账号快速登录。") }}
-      </p>
+    <section class="feature-card slide-in">
+      <div class="feature-text">
+        <h2 class="section-title">{{ t("挖掘资讯") }}</h2>
+        <p class="section-subtitle">
+          {{ t("聚焦台股市场的新闻资讯") }}
+        </p>
+      </div>
+      <div class="feature-media">
+        <img src="/news.jpeg" alt="台股新闻资讯" />
+      </div>
+    </section>
 
-      <button class="btn btn-google" @click="handleGoogle">
-        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-          <path
-            fill="#EA4335"
-            d="M12 10.2v3.9h5.5c-.2 1.3-1.5 3.9-5.5 3.9A5.9 5.9 0 0 1 6.1 12a5.9 5.9 0 0 1 5.9-5.9c1.7 0 2.9.7 3.5 1.4l2.4-2.3C16.4 3.7 14.4 3 12 3 6.9 3 2.8 7.1 2.8 12S6.9 21 12 21c6.9 0 8.7-4.8 8.7-7.2 0-.5-.1-.9-.1-1.3H12z"
-          />
-          <path
-            fill="#34A853"
-            d="M3.9 7.2l3.2 2.3A5.9 5.9 0 0 1 12 6.1c1.7 0 2.9.7 3.5 1.4l2.4-2.3C16.4 3.7 14.4 3 12 3c-3.5 0-6.6 2-8.1 4.9z"
-          />
-          <path
-            fill="#FBBC05"
-            d="M12 21c2.3 0 4.3-.8 5.7-2.1l-2.7-2.1c-.7.5-1.7.8-3 .8a5.9 5.9 0 0 1-5.6-4H3.2v2.5A9 9 0 0 0 12 21z"
-          />
-          <path
-            fill="#4285F4"
-            d="M20.6 12.5c0-.4-.1-.9-.2-1.3H12v3.9h5.5c-.3 1.2-1.2 2.3-2.5 3.1l2.7 2.1c1.6-1.5 2.9-3.8 2.9-7.8z"
-          />
-        </svg>
-        {{ t("使用 Google 登录") }}
-      </button>
+    <section class="feature-card split slide-in">
+      <div class="feature-text">
+        <h2 class="section-title">{{ t("记录观点") }}</h2>
+        <div class="steps">
+          <div class="step-item">
+            <div class="step-title">{{ t("1. 选择标的") }}</div>
+            <div class="step-sub">{{ t("支持台股标的的快速检索") }}</div>
+          </div>
+          <div class="step-item">
+            <div class="step-title">{{ t("2. 看多还是看空") }}</div>
+            <div class="step-sub">
+              {{ t("选择看多、看空或保持中性观望") }}
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-title">{{ t("3. 设置观点时效") }}</div>
+            <div class="step-sub">
+              {{ t("观点时效可长可短，自动计算观点绩效") }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="feature-media">
+        <img src="/post.jpeg" alt="记录观点流程" />
+      </div>
+    </section>
 
-      <p class="legal">
-        {{ t("继续即表示你同意") }}
-        <router-link class="legal-link" to="/agreement/user">
-          {{ t("《用户协议》") }}
-        </router-link>
-        ，{{ t("并确认已阅读") }}
-        <router-link class="legal-link" to="/agreement/privacy">
-          {{ t("《隐私政策》") }}
-        </router-link>
-        。
-      </p>
+    <section class="feature-card split reverse slide-in">
+      <div class="feature-media">
+        <img src="/trade.jpeg" alt="设置交易券商" />
+      </div>
+      <div class="feature-text">
+        <h2 class="section-title">{{ t("设置交易") }}</h2>
+        <p class="section-subtitle">
+          {{ t("设置交易券商，看到观点立即跳转App") }}
+        </p>
+      </div>
+    </section>
+
+    <section class="feature-card slide-in">
+      <div class="feature-text">
+        <h2 class="section-title">{{ t("验证观点") }}</h2>
+        <p class="section-subtitle">
+          {{ t("自动/手动计算绩效，验证观点的准确性") }}
+        </p>
+      </div>
+      <div class="feature-media">
+        <img src="/feed.jpeg" alt="观点验证与绩效" />
+      </div>
+    </section>
+
+    <footer class="footer slide-in">
+      <div class="footer-line">ins：pai_product</div>
+      <div class="footer-line">email：pai.product.manager@gmail.com</div>
+      <div class="footer-line">Build by Codex, Trae, Gemini</div>
+    </footer>
+
+    <section class="login-drawer">
+      <div class="drawer-content">
+        <div class="drawer-title">{{ t("使用Google账号安全登录") }}</div>
+        <button class="btn btn-google" @click="handleGoogle">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              fill="#EA4335"
+              d="M12 10.2v3.9h5.5c-.2 1.3-1.5 3.9-5.5 3.9A5.9 5.9 0 0 1 6.1 12a5.9 5.9 0 0 1 5.9-5.9c1.7 0 2.9.7 3.5 1.4l2.4-2.3C16.4 3.7 14.4 3 12 3 6.9 3 2.8 7.1 2.8 12S6.9 21 12 21c6.9 0 8.7-4.8 8.7-7.2 0-.5-.1-.9-.1-1.3H12z"
+            />
+            <path
+              fill="#34A853"
+              d="M3.9 7.2l3.2 2.3A5.9 5.9 0 0 1 12 6.1c1.7 0 2.9.7 3.5 1.4l2.4-2.3C16.4 3.7 14.4 3 12 3c-3.5 0-6.6 2-8.1 4.9z"
+            />
+            <path
+              fill="#FBBC05"
+              d="M12 21c2.3 0 4.3-.8 5.7-2.1l-2.7-2.1c-.7.5-1.7.8-3 .8a5.9 5.9 0 0 1-5.6-4H3.2v2.5A9 9 0 0 0 12 21z"
+            />
+            <path
+              fill="#4285F4"
+              d="M20.6 12.5c0-.4-.1-.9-.2-1.3H12v3.9h5.5c-.3 1.2-1.2 2.3-2.5 3.1l2.7 2.1c1.6-1.5 2.9-3.8 2.9-7.8z"
+            />
+          </svg>
+          {{ t("使用Google登录") }}
+        </button>
+
+        <p class="legal">
+          {{ t("继续即表示你同意") }}
+          <router-link class="legal-link" to="/agreement/user">
+            {{ t("《用户协议》") }}
+          </router-link>
+          ，{{ t("并确认已阅读") }}
+          <router-link class="legal-link" to="/agreement/privacy">
+            {{ t("《隐私政策》") }}
+          </router-link>
+          。
+        </p>
+      </div>
     </section>
   </div>
 </template>
@@ -106,7 +184,7 @@ const handleGoogleSupabase = async () => {
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: 32px 22px 40px;
+  padding: 32px 22px 220px;
   position: relative;
   max-width: 600px;
   margin: 0 auto;
@@ -128,24 +206,131 @@ const handleGoogleSupabase = async () => {
   display: block;
 }
 
-.title {
-  font-size: 24px;
-  margin: 18px 0 6px;
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.subtitle {
+.brand-name {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.brand-slogan {
+  font-size: 12px;
   color: var(--muted);
-  margin: 0 0 22px;
+}
+
+.hero {
+  margin-bottom: 20px;
+}
+
+.hero-title {
+  font-size: 24px;
+  margin: 18px 0 8px;
+}
+
+.hero-flow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.hero-arrow {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.hero-note {
+  color: var(--muted);
+  margin: 0;
+  font-size: 13px;
   line-height: 1.5;
 }
 
-.login-card {
+.feature-card {
   background: var(--surface);
   border-radius: var(--radius-card);
-  padding: 20px;
+  padding: 18px;
   border: 1px solid var(--border);
   position: relative;
   z-index: 1;
+  margin-bottom: 18px;
+  display: grid;
+  gap: 16px;
+}
+
+.split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+}
+
+.split.reverse {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.feature-text {
+  display: grid;
+  gap: 10px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.section-subtitle {
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.5;
+  font-size: 13px;
+}
+
+.feature-media {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.feature-media img {
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+  display: block;
+  object-fit: cover;
+}
+
+.steps {
+  display: grid;
+  gap: 12px;
+}
+
+.step-item {
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 4px;
+}
+
+.step-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.step-sub {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
 }
 
 .btn {
@@ -162,7 +347,7 @@ const handleGoogleSupabase = async () => {
 
 .btn-google {
   width: 100%;
-  margin-top: 6px;
+  margin-top: 8px;
   color: var(--ink);
   display: flex;
   align-items: center;
@@ -175,7 +360,7 @@ const handleGoogleSupabase = async () => {
 }
 
 .legal {
-  margin-top: 16px;
+  margin-top: 12px;
   font-size: 12px;
   color: var(--muted);
   line-height: 1.5;
@@ -193,6 +378,45 @@ const handleGoogleSupabase = async () => {
 
 .fade-in {
   animation: fadeIn 650ms ease both;
+}
+
+.footer {
+  text-align: center;
+  margin-top: 8px;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.footer-line {
+  line-height: 1.4;
+}
+
+.login-drawer {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: 100%;
+  max-width: 600px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 18px rgba(15, 20, 25, 0.08);
+  z-index: 10;
+}
+
+.drawer-content {
+  padding: 16px 22px 18px;
+  display: grid;
+  gap: 6px;
+}
+
+.drawer-title {
+  font-weight: 600;
+  font-size: 14px;
 }
 
 @keyframes slideUp {
@@ -217,11 +441,20 @@ const handleGoogleSupabase = async () => {
 
 @media (max-width: 420px) {
   .phone-frame {
-    padding: 28px 18px 36px;
+    padding: 28px 18px 240px;
   }
 
-  .title {
+  .hero-title {
     font-size: 22px;
+  }
+
+  .split,
+  .split.reverse {
+    grid-template-columns: 1fr;
+  }
+
+  .drawer-content {
+    padding: 14px 18px 16px;
   }
 }
 </style>
