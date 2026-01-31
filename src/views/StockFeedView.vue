@@ -86,16 +86,10 @@
                 </button>
               </div>
             </div>
-            <div class="x-axis">
-              <span class="x-axis-label" :style="{ left: axisLabels.timeStartPos }">
-                {{ axisLabels.timeStart }}
-              </span>
-              <span class="x-axis-label" :style="{ left: axisLabels.timeMidPos }">
-                {{ axisLabels.timeMid }}
-              </span>
-              <span class="x-axis-label" :style="{ left: axisLabels.timeEndPos }">
-                {{ axisLabels.timeEnd }}
-              </span>
+            <div class="x-axis" :style="candleLayout">
+              <span class="x-axis-label left">{{ axisLabels.timeStart }}</span>
+              <span class="x-axis-label mid">{{ axisLabels.timeMid }}</span>
+              <span class="x-axis-label right">{{ axisLabels.timeEnd }}</span>
             </div>
             <div v-if="activePrice" class="hint-card chart-hint" :class="hintPlacement">
               <div class="hint-row">
@@ -811,9 +805,6 @@ const axisLabels = computed(() => {
       timeStart: "—",
       timeMid: "—",
       timeEnd: "—",
-      timeStartPos: "0%",
-      timeMidPos: "50%",
-      timeEndPos: "100%",
     };
   }
   const { min, max, range, baseOpen, step } = chartRange.value;
@@ -831,8 +822,7 @@ const axisLabels = computed(() => {
   }));
   const lastIndex = chartTimeline.value.length - 1;
   const midIndex = Math.floor(lastIndex / 2);
-  const count = chartTimeline.value.length;
-  const buildPos = (index) => `${((index + 0.5) / count) * 100}%`;
+  const count = chartPrices.value.length || chartTimeline.value.length;
   const formatAxisDate = (value) => {
     if (!value) return "—";
     const date = new Date(value);
@@ -850,9 +840,6 @@ const axisLabels = computed(() => {
     timeStart,
     timeMid,
     timeEnd,
-    timeStartPos: buildPos(0),
-    timeMidPos: buildPos(midIndex),
-    timeEndPos: buildPos(lastIndex),
   };
 });
 
@@ -1581,7 +1568,7 @@ watch(isCreateOpen, (value) => {
   color: var(--muted);
   z-index: 2;
   display: block;
-  align-items: center;
+  padding: 0 var(--candle-pad, 0px);
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -1589,9 +1576,26 @@ watch(isCreateOpen, (value) => {
 .x-axis-label {
   text-align: center;
   white-space: nowrap;
-  transform: translateY(0);
   position: absolute;
+  transform: translateY(0);
+}
+
+.x-axis-label.left {
+  left: var(--candle-pad, 0px);
+  transform: translateX(0);
+  text-align: left;
+}
+
+.x-axis-label.mid {
+  left: 50%;
   transform: translateX(-50%);
+}
+
+.x-axis-label.right {
+  right: var(--candle-pad, 0px);
+  left: auto;
+  transform: translateX(0);
+  text-align: right;
 }
 
 @media (max-width: 420px) {
