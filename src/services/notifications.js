@@ -83,3 +83,21 @@ export async function fetchNotificationsSupabase(userId, limitOrOptions = 20) {
     feeds: feedMap[row.target_feed_id || row.ref_feed_id] || null,
   }));
 }
+
+export async function addNotificationSupabase(payload = {}) {
+  const { user_id, type, actor_user_id, ref_feed_id, title, detail } = payload;
+  if (!user_id || !type) return false;
+  const { error } = await supabase.from("notifications").insert({
+    user_id,
+    type,
+    actor_user_id,
+    ref_feed_id,
+    title,
+    detail,
+  });
+  if (error) {
+    console.error("创建 notifications 失败:", error);
+    return false;
+  }
+  return true;
+}

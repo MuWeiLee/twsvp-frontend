@@ -255,6 +255,7 @@ import {
   updateFeedLikeCountSupabase,
 } from "../services/feeds.js";
 import { supabase } from "../services/supabase.js";
+import { addNotificationSupabase } from "../services/notifications.js";
 
 const router = useRouter();
 const activeTab = ref("all");
@@ -543,6 +544,13 @@ const loadRecommendations = async () => {
 const handleQuickFollow = async () => {
   recommendedUsers.value.forEach((item) => {
     if (item.user_id) followedUsers.value.add(item.user_id);
+    if (currentUserId.value && item.user_id && item.user_id !== currentUserId.value) {
+      addNotificationSupabase({
+        user_id: item.user_id,
+        type: "follow",
+        actor_user_id: currentUserId.value,
+      });
+    }
   });
   recommendedStocks.value.forEach((item) => {
     if (item.symbol) followedStocks.value.add(item.symbol);

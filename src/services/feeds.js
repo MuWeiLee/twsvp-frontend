@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { addNotificationSupabase } from "./notifications.js";
 import { t } from "./i18n.js";
 
 const DIRECTION_LABELS = {
@@ -294,6 +295,25 @@ export async function addFeedReplySupabase({ feedId, userId, content }) {
   if (error) {
     console.error("创建 feed_replies 失败:", error);
     return null;
+  }
+
+  try {
+    const { data: feedRow } = await supabase
+      .from("feeds")
+      .select("feed_id,user_id")
+      .eq("feed_id", feedId)
+      .single();
+    const ownerId = feedRow?.user_id;
+    if (ownerId && ownerId !== userId) {
+      await addNotificationSupabase({
+        user_id: ownerId,
+        type: "comment",
+        actor_user_id: userId,
+        ref_feed_id: feedId,
+      });
+    }
+  } catch (notifyError) {
+    console.error("创建留言通知失败:", notifyError);
   }
 
   return data;

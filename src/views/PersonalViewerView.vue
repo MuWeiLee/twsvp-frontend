@@ -198,6 +198,7 @@ import {
   removeFeedLikeSupabase,
   updateFeedLikeCountSupabase,
 } from "../services/feeds.js";
+import { addNotificationSupabase } from "../services/notifications.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -368,6 +369,13 @@ const toggleFollow = () => {
     list.delete(userId);
   } else {
     list.add(userId);
+    if (currentUserId.value && currentUserId.value !== userId) {
+      addNotificationSupabase({
+        user_id: userId,
+        type: "follow",
+        actor_user_id: currentUserId.value,
+      });
+    }
   }
   saveFollowedUsers(list);
   isFollowing.value = list.has(userId);
