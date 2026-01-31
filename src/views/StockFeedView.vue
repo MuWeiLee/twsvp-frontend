@@ -87,9 +87,15 @@
               </div>
             </div>
             <div class="x-axis">
-              <span>{{ axisLabels.timeStart }}</span>
-              <span>{{ axisLabels.timeMid }}</span>
-              <span>{{ axisLabels.timeEnd }}</span>
+              <span :style="{ left: axisLabels.timeStartPos }">
+                {{ axisLabels.timeStart }}
+              </span>
+              <span :style="{ left: axisLabels.timeMidPos }">
+                {{ axisLabels.timeMid }}
+              </span>
+              <span :style="{ left: axisLabels.timeEndPos }">
+                {{ axisLabels.timeEnd }}
+              </span>
             </div>
             <div v-if="activePrice" class="hint-card chart-hint" :class="hintPlacement">
               <div class="hint-row">
@@ -123,12 +129,7 @@
       </section>
 
       <section class="news-card">
-        <div class="news-header">
-          <div class="news-title">{{ t("最新资讯") }}</div>
-          <button class="news-more" type="button" @click="goNews">
-            {{ t("更多") }}
-          </button>
-        </div>
+        <div class="list-title">{{ t("最新资讯") }}</div>
         <div v-if="newsItems.length" class="news-list">
           <button
             v-for="item in newsItems"
@@ -152,10 +153,7 @@
       </section>
 
       <section class="sentiment-card">
-        <div class="sentiment-title">
-          <span>{{ t("近 7 日观点统计") }}</span>
-          <span class="sentiment-subtitle">{{ t("多空对比") }}</span>
-        </div>
+        <div class="list-title">{{ t("近 7 日观点统计") }}</div>
         <div class="sentiment-row">
           <span>{{ t("看多") }} {{ sevenDayStats.longPct }}%</span>
           <span>{{ t("中性") }} {{ sevenDayStats.neutralPct }}%</span>
@@ -773,7 +771,16 @@ const chartPrices = computed(() => {
 
 const axisLabels = computed(() => {
   if (!chartTimeline.value.length) {
-    return { price: [], pct: [], timeStart: "—", timeMid: "—", timeEnd: "—" };
+    return {
+      price: [],
+      pct: [],
+      timeStart: "—",
+      timeMid: "—",
+      timeEnd: "—",
+      timeStartPos: "0%",
+      timeMidPos: "50%",
+      timeEndPos: "100%",
+    };
   }
   const { min, max, range, baseOpen, step } = chartRange.value;
   const decimals = getPriceDecimals(step);
@@ -790,10 +797,21 @@ const axisLabels = computed(() => {
   }));
   const lastIndex = chartTimeline.value.length - 1;
   const midIndex = Math.floor(lastIndex / 2);
+  const count = chartTimeline.value.length;
+  const buildPos = (index) => `${((index + 0.5) / count) * 100}%`;
   const timeStart = formatHintDate(chartTimeline.value[0]);
   const timeMid = formatHintDate(chartTimeline.value[midIndex]);
   const timeEnd = formatHintDate(chartTimeline.value[lastIndex]);
-  return { price: priceLabels, pct: pctLabels, timeStart, timeMid, timeEnd };
+  return {
+    price: priceLabels,
+    pct: pctLabels,
+    timeStart,
+    timeMid,
+    timeEnd,
+    timeStartPos: buildPos(0),
+    timeMidPos: buildPos(midIndex),
+    timeEndPos: buildPos(lastIndex),
+  };
 });
 
 const activePrice = computed(() => {
@@ -812,6 +830,7 @@ const candleLayout = computed(() => {
   return {
     "--candle-gap": `${gap}px`,
     "--candle-width": `${candleWidth}px`,
+    "--candle-pad": `${gap / 2}px`,
   };
 });
 
@@ -964,10 +983,6 @@ const goProfile = (view) => {
   } else {
     router.push(`/user/${userId}`);
   }
-};
-
-const goNews = () => {
-  router.push("/news");
 };
 
 const openNews = (link) => {
@@ -1421,7 +1436,7 @@ watch(isCreateOpen, (value) => {
   width: 100%;
   position: relative;
   z-index: 2;
-  padding: 0 calc(var(--candle-gap, 6px) / 2);
+  padding: 0 var(--candle-pad, 0px);
   box-sizing: border-box;
 }
 
@@ -1518,11 +1533,16 @@ watch(isCreateOpen, (value) => {
   left: 64px;
   right: 64px;
   bottom: 4px;
-  display: flex;
-  justify-content: space-between;
+  height: 14px;
   font-size: 11px;
   color: var(--muted);
   z-index: 2;
+}
+
+.x-axis span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
 
 @media (max-width: 420px) {
@@ -1592,27 +1612,6 @@ watch(isCreateOpen, (value) => {
   gap: 10px;
 }
 
-.news-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.news-title {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.news-more {
-  border: 0;
-  background: transparent;
-  font-size: 12px;
-  color: var(--muted);
-  cursor: pointer;
-  padding: 0;
-}
-
 .news-list {
   display: grid;
   gap: 10px;
@@ -1674,20 +1673,6 @@ watch(isCreateOpen, (value) => {
   gap: 10px;
 }
 
-.sentiment-title {
-  font-size: 13px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.sentiment-subtitle {
-  font-size: 11px;
-  color: var(--muted);
-}
-
 .sentiment-row {
   display: flex;
   justify-content: space-between;
@@ -1725,6 +1710,11 @@ watch(isCreateOpen, (value) => {
   font-size: 14px;
   font-weight: 600;
   color: var(--ink);
+}
+
+.news-card .list-title,
+.sentiment-card .list-title {
+  margin-top: 0;
 }
 
 .tabs {
