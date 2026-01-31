@@ -74,13 +74,29 @@ export default async function handler(req, res) {
     const params = parseParams(req);
     const apiKey = requiredEnv("NEWSDATA_API_KEY");
     const q = params.q || process.env.NEWSDATA_Q || "";
-    const qInTitle = params.q_in_title || params.qInTitle || process.env.NEWSDATA_Q_IN_TITLE;
+    const qInTitle =
+      params.q_in_title ||
+      params.qInTitle ||
+      process.env.NEWSDATA_Q_IN_TITLE ||
+      "財報 OR 财报 OR 營收 OR 法說 OR EPS OR 展望 OR 財經 OR 财经 OR 股票 OR 股票 OR 法人 OR 投信 OR 機構 OR 机构 OR 营收";
     const qInMeta = params.q_in_meta || params.qInMeta || process.env.NEWSDATA_Q_IN_META;
-    const country = params.country || process.env.NEWSDATA_COUNTRY || "";
-    const language = params.language || process.env.NEWSDATA_LANGUAGE || "";
-    const category = params.category || process.env.NEWSDATA_CATEGORY || "";
+    const country = params.country || process.env.NEWSDATA_COUNTRY || "tw";
+    const language = params.language || process.env.NEWSDATA_LANGUAGE || "zht,zh";
+    const category =
+      params.category || process.env.NEWSDATA_CATEGORY || "business,technology,science";
     const domain = params.domain || process.env.NEWSDATA_DOMAIN || "";
     const timeframe = params.timeframe || process.env.NEWSDATA_TIMEFRAME || "";
+    const timezone = params.timezone || process.env.NEWSDATA_TIMEZONE || "asia/taipei";
+    const priorityDomain =
+      params.prioritydomain ||
+      params.priority_domain ||
+      process.env.NEWSDATA_PRIORITY_DOMAIN ||
+      "medium";
+    const removeDuplicate =
+      params.removeduplicate ||
+      params.remove_duplicate ||
+      process.env.NEWSDATA_REMOVE_DUPLICATE ||
+      "0";
     const size = params.size || process.env.NEWSDATA_SIZE || "";
     const fullContent = params.full_content || process.env.NEWSDATA_FULL_CONTENT || "";
     const page = params.page || params.next_page || process.env.NEWSDATA_PAGE || "";
@@ -99,6 +115,11 @@ export default async function handler(req, res) {
       if (domain) url.searchParams.set("domain", domain);
       if (timeframe) url.searchParams.set("timeframe", timeframe);
       if (size && includeSize) url.searchParams.set("size", size);
+      if (timezone) url.searchParams.set("timezone", timezone);
+      if (priorityDomain) url.searchParams.set("prioritydomain", priorityDomain);
+      if (removeDuplicate !== "" && removeDuplicate !== null && removeDuplicate !== undefined) {
+        url.searchParams.set("removeduplicate", removeDuplicate);
+      }
       if (fullContent && includeFullContent) {
         url.searchParams.set("full_content", fullContent);
       }
@@ -226,6 +247,9 @@ export default async function handler(req, res) {
         category,
         domain,
         timeframe,
+        timezone,
+        priorityDomain,
+        removeDuplicate,
         size,
         fullContent,
         page,
