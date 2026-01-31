@@ -19,6 +19,20 @@
         </button>
         <button
           class="tab-btn"
+          :class="{ active: activeTab === 'comment' }"
+          @click="activeTab = 'comment'"
+        >
+          {{ t("留言") }}
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'follow' }"
+          @click="activeTab = 'follow'"
+        >
+          {{ t("关注") }}
+        </button>
+        <button
+          class="tab-btn"
           :class="{ active: activeTab === 'expire' }"
           @click="activeTab = 'expire'"
         >
@@ -42,7 +56,7 @@
             v-for="item in filteredItems"
             :key="item.id"
             class="item"
-            @click="goFeed(item.feedId)"
+            @click="handleItemClick(item)"
           >
             <div class="item-main">
               <button
@@ -90,7 +104,7 @@ import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { fetchNotificationsSupabase } from "../services/notifications.js";
-import { formatFeedTimestamp } from "../services/feeds.js";
+import { formatFeedTimestamp, getReplyCount } from "../services/feeds.js";
 import { t } from "../services/i18n.js";
 
 const router = useRouter();
@@ -142,6 +156,7 @@ const buildItem = (row) => {
   let title = row.title || t("通知");
   let detail = row.detail || "";
   let tab = row.type || "";
+  let action = "feed";
 
   if (row.type === "like") {
     const likeCount = Number(feed.like_count || 0);
@@ -154,6 +169,26 @@ const buildItem = (row) => {
           })
         : t("{actorName} 点赞了你的观点。", { actorName });
     detail = row.detail || "";
+  } else if (row.type === "comment" || row.type === "reply") {
+    const replyCount = getReplyCount(feed);
+    const others = Math.max(0, replyCount - 1);
+    title =
+      others > 0
+        ? t("{actorName} 与另外 {others} 个人在你的观点留言。", {
+            actorName,
+            others,
+          })
+        : t("{actorName} 在你的观点留言。", { actorName });
+    detail = row.detail || "";
+    tab = "comment";
+  } else if (row.type === "follow") {
+    if (!row.title) {
+      title = t("{actorName}关注你", { actorName });
+    }
+    detail = row.detail || "";
+    summary = "";
+    tab = "follow";
+    action = "profile";
   } else if (row.type === "bookmark") {
     if (!row.title) {
       title = t("观点被收藏");
@@ -165,8 +200,6 @@ const buildItem = (row) => {
       });
     }
     tab = "like";
-  } else if (row.type === "comment" || row.type === "reply") {
-    return null;
   } else if (row.type === "share") {
     if (!row.title) {
       title = t("观点被分享");
@@ -219,6 +252,7 @@ const buildItem = (row) => {
     actor: actorName,
     actorAvatar: actor.avatar_url || "",
     actorInitial: getInitials(actorName),
+    action,
   };
 };
 
@@ -280,6 +314,15 @@ const refreshNotifications = async () => {
 const goFeed = (feedId) => {
   if (!feedId) return;
   router.push(`/feed/${feedId}`);
+};
+
+const handleItemClick = (item) => {
+  if (!item) return;
+  if (item.action === "profile") {
+    goProfile(item);
+    return;
+  }
+  goFeed(item.feedId);
 };
 
 const goProfile = (item) => {

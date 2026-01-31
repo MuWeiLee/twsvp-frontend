@@ -1062,7 +1062,7 @@ watch(activeResultTab, () => {
   --nav-height: 64px;
   --header-gap: 12px;
   --tab-height: 64px;
-  --search-bar-shell-height: 72px;
+  --search-bar-shell-height: 60px;
   --legal-height: 38px;
 }
 
@@ -1175,7 +1175,7 @@ watch(activeResultTab, () => {
       var(--legal-height) - env(safe-area-inset-top, 0px)
   );
   overflow-y: auto;
-  padding: 18px 16px 24px;
+  padding: 10px 16px 24px;
   display: grid;
   gap: 18px;
   align-content: start;
@@ -1200,7 +1200,8 @@ watch(activeResultTab, () => {
 }
 
 .result-tabs {
-  margin-top: 6px;
+  margin-top: 4px;
+  margin-bottom: 14px;
 }
 
 .tab-btn {

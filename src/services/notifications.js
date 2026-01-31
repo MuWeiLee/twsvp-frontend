@@ -64,7 +64,7 @@ export async function fetchNotificationsSupabase(userId, limitOrOptions = 20) {
     const { data: feeds, error: feedError } = await supabase
       .from("feeds")
       .select(
-        "feed_id,target_symbol,target_name,summary,content,expires_at,deleted_at,like_count"
+        "feed_id,target_symbol,target_name,summary,content,expires_at,deleted_at,like_count,feed_replies(count)"
       )
       .in("feed_id", feedIds);
     if (feedError) {
@@ -82,4 +82,22 @@ export async function fetchNotificationsSupabase(userId, limitOrOptions = 20) {
     actor: actorMap[row.actor_user_id] || null,
     feeds: feedMap[row.target_feed_id || row.ref_feed_id] || null,
   }));
+}
+
+export async function addNotificationSupabase(payload = {}) {
+  const { user_id, type, actor_user_id, ref_feed_id, title, detail } = payload;
+  if (!user_id || !type) return false;
+  const { error } = await supabase.from("notifications").insert({
+    user_id,
+    type,
+    actor_user_id,
+    ref_feed_id,
+    title,
+    detail,
+  });
+  if (error) {
+    console.error("创建 notifications 失败:", error);
+    return false;
+  }
+  return true;
 }

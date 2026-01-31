@@ -44,46 +44,21 @@
       </nav>
 
       <header class="tabs-wrap" :class="{ hidden: !showTabs }">
-        <div class="tabs tab-row">
-          <div class="tab-group">
-            <button
-              class="tab-btn"
-              :class="{ active: statusFilter === 'all' }"
-              @click="statusFilter = 'all'"
-            >
-              {{ t("全部") }}
-            </button>
-            <button
-              class="tab-btn"
-              :class="{ active: statusFilter === 'active' }"
-              @click="statusFilter = 'active'"
-            >
-              {{ t("进行中") }}
-            </button>
-            <button
-              class="tab-btn"
-              :class="{ active: statusFilter === 'ended' }"
-              @click="statusFilter = 'ended'"
-            >
-              {{ t("已结束") }}
-            </button>
-          </div>
-          <div class="tab-group tab-group-right">
-            <button
-              class="tab-btn"
-              :class="{ active: sortKey === 'time' }"
-              @click="sortKey = 'time'"
-            >
-              {{ t("时间") }}
-            </button>
-            <button
-              class="tab-btn"
-              :class="{ active: sortKey === 'hot' }"
-              @click="sortKey = 'hot'"
-            >
-              {{ t("热度") }}
-            </button>
-          </div>
+        <div class="tabs">
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'all' }"
+            @click="activeTab = 'all'"
+          >
+            {{ t("全部") }}
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'follow' }"
+            @click="activeTab = 'follow'"
+          >
+            {{ t("关注") }}
+          </button>
         </div>
       </header>
 
@@ -99,110 +74,142 @@
           <span :class="{ active: pullDistance >= PULL_THRESHOLD }">{{ refreshLabel }}</span>
         </div>
         <section class="feed">
-          <div v-for="view in filteredViews" :key="view.feed_id" class="thread slide-in">
-            <div class="thread-card" @click="goFeed(view.feed_id)">
-              <div class="thread-header">
-                <div class="header-left">
-                  <div class="stock" @click.stop="goStock(view)">
-                    <span class="stock-name">{{ view.target_name }}</span>
-                    <span class="stock-code">{{ view.target_symbol }}</span>
+          <div v-if="activeTab === 'follow' && !hasFollows" class="follow-empty">
+            <div class="result-title">{{ t("近14天观点最多的股票") }}</div>
+            <div class="list">
+              <div
+                v-for="stock in recommendedStocks"
+                :key="stock.symbol"
+                class="list-item"
+                @click="goRecommendedStock(stock)"
+              >
+                <strong>{{ stock.symbol }} {{ stock.name }}</strong>
+                <span v-if="stock.market">{{ stock.market }}</span>
+              </div>
+            </div>
+            <div class="recommend-divider"></div>
+            <div class="result-title">{{ t("近30天观点最多的用户") }}</div>
+            <div class="user-list">
+              <div
+                v-for="person in recommendedUsers"
+                :key="person.user_id"
+                class="user-card"
+                @click="goRecommendedUser(person)"
+              >
+                <strong>{{ person.nickname }}</strong>
+                <span>{{ t("暂无简介") }}</span>
+              </div>
+            </div>
+            <button class="recommend-action" type="button" @click="handleQuickFollow">
+              {{ t("+ 一键关注") }}
+            </button>
+          </div>
+          <template v-else>
+            <div v-for="view in filteredViews" :key="view.feed_id" class="thread slide-in">
+              <div class="thread-card" @click="goFeed(view.feed_id)">
+                <div class="thread-header">
+                  <div class="header-left">
+                    <div class="stock" @click.stop="goStock(view)">
+                      <span class="stock-name">{{ view.target_name }}</span>
+                      <span class="stock-code">{{ view.target_symbol }}</span>
+                    </div>
+                    <span class="direction" :class="view.direction">
+                      {{ view.directionLabel }}
+                    </span>
                   </div>
-                  <span class="direction" :class="view.direction">
-                    {{ view.directionLabel }}
-                  </span>
-                </div>
-                <div class="header-right">
-                  <span class="performance" :class="view.performanceDirection">
-                    {{ t("绩效：{value}", { value: view.performanceLabel }) }}
-                  </span>
-                  <div class="more-wrap">
-                    <button class="more-btn" type="button" @click.stop="toggleMenu(view.feed_id)">
-                      ...
-                    </button>
-                    <div v-if="activeMenuId === view.feed_id" class="more-menu">
-                      <template v-if="view.isAuthor">
-                        <button
-                          v-if="canEditFeed(view)"
-                          class="menu-item"
-                          type="button"
-                          @click.stop="handleEditFeed(view)"
-                        >
-                          {{ t("编辑观点") }}
-                        </button>
-                        <button
-                          v-if="view.statusPhase !== 'ended'"
-                          class="menu-item"
-                          type="button"
-                          @click.stop="handleEndFeed(view)"
-                        >
-                          {{ t("手动结束") }}
-                        </button>
-                        <button
-                          class="menu-item danger"
-                          type="button"
-                          @click.stop="handleDeleteFeed(view)"
-                        >
-                          {{ t("删除观点") }}
-                        </button>
-                      </template>
-                      <button
-                        v-else
-                        class="menu-item"
-                        type="button"
-                        @click.stop="handleHideFeed(view)"
-                      >
-                        {{ t("不看这条") }}
+                  <div class="header-right">
+                    <span class="performance" :class="view.performanceDirection">
+                      {{ t("绩效：{value}", { value: view.performanceLabel }) }}
+                    </span>
+                    <div class="more-wrap">
+                      <button class="more-btn" type="button" @click.stop="toggleMenu(view.feed_id)">
+                        ...
                       </button>
+                      <div v-if="activeMenuId === view.feed_id" class="more-menu">
+                        <template v-if="view.isAuthor">
+                          <button
+                            v-if="canEditFeed(view)"
+                            class="menu-item"
+                            type="button"
+                            @click.stop="handleEditFeed(view)"
+                          >
+                            {{ t("编辑观点") }}
+                          </button>
+                          <button
+                            v-if="view.statusPhase !== 'ended'"
+                            class="menu-item"
+                            type="button"
+                            @click.stop="handleEndFeed(view)"
+                          >
+                            {{ t("手动结束") }}
+                          </button>
+                          <button
+                            class="menu-item danger"
+                            type="button"
+                            @click.stop="handleDeleteFeed(view)"
+                          >
+                            {{ t("删除观点") }}
+                          </button>
+                        </template>
+                        <button
+                          v-else
+                          class="menu-item"
+                          type="button"
+                          @click.stop="handleHideFeed(view)"
+                        >
+                          {{ t("不看这条") }}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-              <div class="thread-meta">
-                <div class="author" @click.stop="goProfile(view)">
-                  <span class="avatar" :class="{ empty: !view.authorAvatar }">
-                    <img v-if="view.authorAvatar" :src="view.authorAvatar" alt="" />
-                    <span v-else>{{ view.authorInitial }}</span>
-                  </span>
-                  <span class="author-name">{{ view.author }}</span>
+                <div class="thread-meta">
+                  <div class="author" @click.stop="goProfile(view)">
+                    <span class="avatar" :class="{ empty: !view.authorAvatar }">
+                      <img v-if="view.authorAvatar" :src="view.authorAvatar" alt="" />
+                      <span v-else>{{ view.authorInitial }}</span>
+                    </span>
+                    <span class="author-name">{{ view.author }}</span>
+                  </div>
+                  <span class="status">{{ view.statusDisplay }}</span>
                 </div>
-                <span class="status">{{ view.statusDisplay }}</span>
-              </div>
-              <div class="summary" @click.stop="goFeed(view.feed_id)">{{ view.content }}</div>
-              <div class="thread-footer">
-                <span class="created-at">{{ view.createdDateLabel }}</span>
-                <div class="thread-actions">
-                  <span class="reply-count" aria-label="留言数">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-4 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linejoin="round"
-                      />
-                    </svg>
-                    {{ view.replyCount }}
-                  </span>
-                  <button
-                    class="like-btn"
-                    type="button"
-                    :class="{ active: view.isLiked }"
-                    @click.stop="toggleLike(view)"
-                  >
-                    👍 {{ view.like_count }}
-                  </button>
+                <div class="summary" @click.stop="goFeed(view.feed_id)">{{ view.content }}</div>
+                <div class="thread-footer">
+                  <span class="created-at">{{ view.createdDateLabel }}</span>
+                  <div class="thread-actions">
+                    <span class="reply-count" aria-label="留言数">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-4 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                      {{ view.replyCount }}
+                    </span>
+                    <button
+                      class="like-btn"
+                      type="button"
+                      :class="{ active: view.isLiked }"
+                      @click.stop="toggleLike(view)"
+                    >
+                      👍 {{ view.like_count }}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-          <div v-if="!isLoading && !filteredViews.length" class="empty">
-            {{ t("暂无观点，先发布一条吧。") }}
-          </div>
-          <div ref="loadTrigger" class="load-trigger">
-            <span v-if="isLoadingMore">{{ t("加载中...") }}</span>
-            <span v-else-if="hasMore">{{ t("下滑加载更多") }}</span>
-            <span v-else>{{ t("已加载全部") }}</span>
-          </div>
+            <div v-if="!isLoading && !filteredViews.length" class="empty">
+              {{ t("暂无观点，先发布一条吧。") }}
+            </div>
+            <div ref="loadTrigger" class="load-trigger">
+              <span v-if="isLoadingMore">{{ t("加载中...") }}</span>
+              <span v-else-if="hasMore">{{ t("下滑加载更多") }}</span>
+              <span v-else>{{ t("已加载全部") }}</span>
+            </div>
+          </template>
         </section>
       </div>
 
@@ -234,6 +241,7 @@ import { getProfileSupabase } from "../services/profile.js";
 import { t } from "../services/i18n.js";
 import {
   addFeedLikeSupabase,
+  attachFeedPerformance,
   fetchFeedsSupabase,
   fetchFeedLikesSupabase,
   formatFeedPercent,
@@ -247,10 +255,10 @@ import {
   updateFeedLikeCountSupabase,
 } from "../services/feeds.js";
 import { supabase } from "../services/supabase.js";
+import { addNotificationSupabase } from "../services/notifications.js";
 
 const router = useRouter();
-const statusFilter = ref("all");
-const sortKey = ref("time");
+const activeTab = ref("all");
 const user = ref({
   initials: "",
 });
@@ -272,10 +280,17 @@ const isRefreshing = ref(false);
 const PAGE_SIZE = 20;
 const PULL_THRESHOLD = 60;
 const PULL_MAX = 90;
+const FOLLOW_USERS_KEY = "twsvp_followed_users";
+const FOLLOW_STOCKS_KEY = "twsvp_followed_stocks";
 const loadTrigger = ref(null);
 const scrollContainer = ref(null);
 const pullDistance = ref(0);
 const touchStartY = ref(null);
+const followedUsers = ref(new Set());
+const followedStocks = ref(new Set());
+const recommendedUsers = ref([]);
+const recommendedStocks = ref([]);
+const isLoadingRecommendations = ref(false);
 let loadObserver = null;
 
 const refreshLabel = computed(() => {
@@ -283,6 +298,10 @@ const refreshLabel = computed(() => {
   if (pullDistance.value >= PULL_THRESHOLD) return t("松开刷新");
   return t("下拉刷新");
 });
+
+const hasFollows = computed(
+  () => followedUsers.value.size > 0 || followedStocks.value.size > 0
+);
 
 const filteredViews = computed(() => {
   const list = feeds.value
@@ -314,8 +333,7 @@ const filteredViews = computed(() => {
       };
     });
 
-  if (statusFilter.value === "all") return list;
-  return list.filter((view) => view.statusPhase === statusFilter.value);
+  return list;
 });
 
 const getInitials = (name) => {
@@ -360,6 +378,10 @@ const loadLikedIds = async (list = feeds.value) => {
 };
 
 const loadFeeds = async ({ append = false } = {}) => {
+  if (activeTab.value === "follow") {
+    await loadFollowFeeds({ append });
+    return;
+  }
   if (append) {
     isLoadingMore.value = true;
   } else {
@@ -367,7 +389,6 @@ const loadFeeds = async ({ append = false } = {}) => {
   }
   const data = await fetchFeedsSupabase({
     status: "all",
-    sort: sortKey.value,
     page: page.value,
     pageSize: PAGE_SIZE,
   });
@@ -380,6 +401,164 @@ const loadFeeds = async ({ append = false } = {}) => {
   } else {
     isLoading.value = false;
   }
+};
+
+const loadFollowFeeds = async ({ append = false } = {}) => {
+  if (!hasFollows.value) {
+    feeds.value = [];
+    hasMore.value = false;
+    isLoading.value = false;
+    isLoadingMore.value = false;
+    await loadRecommendations();
+    return;
+  }
+  if (append) {
+    isLoadingMore.value = true;
+  } else {
+    isLoading.value = true;
+  }
+  const userIds = [...followedUsers.value];
+  const symbols = [...followedStocks.value];
+  let query = supabase
+    .from("feeds")
+    .select(
+      "feed_id, user_id, target_symbol, target_name, direction, horizon, content, summary, status, expires_at, created_at, like_count, feed_replies(count), users!feeds_user_id_fkey(nickname, avatar_url)"
+    )
+    .is("deleted_at", null);
+
+  if (userIds.length && symbols.length) {
+    const userFilter = userIds.map((id) => `"${id}"`).join(",");
+    const symbolFilter = symbols.map((symbol) => `"${symbol}"`).join(",");
+    query = query.or(`user_id.in.(${userFilter}),target_symbol.in.(${symbolFilter})`);
+  } else if (userIds.length) {
+    query = query.in("user_id", userIds);
+  } else if (symbols.length) {
+    query = query.in("target_symbol", symbols);
+  }
+
+  query = query.order("created_at", { ascending: false });
+  const from = (page.value - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+  const { data, error } = await query.range(from, to);
+  if (error) {
+    console.error("读取关注 feeds 失败:", error);
+  }
+  const rows = await attachFeedPerformance(data || []);
+  const nextFeeds = append ? [...feeds.value, ...rows] : rows;
+  feeds.value = nextFeeds;
+  hasMore.value = rows.length === PAGE_SIZE;
+  await loadLikedIds(nextFeeds);
+  if (append) {
+    isLoadingMore.value = false;
+  } else {
+    isLoading.value = false;
+  }
+};
+
+const loadFollowState = () => {
+  try {
+    const rawUsers = localStorage.getItem(FOLLOW_USERS_KEY);
+    const rawStocks = localStorage.getItem(FOLLOW_STOCKS_KEY);
+    const users = rawUsers ? JSON.parse(rawUsers) : [];
+    const stocks = rawStocks ? JSON.parse(rawStocks) : [];
+    followedUsers.value = new Set((users || []).filter(Boolean));
+    followedStocks.value = new Set((stocks || []).filter(Boolean));
+  } catch (error) {
+    followedUsers.value = new Set();
+    followedStocks.value = new Set();
+  }
+};
+
+const saveFollowState = () => {
+  localStorage.setItem(FOLLOW_USERS_KEY, JSON.stringify([...followedUsers.value]));
+  localStorage.setItem(FOLLOW_STOCKS_KEY, JSON.stringify([...followedStocks.value]));
+};
+
+const loadRecommendations = async () => {
+  if (isLoadingRecommendations.value) return;
+  isLoadingRecommendations.value = true;
+  try {
+    const now = Date.now();
+    const userSince = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const stockSince = new Date(now - 14 * 24 * 60 * 60 * 1000).toISOString();
+    const [userRows, stockRows] = await Promise.all([
+      supabase
+        .from("feeds")
+        .select("user_id, created_at, users!feeds_user_id_fkey(nickname)")
+        .is("deleted_at", null)
+        .gte("created_at", userSince)
+        .order("created_at", { ascending: false })
+        .limit(500),
+      supabase
+        .from("feeds")
+        .select("target_symbol, target_name, created_at")
+        .is("deleted_at", null)
+        .gte("created_at", stockSince)
+        .order("created_at", { ascending: false })
+        .limit(500),
+    ]);
+    if (userRows.error) {
+      console.error("读取关注用户推荐失败:", userRows.error);
+    }
+    if (stockRows.error) {
+      console.error("读取关注股票推荐失败:", stockRows.error);
+    }
+    const userMap = new Map();
+    (userRows.data || []).forEach((row) => {
+      if (!row.user_id) return;
+      const nickname = row.users?.nickname || t("用户");
+      const entry = userMap.get(row.user_id) || {
+        user_id: row.user_id,
+        nickname,
+        count: 0,
+      };
+      entry.count += 1;
+      userMap.set(row.user_id, entry);
+    });
+    recommendedUsers.value = [...userMap.values()]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3);
+
+    const stockMap = new Map();
+    (stockRows.data || []).forEach((row) => {
+      const symbol = row.target_symbol;
+      if (!symbol) return;
+      const name = row.target_name || symbol;
+      const entry = stockMap.get(symbol) || {
+        symbol,
+        name,
+        market: row.market || "",
+        count: 0,
+      };
+      entry.count += 1;
+      stockMap.set(symbol, entry);
+    });
+    recommendedStocks.value = [...stockMap.values()]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3);
+  } finally {
+    isLoadingRecommendations.value = false;
+  }
+};
+
+const handleQuickFollow = async () => {
+  recommendedUsers.value.forEach((item) => {
+    if (item.user_id) followedUsers.value.add(item.user_id);
+    if (currentUserId.value && item.user_id && item.user_id !== currentUserId.value) {
+      addNotificationSupabase({
+        user_id: item.user_id,
+        type: "follow",
+        actor_user_id: currentUserId.value,
+      });
+    }
+  });
+  recommendedStocks.value.forEach((item) => {
+    if (item.symbol) followedStocks.value.add(item.symbol);
+  });
+  saveFollowState();
+  page.value = 1;
+  hasMore.value = true;
+  await loadFeeds();
 };
 
 const refreshFeeds = async () => {
@@ -530,8 +709,24 @@ const goStock = (view) => {
   router.push(`/stock/${symbol}`);
 };
 
+const goRecommendedStock = (stock) => {
+  const symbol = stock?.symbol;
+  if (!symbol) return;
+  router.push(`/stock/${symbol}`);
+};
+
 const goProfile = (view) => {
   const userId = view?.user_id;
+  if (!userId) return;
+  if (currentUserId.value && userId === currentUserId.value) {
+    router.push("/profile");
+  } else {
+    router.push(`/user/${userId}`);
+  }
+};
+
+const goRecommendedUser = (userItem) => {
+  const userId = userItem?.user_id;
   if (!userId) return;
   if (currentUserId.value && userId === currentUserId.value) {
     router.push("/profile");
@@ -599,6 +794,7 @@ const setupInfiniteScroll = () => {
 onMounted(loadUser);
 onMounted(loadFeeds);
 onMounted(loadHiddenIds);
+onMounted(loadFollowState);
 onMounted(async () => {
   await nextTick();
   if (scrollContainer.value) {
@@ -618,9 +814,12 @@ onUnmounted(() => {
     loadObserver.disconnect();
   }
 });
-watch([statusFilter, sortKey], async () => {
+watch(activeTab, async () => {
   page.value = 1;
   hasMore.value = true;
+  if (activeTab.value === "follow" && !hasFollows.value) {
+    await loadRecommendations();
+  }
   await loadFeeds();
   if (scrollContainer.value) {
     scrollContainer.value.scrollTo({ top: 0, behavior: "auto" });
@@ -636,7 +835,7 @@ watch([statusFilter, sortKey], async () => {
   min-height: 100vh;
   height: 100vh;
   --nav-height: 64px;
-  --tabs-height: 52px;
+  --tabs-height: 44px;
   --header-gap: 0px;
 }
 
@@ -743,21 +942,7 @@ watch([statusFilter, sortKey], async () => {
   gap: 16px;
   border-bottom: 1px solid var(--border);
   margin-top: 6px;
-}
-
-.tab-row {
   align-items: center;
-  justify-content: space-between;
-}
-
-.tab-group {
-  display: inline-flex;
-  gap: 16px;
-  align-items: center;
-}
-
-.tab-group-right {
-  margin-left: auto;
 }
 
 .tab-btn {
@@ -815,6 +1000,70 @@ watch([statusFilter, sortKey], async () => {
   margin-top: 12px;
   display: grid;
   gap: 16px;
+}
+
+.follow-empty {
+  display: grid;
+  gap: 14px;
+}
+
+.result-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+}
+
+.list-item {
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.user-list {
+  display: grid;
+  gap: 12px;
+}
+
+.user-card {
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.user-card span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.recommend-divider {
+  height: 1px;
+  background: var(--border);
+}
+
+.recommend-action {
+  border: 0;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 10px 14px;
+  cursor: pointer;
+  justify-self: start;
 }
 
 .thread {
