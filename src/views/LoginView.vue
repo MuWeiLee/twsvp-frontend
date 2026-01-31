@@ -1,15 +1,19 @@
 <template>
   <div class="phone-frame fade-in">
-    <header class="hero slide-in">
-      <div class="brand">
-        <img class="logo" :src="logoUrl" alt="TWSVP" />
-        <div class="brand-text">
-          <div class="brand-name">TWSVP</div>
-          <div class="brand-slogan">
-            {{ t("让你观点的价值被看见") }}
-          </div>
+    <nav class="nav">
+      <div class="nav-brand">
+        <div class="nav-logo">
+          <img class="nav-logo-img" :src="logoUrl" alt="TWSVP" />
+        </div>
+        <div class="nav-text">
+          <div class="nav-name">TWSVP</div>
+          <div class="nav-slogan">{{ t("让你观点的价值被看见") }}</div>
         </div>
       </div>
+      <span class="nav-space" aria-hidden="true"></span>
+    </nav>
+
+    <header class="hero slide-in">
       <h1 class="hero-title">{{ t("记录下每一个投资观点") }}</h1>
       <div class="hero-flow">
         <span>{{ t("挖掘") }}</span>
@@ -184,59 +188,100 @@ const handleGoogleSupabase = async () => {
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: 32px 22px 220px;
+  padding: 76px 22px 220px;
   position: relative;
   max-width: 600px;
   margin: 0 auto;
 }
 
-.brand {
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  height: 64px;
+  padding: 0 16px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(15, 20, 25, 0.04);
+  z-index: 6;
+}
+
+.nav-brand {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.logo {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+.nav-logo {
+  width: 32px;
+  height: 32px;
   border: 1px solid var(--border);
   background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-logo-img {
+  width: 20px;
+  height: 20px;
   object-fit: contain;
   display: block;
 }
 
-.brand-text {
+.nav-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
-.brand-name {
-  font-size: 16px;
+.nav-name {
+  font-size: 14px;
   font-weight: 600;
 }
 
-.brand-slogan {
-  font-size: 12px;
+.nav-slogan {
+  font-size: 10px;
   color: var(--muted);
+}
+
+.nav-space {
+  margin-left: auto;
 }
 
 .hero {
   margin-bottom: 20px;
+  display: grid;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 18px;
 }
 
 .hero-title {
-  font-size: 24px;
-  margin: 18px 0 8px;
+  font-size: 26px;
+  margin: 6px 0 2px;
+  letter-spacing: -0.02em;
+  font-weight: 700;
 }
 
 .hero-flow {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-weight: 600;
-  margin-bottom: 10px;
+  font-weight: 700;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  width: fit-content;
 }
 
 .hero-arrow {
@@ -247,8 +292,12 @@ const handleGoogleSupabase = async () => {
 .hero-note {
   color: var(--muted);
   margin: 0;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.5;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
 }
 
 .feature-card {
@@ -261,6 +310,16 @@ const handleGoogleSupabase = async () => {
   margin-bottom: 18px;
   display: grid;
   gap: 16px;
+}
+
+.feature-card::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 8px;
+  height: 8px;
+  background: var(--ink);
 }
 
 .split {
@@ -279,8 +338,10 @@ const handleGoogleSupabase = async () => {
 
 .section-title {
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
   margin: 0;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .section-subtitle {
@@ -306,6 +367,7 @@ const handleGoogleSupabase = async () => {
   border-radius: 6px;
   display: block;
   object-fit: cover;
+  border: 1px solid var(--border);
 }
 
 .steps {
@@ -320,6 +382,7 @@ const handleGoogleSupabase = async () => {
   border-radius: var(--radius);
   display: grid;
   gap: 4px;
+  border-left: 4px solid var(--ink);
 }
 
 .step-title {
@@ -403,7 +466,7 @@ const handleGoogleSupabase = async () => {
   width: 100%;
   max-width: 600px;
   background: var(--surface);
-  border-top: 1px solid var(--border);
+  border-top: 2px solid var(--ink);
   box-shadow: 0 -4px 18px rgba(15, 20, 25, 0.08);
   z-index: 10;
 }
@@ -441,7 +504,7 @@ const handleGoogleSupabase = async () => {
 
 @media (max-width: 420px) {
   .phone-frame {
-    padding: 28px 18px 240px;
+    padding: 72px 18px 240px;
   }
 
   .hero-title {
