@@ -362,7 +362,7 @@ const syncFollowState = (userId) => {
   isFollowing.value = userId ? list.has(userId) : false;
 };
 
-const toggleFollow = () => {
+const toggleFollow = async () => {
   const userId = resolvedUserId.value;
   if (!userId) return;
   const list = readFollowedUsers();
