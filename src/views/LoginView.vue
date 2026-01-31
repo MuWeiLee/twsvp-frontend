@@ -35,26 +35,8 @@
           {{ t("聚焦台股市场的新闻资讯") }}
         </p>
       </div>
-      <div class="news-marquee">
-        <div v-if="newsMarqueeItems.length" class="news-track">
-          <div class="news-track-inner">
-            <component
-              :is="item.link ? 'a' : 'div'"
-              v-for="item in newsMarqueeItems"
-              :key="item._key"
-              class="news-card"
-              :href="item.link || undefined"
-              :target="item.link ? '_blank' : undefined"
-              :rel="item.link ? 'noreferrer' : undefined"
-            >
-              <div class="news-title">{{ item.title || "—" }}</div>
-              <div class="news-meta">
-                {{ item.source_id || item.creator || "TWSVP" }}
-              </div>
-            </component>
-          </div>
-        </div>
-        <div v-else class="news-empty">{{ t("暂无新闻") }}</div>
+      <div class="feature-media">
+        <img src="/news.jpeg" alt="台股新闻资讯" />
       </div>
     </section>
 
@@ -192,21 +174,11 @@ import {
   getProfileCompletionSupabase,
   signInWithGoogleSupabase,
 } from "../services/auth.js";
-import { fetchNewsSupabase } from "../services/news.js";
 
 const router = useRouter();
 const heroWords = [t("验证"), t("挖掘"), t("记录")];
 const heroWordIndex = ref(0);
 const heroWord = computed(() => heroWords[heroWordIndex.value]);
-const newsItems = ref([]);
-const newsMarqueeItems = computed(() => {
-  if (!newsItems.value.length) return [];
-  const duplicated = [...newsItems.value, ...newsItems.value];
-  return duplicated.map((item, index) => ({
-    ...item,
-    _key: `${item.article_id || index}-${index}`,
-  }));
-});
 
 let heroTimer;
 
@@ -229,14 +201,6 @@ onMounted(() => {
   heroTimer = setInterval(() => {
     heroWordIndex.value = (heroWordIndex.value + 1) % heroWords.length;
   }, 2200);
-});
-
-onMounted(async () => {
-  try {
-    newsItems.value = await fetchNewsSupabase(5);
-  } catch (error) {
-    console.error("Load news failed:", error);
-  }
 });
 
 onBeforeUnmount(() => {
@@ -621,75 +585,13 @@ const handleGoogleSupabase = async () => {
 
 .hero-swap-enter-active,
 .hero-swap-leave-active {
-  transition: opacity 180ms ease, transform 180ms ease;
+  transition: opacity 300ms ease, transform 300ms ease;
 }
 
 .hero-swap-enter-from,
 .hero-swap-leave-to {
   opacity: 0;
   transform: translateY(6px);
-}
-
-.news-marquee {
-  width: 100%;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  padding: 10px;
-}
-
-.news-track {
-  overflow: hidden;
-}
-
-.news-track-inner {
-  display: flex;
-  gap: 12px;
-  width: max-content;
-  animation: newsMarquee 24s linear infinite;
-}
-
-.news-card {
-  min-width: 220px;
-  max-width: 240px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  padding: 12px;
-  text-decoration: none;
-  color: var(--ink);
-  display: grid;
-  gap: 6px;
-  border-radius: 0;
-}
-
-.news-card:visited {
-  color: var(--ink);
-}
-
-.news-title {
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.news-meta {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.news-empty {
-  font-size: 12px;
-  color: var(--muted);
-  padding: 16px 4px;
-}
-
-@keyframes newsMarquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
 }
 
 @keyframes slideUp {
