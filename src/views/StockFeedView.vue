@@ -494,6 +494,21 @@ const toggleStockFollow = () => {
   }
   saveFollowedStocks(list);
   isStockFollowed.value = next;
+  if (!currentUserId.value) return;
+  if (next) {
+    supabase
+      .from("user_stock_follows")
+      .upsert(
+        { user_id: currentUserId.value, stock_symbol: symbol },
+        { onConflict: "user_id,stock_symbol" }
+      );
+  } else {
+    supabase
+      .from("user_stock_follows")
+      .delete()
+      .eq("user_id", currentUserId.value)
+      .eq("stock_symbol", symbol);
+  }
 };
 let chartResizeObserver;
 

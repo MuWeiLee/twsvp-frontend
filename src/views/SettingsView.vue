@@ -520,9 +520,9 @@ const setLanguage = async (value) => {
 }
 
 .btn-danger {
-  border: 0;
-  background: var(--ink);
-  color: #fff;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
   border-radius: 10px;
   padding: 10px 14px;
   font-size: 13px;
