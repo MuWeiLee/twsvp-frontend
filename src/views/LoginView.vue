@@ -15,36 +15,43 @@
 
     <header class="hero slide-in">
       <h1 class="hero-title">
-        <span class="hero-rotate" aria-live="polite">
-          <span class="hero-rotate-inner">
-            <span>{{ t("验证") }}</span>
-            <span>{{ t("挖掘") }}</span>
-            <span>{{ t("记录") }}</span>
-          </span>
-        </span>
-        <span class="hero-title-rest">{{ t("每一个投资观点") }}</span>
+        <transition name="hero-swap" mode="out-in">
+          <span :key="heroWord" class="hero-word">{{ heroWord }}</span>
+        </transition>
+        <span class="hero-rest">{{ t("每一个投资观点") }}</span>
       </h1>
-      <div class="hero-flow">
-        <span>{{ t("挖掘") }}</span>
-        <span class="hero-arrow">-&gt;</span>
-        <span>{{ t("记录") }}</span>
-        <span class="hero-arrow">-&gt;</span>
-        <span>{{ t("验证") }}</span>
-      </div>
       <p class="hero-note">
         {{ t("请使用 Safari / Chrome 浏览器开启并登录") }}
       </p>
     </header>
 
-    <section class="feature-card slide-in">
+    <section class="feature-card split slide-in">
       <div class="feature-text">
         <h2 class="section-title">{{ t("挖掘资讯") }}</h2>
         <p class="section-subtitle">
           {{ t("聚焦台股市场的新闻资讯") }}
         </p>
       </div>
-      <div class="feature-media">
-        <img src="/news.jpeg" alt="台股新闻资讯" />
+      <div class="news-marquee">
+        <div v-if="newsMarqueeItems.length" class="news-track">
+          <div class="news-track-inner">
+            <component
+              :is="item.link ? 'a' : 'div'"
+              v-for="item in newsMarqueeItems"
+              :key="item._key"
+              class="news-card"
+              :href="item.link || undefined"
+              :target="item.link ? '_blank' : undefined"
+              :rel="item.link ? 'noreferrer' : undefined"
+            >
+              <div class="news-title">{{ item.title || "—" }}</div>
+              <div class="news-meta">
+                {{ item.source_id || item.creator || "TWSVP" }}
+              </div>
+            </component>
+          </div>
+        </div>
+        <div v-else class="news-empty">{{ t("暂无新闻") }}</div>
       </div>
     </section>
 
@@ -87,7 +94,7 @@
       </div>
     </section>
 
-    <section class="feature-card slide-in">
+    <section class="feature-card split slide-in">
       <div class="feature-text">
         <h2 class="section-title">{{ t("验证观点") }}</h2>
         <p class="section-subtitle">
@@ -162,7 +169,7 @@
 </template>
 
 <script setup>
-import { onMounted } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import logoUrl from "../assets/logo.png";
 import { useRouter } from "vue-router";
 import { t } from "../services/i18n.js";
@@ -173,8 +180,23 @@ import {
   getProfileCompletionSupabase,
   signInWithGoogleSupabase,
 } from "../services/auth.js";
+import { fetchNewsSupabase } from "../services/news.js";
 
 const router = useRouter();
+const heroWords = [t("验证"), t("挖掘"), t("记录")];
+const heroWordIndex = ref(0);
+const heroWord = computed(() => heroWords[heroWordIndex.value]);
+const newsItems = ref([]);
+const newsMarqueeItems = computed(() => {
+  if (!newsItems.value.length) return [];
+  const duplicated = [...newsItems.value, ...newsItems.value];
+  return duplicated.map((item, index) => ({
+    ...item,
+    _key: `${item.article_id || index}-${index}`,
+  }));
+});
+
+let heroTimer;
 
 onMounted(async () => {
   // 优先检查 Supabase 会话，同时兼容旧 token
@@ -189,6 +211,24 @@ onMounted(async () => {
     }
     router.replace("/feed");
   }
+});
+
+onMounted(() => {
+  heroTimer = setInterval(() => {
+    heroWordIndex.value = (heroWordIndex.value + 1) % heroWords.length;
+  }, 2200);
+});
+
+onMounted(async () => {
+  try {
+    newsItems.value = await fetchNewsSupabase(5);
+  } catch (error) {
+    console.error("Load news failed:", error);
+  }
+});
+
+onBeforeUnmount(() => {
+  if (heroTimer) clearInterval(heroTimer);
 });
 
 const handleGoogle = () => {
@@ -258,7 +298,7 @@ const handleGoogleSupabase = async () => {
 .nav-logo-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 
@@ -329,54 +369,26 @@ const handleGoogleSupabase = async () => {
 }
 
 .hero-title {
-  font-size: 26px;
+  font-size: 32px;
   margin: 6px 0 2px;
   letter-spacing: -0.02em;
   font-weight: 700;
   display: inline-flex;
   align-items: baseline;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
-.hero-rotate {
-  display: inline-block;
-  height: 1.1em;
-  overflow: hidden;
-  border-bottom: 2px solid var(--ink);
-  padding: 0 2px;
-}
-
-.hero-rotate-inner {
-  display: block;
-  animation: rotateWords 6s infinite;
-}
-
-.hero-rotate-inner span {
-  display: block;
-  height: 1.1em;
-}
-
-.hero-title-rest {
-  display: inline-block;
-}
-
-.hero-flow {
+.hero-word {
   display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 700;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  width: fit-content;
-  justify-self: center;
+  align-items: baseline;
+  justify-content: center;
+  min-width: 2.4em;
 }
 
-.hero-arrow {
-  color: var(--muted);
-  font-weight: 500;
+.hero-rest {
+  display: inline-block;
 }
 
 .hero-note {
@@ -522,7 +534,7 @@ const handleGoogleSupabase = async () => {
 }
 
 .footer {
-  text-align: center;
+  text-align: left;
   margin-top: 8px;
   padding: 16px 0 0;
   border-top: 1px solid var(--border);
@@ -530,6 +542,7 @@ const handleGoogleSupabase = async () => {
   font-size: 12px;
   display: grid;
   gap: 6px;
+  justify-items: start;
 }
 
 .footer-line {
@@ -550,8 +563,8 @@ const handleGoogleSupabase = async () => {
   width: 100%;
   max-width: 600px;
   background: var(--surface);
-  border-top: 2px solid var(--ink);
-  border-radius: 12px 12px 0 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
   box-shadow: 0 -4px 18px rgba(15, 20, 25, 0.08);
   z-index: 10;
 }
@@ -567,21 +580,76 @@ const handleGoogleSupabase = async () => {
   font-size: 14px;
 }
 
-@keyframes rotateWords {
-  0%,
-  20% {
-    transform: translateY(0%);
+.hero-swap-enter-active,
+.hero-swap-leave-active {
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.hero-swap-enter-from,
+.hero-swap-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.news-marquee {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  padding: 10px;
+}
+
+.news-track {
+  overflow: hidden;
+}
+
+.news-track-inner {
+  display: flex;
+  gap: 12px;
+  width: max-content;
+  animation: newsMarquee 24s linear infinite;
+}
+
+.news-card {
+  min-width: 220px;
+  max-width: 240px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 12px;
+  text-decoration: none;
+  color: var(--ink);
+  display: grid;
+  gap: 6px;
+  border-radius: 0;
+}
+
+.news-card:visited {
+  color: var(--ink);
+}
+
+.news-title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.news-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.news-empty {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 16px 4px;
+}
+
+@keyframes newsMarquee {
+  from {
+    transform: translateX(0);
   }
-  33%,
-  53% {
-    transform: translateY(-100%);
-  }
-  66%,
-  86% {
-    transform: translateY(-200%);
-  }
-  100% {
-    transform: translateY(0%);
+  to {
+    transform: translateX(-50%);
   }
 }
 
@@ -605,13 +673,20 @@ const handleGoogleSupabase = async () => {
   }
 }
 
-@media (max-width: 420px) {
+@media (max-width: 520px) {
   .phone-frame {
     padding: 72px 18px 240px;
   }
 
   .hero-title {
-    font-size: 22px;
+    font-size: 28px;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .hero-word {
+    min-width: auto;
   }
 
   .split,
