@@ -48,7 +48,38 @@
           ></div>
         </div>
 
-        <div class="section-title">{{ t("涨跌设置") }}</div>
+        <div class="section-title">{{ t("主题设置") }}</div>
+        <div class="setting-item">
+          <div class="setting-meta">
+            <strong>{{ t("系统颜色") }}</strong>
+          </div>
+          <div class="option-group">
+            <button
+              class="option-btn"
+              :class="{ active: themePreference === 'system' }"
+              type="button"
+              @click="setTheme('system')"
+            >
+              {{ t("跟随系统") }}
+            </button>
+            <button
+              class="option-btn"
+              :class="{ active: themePreference === 'light' }"
+              type="button"
+              @click="setTheme('light')"
+            >
+              {{ t("浅色") }}
+            </button>
+            <button
+              class="option-btn"
+              :class="{ active: themePreference === 'dark' }"
+              type="button"
+              @click="setTheme('dark')"
+            >
+              {{ t("深色") }}
+            </button>
+          </div>
+        </div>
         <div class="setting-item">
           <div class="setting-meta">
             <strong>{{ t("涨跌颜色") }}</strong>
@@ -188,8 +219,10 @@ import { t } from "../services/i18n.js";
 import {
   applyLanguagePreference,
   applyPriceScheme,
+  applyThemePreference,
   getLanguagePreference,
   getPriceScheme,
+  getThemePreference,
   getStoredLanguagePreference,
 } from "../services/preferences.js";
 import { fetchBrokerPreferenceSupabase, getBrokerById } from "../services/brokers.js";
@@ -205,6 +238,7 @@ const preferences = reactive({
 });
 
 const priceScheme = ref("red_up");
+const themePreference = ref("system");
 const language = ref(getLanguagePreference());
 const currentUserId = ref("");
 const brokerId = ref("");
@@ -220,6 +254,10 @@ const toggle = (key) => {
 
 const setPriceScheme = (scheme) => {
   priceScheme.value = applyPriceScheme(scheme);
+};
+
+const setTheme = (theme) => {
+  themePreference.value = applyThemePreference(theme);
 };
 
 const loadAccount = async () => {
@@ -256,6 +294,8 @@ const handleLogout = async () => {
 const loadPreferences = () => {
   priceScheme.value = getPriceScheme();
   applyPriceScheme(priceScheme.value);
+  themePreference.value = getThemePreference();
+  applyThemePreference(themePreference.value);
 };
 
 onMounted(loadAccount);
