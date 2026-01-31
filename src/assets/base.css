@@ -47,7 +47,7 @@ body {
 
 input,
 textarea {
-  color: var(--ink);
+  color: var(--muted);
 }
 
 input::placeholder,
