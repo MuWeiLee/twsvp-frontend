@@ -86,14 +86,10 @@
                 </button>
               </div>
             </div>
-            <div class="x-axis" :style="candleLayout">
-              <span
-                v-for="price in chartPrices"
-                :key="`axis-${price.trade_date}`"
-                class="x-axis-label"
-              >
-                {{ formatAxisDate(price.trade_date) }}
-              </span>
+            <div class="x-axis">
+              <span class="x-axis-label">{{ axisLabels.timeStart }}</span>
+              <span class="x-axis-label">{{ axisLabels.timeMid }}</span>
+              <span class="x-axis-label">{{ axisLabels.timeEnd }}</span>
             </div>
             <div v-if="activePrice" class="hint-card chart-hint" :class="hintPlacement">
               <div class="hint-row">
@@ -126,7 +122,7 @@
         </div>
       </section>
 
-      <div class="list-title">{{ t("最新资讯") }}</div>
+      <div class="list-title list-title-spaced">{{ t("最新资讯") }}</div>
       <section v-if="newsItems.length" class="news-list">
         <article
           v-for="item in newsItems"
@@ -146,7 +142,7 @@
       </section>
       <div v-else class="news-empty">{{ t("暂无资讯") }}</div>
 
-      <div class="list-title">{{ t("近 7 日观点统计") }}</div>
+      <div class="list-title list-title-spaced">{{ t("近 7 日观点统计") }}</div>
       <section class="sentiment-card">
         <div class="sentiment-row">
           <span>{{ t("看多") }} {{ sevenDayStats.longPct }}%</span>
@@ -531,14 +527,6 @@ const formatHintDate = (value) => {
   return `${year}/${month}/${day}`;
 };
 
-const formatAxisDate = (value) => {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  return `${month}/${day}`;
-};
 
 const formatPrice = (value) => {
   if (value === null || value === undefined) return "—";
@@ -827,9 +815,17 @@ const axisLabels = computed(() => {
   }));
   const lastIndex = chartTimeline.value.length - 1;
   const midIndex = Math.floor(lastIndex / 2);
-  const timeStart = formatHintDate(chartTimeline.value[0]);
-  const timeMid = formatHintDate(chartTimeline.value[midIndex]);
-  const timeEnd = formatHintDate(chartTimeline.value[lastIndex]);
+  const formatAxisDate = (value) => {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+    const month = `${date.getMonth() + 1}`.padStart(2, "0");
+    const day = `${date.getDate()}`.padStart(2, "0");
+    return `${month}/${day}`;
+  };
+  const timeStart = formatAxisDate(chartTimeline.value[0]);
+  const timeMid = formatAxisDate(chartTimeline.value[midIndex]);
+  const timeEnd = formatAxisDate(chartTimeline.value[lastIndex]);
   return {
     price: priceLabels,
     pct: pctLabels,
@@ -1563,15 +1559,14 @@ watch(isCreateOpen, (value) => {
   font-size: 10px;
   color: var(--muted);
   z-index: 2;
-  display: flex;
-  gap: var(--candle-gap, 6px);
-  padding: 0 var(--candle-pad, 0px);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: center;
   box-sizing: border-box;
   overflow: hidden;
 }
 
 .x-axis-label {
-  width: var(--candle-width, 6px);
   text-align: center;
   white-space: nowrap;
   transform: translateY(0);
@@ -1734,6 +1729,11 @@ watch(isCreateOpen, (value) => {
   font-size: 14px;
   font-weight: 600;
   color: var(--ink);
+}
+
+.list-title-spaced {
+  margin-top: 18px;
+  margin-bottom: 6px;
 }
 
 .tabs {

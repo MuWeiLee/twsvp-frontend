@@ -74,34 +74,30 @@
           <span :class="{ active: pullDistance >= PULL_THRESHOLD }">{{ refreshLabel }}</span>
         </div>
         <section class="feed">
-          <div
-            v-if="activeTab === 'follow' && !hasFollows"
-            class="follow-empty"
-          >
-            <div class="recommend-section">
-              <div class="recommend-title">{{ t("近14天观点最多的股票") }}</div>
-              <div class="recommend-list">
-                <div
-                  v-for="stock in recommendedStocks"
-                  :key="stock.symbol"
-                  class="recommend-item"
-                >
-                  <span class="recommend-name">{{ stock.name }}</span>
-                  <span class="recommend-code">{{ stock.symbol }}</span>
-                </div>
+          <div v-if="activeTab === 'follow' && !hasFollows" class="follow-empty">
+            <div class="result-title">{{ t("近14天观点最多的股票") }}</div>
+            <div class="list">
+              <div
+                v-for="stock in recommendedStocks"
+                :key="stock.symbol"
+                class="list-item"
+                @click="goRecommendedStock(stock)"
+              >
+                <strong>{{ stock.symbol }} {{ stock.name }}</strong>
+                <span v-if="stock.market">{{ stock.market }}</span>
               </div>
             </div>
             <div class="recommend-divider"></div>
-            <div class="recommend-section">
-              <div class="recommend-title">{{ t("近30天观点最多的用户") }}</div>
-              <div class="recommend-list">
-                <div
-                  v-for="person in recommendedUsers"
-                  :key="person.user_id"
-                  class="recommend-item"
-                >
-                  <span class="recommend-name">{{ person.nickname }}</span>
-                </div>
+            <div class="result-title">{{ t("近30天观点最多的用户") }}</div>
+            <div class="user-list">
+              <div
+                v-for="person in recommendedUsers"
+                :key="person.user_id"
+                class="user-card"
+                @click="goRecommendedUser(person)"
+              >
+                <strong>{{ person.nickname }}</strong>
+                <span>{{ t("暂无简介") }}</span>
               </div>
             </div>
             <button class="recommend-action" type="button" @click="handleQuickFollow">
@@ -530,6 +526,7 @@ const loadRecommendations = async () => {
       const entry = stockMap.get(symbol) || {
         symbol,
         name,
+        market: row.market || "",
         count: 0,
       };
       entry.count += 1;
@@ -704,8 +701,24 @@ const goStock = (view) => {
   router.push(`/stock/${symbol}`);
 };
 
+const goRecommendedStock = (stock) => {
+  const symbol = stock?.symbol;
+  if (!symbol) return;
+  router.push(`/stock/${symbol}`);
+};
+
 const goProfile = (view) => {
   const userId = view?.user_id;
+  if (!userId) return;
+  if (currentUserId.value && userId === currentUserId.value) {
+    router.push("/profile");
+  } else {
+    router.push(`/user/${userId}`);
+  }
+};
+
+const goRecommendedUser = (userItem) => {
+  const userId = userItem?.user_id;
   if (!userId) return;
   if (currentUserId.value && userId === currentUserId.value) {
     router.push("/profile");
@@ -982,50 +995,50 @@ watch(activeTab, async () => {
 }
 
 .follow-empty {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  padding: 16px;
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 
-.recommend-section {
+.result-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.list {
   display: grid;
   gap: 10px;
 }
 
-.recommend-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.recommend-list {
-  display: grid;
-  gap: 6px;
-}
-
-.recommend-item {
+.list-item {
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  padding: 10px 12px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid var(--border);
-  padding: 8px 0;
-  font-size: 14px;
-  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
 }
 
-.recommend-item:last-child {
-  border-bottom: 0;
+.user-list {
+  display: grid;
+  gap: 12px;
 }
 
-.recommend-name {
-  font-weight: 600;
+.user-card {
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+  cursor: pointer;
 }
 
-.recommend-code {
-  color: var(--muted);
+.user-card span {
   font-size: 12px;
+  color: var(--muted);
 }
 
 .recommend-divider {
@@ -1042,7 +1055,7 @@ watch(activeTab, async () => {
   border-radius: 999px;
   padding: 10px 14px;
   cursor: pointer;
-  justify-self: center;
+  justify-self: start;
 }
 
 .thread {
