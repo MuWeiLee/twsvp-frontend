@@ -14,7 +14,16 @@
     </nav>
 
     <header class="hero slide-in">
-      <h1 class="hero-title">{{ t("记录下每一个投资观点") }}</h1>
+      <h1 class="hero-title">
+        <span class="hero-rotate" aria-live="polite">
+          <span class="hero-rotate-inner">
+            <span>{{ t("验证") }}</span>
+            <span>{{ t("挖掘") }}</span>
+            <span>{{ t("记录") }}</span>
+          </span>
+        </span>
+        <span class="hero-title-rest">{{ t("每一个投资观点") }}</span>
+      </h1>
       <div class="hero-flow">
         <span>{{ t("挖掘") }}</span>
         <span class="hero-arrow">-&gt;</span>
@@ -91,8 +100,23 @@
     </section>
 
     <footer class="footer slide-in">
-      <div class="footer-line">ins：pai_product</div>
-      <div class="footer-line">email：pai.product.manager@gmail.com</div>
+      <div class="footer-line">
+        ins：
+        <a
+          class="footer-link"
+          href="https://www.instagram.com/pai_product?igsh=ZDV0cG5nMXlobGRm&utm_source=qr"
+          target="_blank"
+          rel="noreferrer"
+        >
+          pai_product
+        </a>
+      </div>
+      <div class="footer-line">
+        email：
+        <a class="footer-link" href="mailto:pai.product.manager@gmail.com">
+          pai.product.manager@gmail.com
+        </a>
+      </div>
       <div class="footer-line">Build by Codex, Trae, Gemini</div>
     </footer>
 
@@ -228,12 +252,13 @@ const handleGoogleSupabase = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 0;
 }
 
 .nav-logo-img {
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   display: block;
 }
 
@@ -264,6 +289,43 @@ const handleGoogleSupabase = async () => {
   background: var(--surface);
   border: 1px solid var(--border);
   padding: 18px;
+  text-align: center;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+  border-radius: 0;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+      rgba(18, 20, 23, 0.18) 1px,
+      transparent 1px
+    ),
+    radial-gradient(rgba(118, 187, 64, 0.22) 1px, transparent 1px);
+  background-size: 12px 12px, 22px 22px;
+  background-position: 0 0, 40px 30px;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 70% 20%,
+    rgba(118, 187, 64, 0.12),
+    transparent 55%
+  );
+  pointer-events: none;
+}
+
+.hero > * {
+  position: relative;
+  z-index: 1;
 }
 
 .hero-title {
@@ -271,6 +333,33 @@ const handleGoogleSupabase = async () => {
   margin: 6px 0 2px;
   letter-spacing: -0.02em;
   font-weight: 700;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.hero-rotate {
+  display: inline-block;
+  height: 1.1em;
+  overflow: hidden;
+  border-bottom: 2px solid var(--ink);
+  padding: 0 2px;
+}
+
+.hero-rotate-inner {
+  display: block;
+  animation: rotateWords 6s infinite;
+}
+
+.hero-rotate-inner span {
+  display: block;
+  height: 1.1em;
+}
+
+.hero-title-rest {
+  display: inline-block;
 }
 
 .hero-flow {
@@ -278,10 +367,11 @@ const handleGoogleSupabase = async () => {
   align-items: center;
   gap: 10px;
   font-weight: 700;
-  padding: 8px 10px;
+  padding: 6px 10px;
   border: 1px solid var(--border);
   background: var(--panel);
   width: fit-content;
+  justify-self: center;
 }
 
 .hero-arrow {
@@ -292,7 +382,7 @@ const handleGoogleSupabase = async () => {
 .hero-note {
   color: var(--muted);
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.5;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -302,7 +392,7 @@ const handleGoogleSupabase = async () => {
 
 .feature-card {
   background: var(--surface);
-  border-radius: var(--radius-card);
+  border-radius: 0;
   padding: 18px;
   border: 1px solid var(--border);
   position: relative;
@@ -310,16 +400,6 @@ const handleGoogleSupabase = async () => {
   margin-bottom: 18px;
   display: grid;
   gap: 16px;
-}
-
-.feature-card::before {
-  content: "";
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 8px;
-  height: 8px;
-  background: var(--ink);
 }
 
 .split {
@@ -352,10 +432,10 @@ const handleGoogleSupabase = async () => {
 }
 
 .feature-media {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 10px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -364,10 +444,9 @@ const handleGoogleSupabase = async () => {
 .feature-media img {
   width: 100%;
   height: auto;
-  border-radius: 6px;
+  border-radius: 0;
   display: block;
   object-fit: cover;
-  border: 1px solid var(--border);
 }
 
 .steps {
@@ -379,10 +458,9 @@ const handleGoogleSupabase = async () => {
   padding: 10px 12px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 0;
   display: grid;
   gap: 4px;
-  border-left: 4px solid var(--ink);
 }
 
 .step-title {
@@ -398,7 +476,7 @@ const handleGoogleSupabase = async () => {
 
 .btn {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 0;
   padding: 12px 16px;
   font-family: inherit;
   font-size: 15px;
@@ -458,6 +536,12 @@ const handleGoogleSupabase = async () => {
   line-height: 1.4;
 }
 
+.footer-link {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .login-drawer {
   position: fixed;
   left: 50%;
@@ -467,6 +551,7 @@ const handleGoogleSupabase = async () => {
   max-width: 600px;
   background: var(--surface);
   border-top: 2px solid var(--ink);
+  border-radius: 12px 12px 0 0;
   box-shadow: 0 -4px 18px rgba(15, 20, 25, 0.08);
   z-index: 10;
 }
@@ -480,6 +565,24 @@ const handleGoogleSupabase = async () => {
 .drawer-title {
   font-weight: 600;
   font-size: 14px;
+}
+
+@keyframes rotateWords {
+  0%,
+  20% {
+    transform: translateY(0%);
+  }
+  33%,
+  53% {
+    transform: translateY(-100%);
+  }
+  66%,
+  86% {
+    transform: translateY(-200%);
+  }
+  100% {
+    transform: translateY(0%);
+  }
 }
 
 @keyframes slideUp {
