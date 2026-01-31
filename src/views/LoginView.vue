@@ -110,7 +110,7 @@
           <h2 class="section-title">{{ t("验证观点") }}</h2>
         </div>
         <p class="section-subtitle">
-          {{ t("自动/手动计算绩效，验证观点的准确性") }}
+          {{ t("自动计算绩效，验证观点的准确性") }}
         </p>
       </div>
       <div class="feature-media">
@@ -363,8 +363,8 @@ const handleGoogleSupabase = async () => {
   background: var(--surface);
   border: 1px solid var(--border);
   padding: 18px;
-  text-align: center;
-  align-items: center;
+  text-align: left;
+  align-items: start;
   position: relative;
   overflow: hidden;
   border-radius: 0;
@@ -374,26 +374,34 @@ const handleGoogleSupabase = async () => {
   content: "";
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(
-      rgba(18, 20, 23, 0.18) 1px,
-      transparent 1px
+  background-image:
+    linear-gradient(
+      90deg,
+      rgba(18, 20, 23, 0.06) 0%,
+      rgba(18, 20, 23, 0.06) 100%
     ),
-    radial-gradient(rgba(118, 187, 64, 0.22) 1px, transparent 1px);
-  background-size: 12px 12px, 22px 22px;
-  background-position: 0 0, 40px 30px;
-  opacity: 0.35;
+    repeating-linear-gradient(
+      180deg,
+      rgba(18, 20, 23, 0.08) 0 2px,
+      transparent 2px 24px
+    );
+  opacity: 1;
   pointer-events: none;
 }
 
 .hero::after {
-  content: "";
+  content: "01010101010101010101010101010101010101010101";
   position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    circle at 70% 20%,
-    rgba(118, 187, 64, 0.12),
-    transparent 55%
-  );
+  top: -10px;
+  left: -20px;
+  right: -20px;
+  bottom: -10px;
+  font-size: 18px;
+  line-height: 24px;
+  letter-spacing: 6px;
+  color: rgba(18, 20, 23, 0.12);
+  white-space: pre-wrap;
+  opacity: 1;
   pointer-events: none;
 }
 
@@ -681,7 +689,7 @@ const handleGoogleSupabase = async () => {
   .hero-title {
     font-size: 30px;
     flex-direction: column;
-    align-items: flex-end;
+    align-items: flex-start;
     gap: 4px;
   }
 
@@ -690,12 +698,12 @@ const handleGoogleSupabase = async () => {
   }
 
   .hero {
-    text-align: right;
-    align-items: end;
+    text-align: left;
+    align-items: start;
   }
 
   .hero-rest {
-    text-align: right;
+    text-align: left;
   }
 
   .split,
