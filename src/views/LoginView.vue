@@ -10,7 +10,25 @@
           <div class="nav-slogan">{{ t("让你观点的价值被看见") }}</div>
         </div>
       </div>
-      <span class="nav-space" aria-hidden="true"></span>
+      <div class="lang-toggle" role="group" aria-label="Language toggle">
+        <button
+          type="button"
+          class="lang-btn"
+          :class="{ active: language === 'zh-Hans' }"
+          @click="setLanguage('zh-Hans')"
+        >
+          {{ t("简体") }}
+        </button>
+        <span class="lang-divider" aria-hidden="true">｜</span>
+        <button
+          type="button"
+          class="lang-btn"
+          :class="{ active: language === 'zh-Hant' }"
+          @click="setLanguage('zh-Hant')"
+        >
+          {{ t("繁体") }}
+        </button>
+      </div>
     </nav>
 
     <header class="hero slide-in">
@@ -174,11 +192,16 @@ import {
   getProfileCompletionSupabase,
   signInWithGoogleSupabase,
 } from "../services/auth.js";
+import {
+  applyLanguagePreference,
+  getLanguagePreference,
+} from "../services/preferences.js";
 
 const router = useRouter();
-const heroWords = [t("验证"), t("挖掘"), t("记录")];
+const language = ref(getLanguagePreference());
+const heroWords = computed(() => [t("验证"), t("挖掘"), t("记录")]);
 const heroWordIndex = ref(0);
-const heroWord = computed(() => heroWords[heroWordIndex.value]);
+const heroWord = computed(() => heroWords.value[heroWordIndex.value]);
 
 let heroTimer;
 
@@ -198,6 +221,10 @@ onMounted(async () => {
 });
 
 onMounted(() => {
+  language.value = applyLanguagePreference(language.value);
+});
+
+onMounted(() => {
   heroTimer = setInterval(() => {
     heroWordIndex.value = (heroWordIndex.value + 1) % heroWords.length;
   }, 2200);
@@ -209,6 +236,10 @@ onBeforeUnmount(() => {
 
 const handleGoogle = () => {
   handleGoogleSupabase();
+};
+
+const setLanguage = (value) => {
+  language.value = applyLanguagePreference(value);
 };
 
 const handleGoogleSupabase = async () => {
@@ -294,8 +325,32 @@ const handleGoogleSupabase = async () => {
   color: var(--muted);
 }
 
-.nav-space {
+.lang-toggle {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.lang-btn {
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 2px 4px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.lang-btn.active {
+  color: var(--ink);
+  border-color: var(--border);
+  background: var(--panel);
+}
+
+.lang-divider {
+  color: var(--muted);
 }
 
 .hero {
@@ -560,8 +615,9 @@ const handleGoogleSupabase = async () => {
 
 .login-drawer {
   position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  margin: 0 auto;
   bottom: 0;
   width: 100%;
   max-width: 600px;
@@ -573,7 +629,7 @@ const handleGoogleSupabase = async () => {
 }
 
 .drawer-content {
-  padding: 16px 22px 18px;
+  padding: 16px 22px calc(18px + env(safe-area-inset-bottom));
   display: grid;
   gap: 6px;
 }
@@ -633,6 +689,19 @@ const handleGoogleSupabase = async () => {
   .split,
   .split.reverse {
     grid-template-columns: 1fr;
+  }
+
+  .feature-card.split .feature-media,
+  .feature-card.split .feature-text {
+    order: unset;
+  }
+
+  .feature-card.split .feature-media {
+    order: 1;
+  }
+
+  .feature-card.split .feature-text {
+    order: 2;
   }
 
   .drawer-content {
