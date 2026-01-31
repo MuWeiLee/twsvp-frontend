@@ -122,8 +122,40 @@
         </div>
       </section>
 
+      <section class="news-card">
+        <div class="news-header">
+          <div class="news-title">{{ t("最新资讯") }}</div>
+          <button class="news-more" type="button" @click="goNews">
+            {{ t("更多") }}
+          </button>
+        </div>
+        <div v-if="newsItems.length" class="news-list">
+          <button
+            v-for="item in newsItems"
+            :key="item.article_id"
+            class="news-item"
+            type="button"
+            @click="openNews(item.link)"
+          >
+            <div class="news-item-title">{{ item.title || "—" }}</div>
+            <div v-if="item.description || item.content" class="news-item-summary">
+              {{ item.description || item.content }}
+            </div>
+            <div class="news-item-meta">
+              <span>{{ formatNewsTime(item.pub_date) }}</span>
+              <span class="dot">·</span>
+              <span>{{ formatNewsCreator(item.creator) }}</span>
+            </div>
+          </button>
+        </div>
+        <div v-else class="news-empty">{{ t("暂无资讯") }}</div>
+      </section>
+
       <section class="sentiment-card">
-        <div class="sentiment-title">{{ t("近 7 日观点统计") }}</div>
+        <div class="sentiment-title">
+          <span>{{ t("近 7 日观点统计") }}</span>
+          <span class="sentiment-subtitle">{{ t("多空对比") }}</span>
+        </div>
         <div class="sentiment-row">
           <span>{{ t("看多") }} {{ sevenDayStats.longPct }}%</span>
           <span>{{ t("中性") }} {{ sevenDayStats.neutralPct }}%</span>
@@ -139,6 +171,7 @@
         </div>
       </section>
 
+      <div class="list-title">{{ t("观点列表") }}</div>
       <div class="tabs">
         <button
           class="tab-btn"
@@ -156,41 +189,17 @@
         </button>
         <button
           class="tab-btn"
-          :class="{ active: filter === 'short' }"
-          @click="filter = 'short'"
-        >
-          {{ t("看空") }}
-        </button>
-        <button
-          class="tab-btn"
           :class="{ active: filter === 'neutral' }"
           @click="filter = 'neutral'"
         >
           {{ t("中性") }}
         </button>
-      </div>
-
-      <div class="status-tabs">
         <button
-          class="status-btn"
-          :class="{ active: statusFilter === 'all' }"
-          @click="statusFilter = 'all'"
+          class="tab-btn"
+          :class="{ active: filter === 'short' }"
+          @click="filter = 'short'"
         >
-          {{ t("全部") }}
-        </button>
-        <button
-          class="status-btn"
-          :class="{ active: statusFilter === 'active' }"
-          @click="statusFilter = 'active'"
-        >
-          {{ t("进行中") }}
-        </button>
-        <button
-          class="status-btn"
-          :class="{ active: statusFilter === 'ended' }"
-          @click="statusFilter = 'ended'"
-        >
-          {{ t("已结束") }}
+          {{ t("看空") }}
         </button>
       </div>
 
@@ -409,6 +418,7 @@ import { supabase } from "../services/supabase.js";
 import { fetchStockByIdSupabase, fetchStockPricesSupabase } from "../services/stocks.js";
 import { t } from "../services/i18n.js";
 import { applyShareMeta } from "../services/shareMeta.js";
+import { fetchNewsSupabase } from "../services/news.js";
 import {
   fetchBrokerPreferenceSupabase,
   getAppStoreDeepLink,
@@ -420,7 +430,6 @@ import {
 const route = useRoute();
 const router = useRouter();
 const filter = ref("all");
-const statusFilter = ref("all");
 const stock = ref({
   symbol: "",
   name: "—",
@@ -443,6 +452,7 @@ const hintPlacement = ref("bottom-right");
 const chartBodyRef = ref(null);
 const chartPlotRef = ref(null);
 const chartPlotWidth = ref(0);
+const newsItems = ref([]);
 const isEditOpen = ref(false);
 const isEditSaving = ref(false);
 const editingFeed = ref(null);
@@ -512,6 +522,14 @@ const formatPercent = (value) => {
   if (Number.isNaN(num)) return "—";
   const sign = num > 0 ? "+" : "";
   return `${sign}${num.toFixed(2)}%`;
+};
+
+const formatNewsTime = (value) => formatFeedTimestamp(value);
+
+const formatNewsCreator = (creator) => {
+  if (!creator) return "—";
+  if (Array.isArray(creator)) return creator.filter(Boolean).join(" ");
+  return `${creator}`;
 };
 
 const updateChartPlotWidth = () => {
@@ -847,9 +865,6 @@ const filteredViews = computed(() => {
   if (filter.value !== "all") {
     list = list.filter((item) => item.direction === filter.value);
   }
-  if (statusFilter.value !== "all") {
-    list = list.filter((item) => item.statusPhase === statusFilter.value);
-  }
   return list;
 });
 
@@ -871,6 +886,15 @@ const loadFeeds = async ({ append = false } = {}) => {
   await loadLikedIds(views.value);
 };
 
+const loadNews = async () => {
+  try {
+    newsItems.value = await fetchNewsSupabase(3);
+  } catch (error) {
+    console.error("Load news failed:", error);
+    newsItems.value = [];
+  }
+};
+
 const loadData = async () => {
   const symbolParam = route.params.symbol;
   if (!symbolParam || Array.isArray(symbolParam)) {
@@ -883,6 +907,7 @@ const loadData = async () => {
     fetchStockByIdSupabase(symbol),
     fetchStockPricesSupabase(symbol),
   ]);
+  await loadNews();
   priceSeries.value = prices;
   selectedPrice.value = null;
   await loadFeeds();
@@ -939,6 +964,15 @@ const goProfile = (view) => {
   } else {
     router.push(`/user/${userId}`);
   }
+};
+
+const goNews = () => {
+  router.push("/news");
+};
+
+const openNews = (link) => {
+  if (!link) return;
+  window.open(link, "_blank", "noopener");
 };
 
 const goCreateFeed = () => {
@@ -1167,7 +1201,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("resize", updateChartPlotWidth);
   document.body.style.overflow = "";
 });
-watch([filter, statusFilter], () => {
+watch([filter], () => {
   window.scrollTo({ top: 0, behavior: "auto" });
 });
 watch(() => route.params.symbol, async () => {
@@ -1380,13 +1414,15 @@ watch(isCreateOpen, (value) => {
 
 .candles {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: stretch;
   gap: var(--candle-gap, 6px);
   height: 100%;
   width: 100%;
   position: relative;
   z-index: 2;
+  padding: 0 calc(var(--candle-gap, 6px) / 2);
+  box-sizing: border-box;
 }
 
 .candle {
@@ -1547,6 +1583,88 @@ watch(isCreateOpen, (value) => {
   font-size: 12px;
 }
 
+.news-card {
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+}
+
+.news-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.news-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.news-more {
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+}
+
+.news-list {
+  display: grid;
+  gap: 10px;
+}
+
+.news-item {
+  border: 0;
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 10px 12px;
+  text-align: left;
+  display: grid;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.news-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.news-item-summary {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.news-item-meta {
+  font-size: 11px;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.news-item-meta .dot {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.news-empty {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 6px 0;
+}
+
 .sentiment-card {
   background: var(--surface);
   border-radius: var(--radius-card);
@@ -1559,6 +1677,15 @@ watch(isCreateOpen, (value) => {
 .sentiment-title {
   font-size: 13px;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sentiment-subtitle {
+  font-size: 11px;
+  color: var(--muted);
 }
 
 .sentiment-row {
@@ -1593,8 +1720,15 @@ watch(isCreateOpen, (value) => {
   background: var(--price-down);
 }
 
-.tabs {
+.list-title {
   margin-top: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.tabs {
+  margin-top: 10px;
   display: flex;
   gap: 16px;
   border-bottom: 1px solid var(--border);
@@ -1615,28 +1749,6 @@ watch(isCreateOpen, (value) => {
 .tab-btn.active {
   color: var(--ink);
   border-color: var(--ink);
-}
-
-.status-tabs {
-  margin-top: 8px;
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.status-btn {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 12px;
-  cursor: pointer;
-  color: var(--muted);
-}
-
-.status-btn.active {
-  border-color: var(--ink);
-  color: var(--ink);
 }
 
 .list {
