@@ -131,10 +131,14 @@ export default async function handler(req, res) {
       return;
     }
 
-    const { error: updateError } = await supabase
-      .from("strategy_runs")
-      .upsert(updates, { onConflict: "strategy_id,week_end" });
-    if (updateError) throw new Error(`strategy_runs update failed: ${updateError.message}`);
+    for (const row of updates) {
+      const { error: updateError } = await supabase
+        .from("strategy_runs")
+        .update({ metrics: row.metrics })
+        .eq("strategy_id", row.strategy_id)
+        .eq("week_end", row.week_end);
+      if (updateError) throw new Error(`strategy_runs update failed: ${updateError.message}`);
+    }
 
     // update rebalance metrics snapshot (if exists)
     const rebalanceUpdates = updates
