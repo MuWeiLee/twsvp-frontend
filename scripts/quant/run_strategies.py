@@ -13,20 +13,20 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
 STRATEGY_CAPITALS = [
-    {"id": "fixed_5w", "name": "固定金额 5万", "capital": 50000},
-    {"id": "fixed_10w", "name": "固定金额 10万", "capital": 100000},
-    {"id": "fixed_50w", "name": "固定金额 50万", "capital": 500000},
+    {"id": "fixed_5w", "name": "固定金额 5万", "capital": 50000, "liquidity_top": 800},
+    {"id": "fixed_20w", "name": "固定金额 20万", "capital": 200000, "liquidity_top": 500},
+    {"id": "fixed_50w", "name": "固定金额 50万", "capital": 500000, "liquidity_top": 300},
     {"id": "dca_2k", "name": "定投 每周 2000", "capital": 2000},
     {"id": "dca_5k", "name": "定投 每周 5000", "capital": 5000},
     {"id": "dca_10k", "name": "定投 每周 10000", "capital": 10000},
 ]
 
 STRATEGY_RISKS = [
-    {"id": "high_high", "name": "高收益高风险", "risk_level": "high", "vol_weight": 0.6, "score_weight": 0.4},
-    {"id": "high_mid", "name": "高收益中风险", "risk_level": "mid", "vol_weight": 0.3, "score_weight": 0.7},
-    {"id": "mid_mid", "name": "中收益中风险", "risk_level": "mid", "vol_weight": 0.1, "score_weight": 0.9},
-    {"id": "mid_low", "name": "中收益低风险", "risk_level": "low", "vol_weight": -0.2, "score_weight": 1.0},
-    {"id": "low_low", "name": "低收益低风险", "risk_level": "low", "vol_weight": -0.5, "score_weight": 1.0},
+    {"id": "high_high", "name": "高收益高风险", "risk_level": "high", "mom_weight": 0.7, "vol_weight": 0.4, "liq_weight": 0.2},
+    {"id": "high_mid", "name": "高收益中风险", "risk_level": "mid", "mom_weight": 0.7, "vol_weight": 0.2, "liq_weight": 0.2},
+    {"id": "mid_mid", "name": "中收益中风险", "risk_level": "mid", "mom_weight": 0.5, "vol_weight": 0.0, "liq_weight": 0.3},
+    {"id": "mid_low", "name": "中收益低风险", "risk_level": "low", "mom_weight": 0.3, "vol_weight": -0.3, "liq_weight": 0.5},
+    {"id": "low_low", "name": "低收益低风险", "risk_level": "low", "mom_weight": 0.1, "vol_weight": -0.6, "liq_weight": 0.6},
 ]
 
 MAX_PICKS = 5
@@ -139,7 +139,7 @@ def fetch_prices_bulk(stock_ids, start_date, end_date):
         "GET",
         "stock_prices",
         params={
-            "select": "stock_id,trade_date,close,volume",
+            "select": "stock_id,trade_date,close,volume,turnover",
             "stock_id": f"in.({in_list})",
             "trade_date": f"gte.{start_date}",
             "trade_date": f"lte.{end_date}",
@@ -153,6 +153,12 @@ def compute_score(prices):
         return None
     closes = [row["close"] for row in prices if row.get("close") is not None]
     volumes = [row.get("volume") or 0 for row in prices]
+    turnovers = [
+        row.get("turnover")
+        if row.get("turnover") is not None
+        else (row.get("close") or 0) * (row.get("volume") or 0)
+        for row in prices
+    ]
     if len(closes) < 2:
         return None
     momentum = percent_change(closes[0], closes[-1])
@@ -161,12 +167,16 @@ def compute_score(prices):
         returns.append(percent_change(closes[i - 1], closes[i]))
     vol = stddev(returns)
     volume_score = zscore(volumes)
+    turnover_score = zscore(turnovers)
     avg_volume = sum(volumes) / len(volumes) if volumes else 0.0
+    avg_turnover = sum(turnovers) / len(turnovers) if turnovers else 0.0
     return {
         "momentum": momentum,
         "volatility": vol,
         "volume_z": volume_score,
+        "turnover_z": turnover_score,
         "avg_volume": avg_volume,
+        "avg_turnover": avg_turnover,
         "score": momentum * 0.7 + volume_score * 0.3,
     }
 
@@ -233,19 +243,27 @@ def run(week_end, lookback_days, dry_run, stock_limit=None, liquidity_top=None):
         return
 
     if liquidity_top:
-        stock_stats.sort(key=lambda x: x.get("avg_volume") or 0, reverse=True)
+        stock_stats.sort(key=lambda x: x.get("avg_turnover") or 0, reverse=True)
         stock_stats = stock_stats[:liquidity_top]
 
     runs_payload = []
     signals_payload = []
 
     for capital in STRATEGY_CAPITALS:
+        capital_universe = stock_stats
+        capital_liq = capital.get("liquidity_top") or liquidity_top
+        if capital_liq:
+            capital_universe = stock_stats[:capital_liq]
         for risk in STRATEGY_RISKS:
             strategy_id = build_strategy_id(capital, risk)
             # risk-adjusted score
             scored = []
-            for item in stock_stats:
-                adjusted = item["score"] * risk["score_weight"] + item["volatility"] * risk["vol_weight"]
+            for item in capital_universe:
+                adjusted = (
+                    item["momentum"] * risk["mom_weight"]
+                    + item["volatility"] * risk["vol_weight"]
+                    + item["turnover_z"] * risk["liq_weight"]
+                )
                 scored.append((adjusted, item))
             scored.sort(key=lambda x: x[0], reverse=True)
             picks = [item for _, item in scored[:MAX_PICKS]]
@@ -263,6 +281,7 @@ def run(week_end, lookback_days, dry_run, stock_limit=None, liquidity_top=None):
                         "momentum": pick["momentum"],
                         "volatility": pick["volatility"],
                         "volume_z": pick["volume_z"],
+                        "turnover_z": pick["turnover_z"],
                     },
                 })
 

@@ -56,20 +56,20 @@ const zscore = (values) => {
 };
 
 const STRATEGY_CAPITALS = [
-  { id: "fixed_5w", name: "固定金额 5万" },
-  { id: "fixed_10w", name: "固定金额 10万" },
-  { id: "fixed_50w", name: "固定金额 50万" },
+  { id: "fixed_5w", name: "固定金额 5万", liquidityTop: 800 },
+  { id: "fixed_20w", name: "固定金额 20万", liquidityTop: 500 },
+  { id: "fixed_50w", name: "固定金额 50万", liquidityTop: 300 },
   { id: "dca_2k", name: "定投 每周 2000" },
   { id: "dca_5k", name: "定投 每周 5000" },
   { id: "dca_10k", name: "定投 每周 10000" },
 ];
 
 const STRATEGY_RISKS = [
-  { id: "high_high", riskLevel: "high", scoreWeight: 0.4, volWeight: 0.6 },
-  { id: "high_mid", riskLevel: "mid", scoreWeight: 0.7, volWeight: 0.3 },
-  { id: "mid_mid", riskLevel: "mid", scoreWeight: 0.9, volWeight: 0.1 },
-  { id: "mid_low", riskLevel: "low", scoreWeight: 1.0, volWeight: -0.2 },
-  { id: "low_low", riskLevel: "low", scoreWeight: 1.0, volWeight: -0.5 },
+  { id: "high_high", riskLevel: "high", momWeight: 0.7, volWeight: 0.4, liqWeight: 0.2 },
+  { id: "high_mid", riskLevel: "mid", momWeight: 0.7, volWeight: 0.2, liqWeight: 0.2 },
+  { id: "mid_mid", riskLevel: "mid", momWeight: 0.5, volWeight: 0.0, liqWeight: 0.3 },
+  { id: "mid_low", riskLevel: "low", momWeight: 0.3, volWeight: -0.3, liqWeight: 0.5 },
+  { id: "low_low", riskLevel: "low", momWeight: 0.1, volWeight: -0.6, liqWeight: 0.6 },
 ];
 
 const allocateWeights = (scores) => {
@@ -137,7 +137,7 @@ export default async function handler(req, res) {
       const chunk = stockIds.slice(i, i + chunkSize);
       const { data: prices, error } = await supabase
         .from("stock_prices")
-        .select("stock_id,trade_date,close,volume")
+        .select("stock_id,trade_date,close,volume,turnover")
         .in("stock_id", chunk)
         .gte("trade_date", toDateString(startDate))
         .lte("trade_date", weekEnd)
@@ -155,35 +155,50 @@ export default async function handler(req, res) {
       const closes = rows.map((r) => r.close).filter((v) => v !== null && v !== undefined);
       if (closes.length < 2) return;
       const volumes = rows.map((r) => r.volume || 0);
+      const turnovers = rows.map((r) =>
+        r.turnover !== null && r.turnover !== undefined
+          ? r.turnover
+          : (r.close || 0) * (r.volume || 0)
+      );
       const returns = closes.slice(1).map((v, idx) => percentChange(closes[idx], v));
       const momentum = percentChange(closes[0], closes[closes.length - 1]);
       const volatility = stddev(returns);
       const volumeZ = zscore(volumes);
+      const turnoverZ = zscore(turnovers);
       const avgVolume = volumes.reduce((sum, v) => sum + v, 0) / volumes.length;
+      const avgTurnover = turnovers.reduce((sum, v) => sum + v, 0) / turnovers.length;
       stats.push({
         stock_id: stock.stock_id,
         name: stock.name || stock.stock_id,
         momentum,
         volatility,
         volume_z: volumeZ,
+        turnover_z: turnoverZ,
         avg_volume: avgVolume,
+        avg_turnover: avgTurnover,
         score: momentum * 0.7 + volumeZ * 0.3,
       });
     });
 
-    stats.sort((a, b) => (b.avg_volume || 0) - (a.avg_volume || 0));
+    stats.sort((a, b) => (b.avg_turnover || 0) - (a.avg_turnover || 0));
     const universe = stats.slice(0, liquidityTop);
 
     const runsPayload = [];
     const signalsPayload = [];
 
     STRATEGY_CAPITALS.forEach((capital) => {
+      const capitalUniverse = capital.liquidityTop
+        ? universe.slice(0, capital.liquidityTop)
+        : universe;
       STRATEGY_RISKS.forEach((risk) => {
         const strategyId = `${capital.id}_${risk.id}`;
-        const ranked = universe
+        const ranked = capitalUniverse
           .map((item) => ({
             item,
-            adjusted: item.score * risk.scoreWeight + item.volatility * risk.volWeight,
+            adjusted:
+              item.momentum * risk.momWeight +
+              item.volatility * risk.volWeight +
+              item.turnover_z * risk.liqWeight,
           }))
           .sort((a, b) => b.adjusted - a.adjusted)
           .slice(0, maxPicks)
@@ -202,6 +217,7 @@ export default async function handler(req, res) {
               momentum: pick.momentum,
               volatility: pick.volatility,
               volume_z: pick.volume_z,
+              turnover_z: pick.turnover_z,
             },
           });
         });
@@ -210,7 +226,7 @@ export default async function handler(req, res) {
           strategy_id: strategyId,
           risk_level: risk.riskLevel,
           week_end: weekEnd,
-          universe_count: universe.length,
+          universe_count: capitalUniverse.length,
           selected_count: ranked.length,
           gross_exposure: 1.0,
           risk_state: "normal",

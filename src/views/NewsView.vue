@@ -116,7 +116,7 @@ const cards = ref([]);
 
 const capitalLabels = {
   fixed_5w: t("固定金额 5万"),
-  fixed_10w: t("固定金额 10万"),
+  fixed_20w: t("固定金额 20万"),
   fixed_50w: t("固定金额 50万"),
   dca_2k: t("定投 每周 2000"),
   dca_5k: t("定投 每周 5000"),
