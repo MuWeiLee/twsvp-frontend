@@ -485,9 +485,10 @@ const syncStockFollowState = (symbol) => {
 const toggleStockFollow = async () => {
   const symbol = activeSymbol.value;
   if (!symbol) return;
-  const supabaseUser = await getCurrentUserSupabase({ force: true });
+  const supabaseUser = await getCurrentUserSupabase({ force: true, ensureSession: true });
   currentUserId.value = supabaseUser?.id || "";
   if (!currentUserId.value) {
+    window.alert(t("请重新登录后再关注"));
     router.push("/login");
     return;
   }

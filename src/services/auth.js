@@ -133,11 +133,24 @@ export async function signInWithGoogleSupabase() {
 // 使用Supabase获取当前用户
 export async function getCurrentUserSupabase(options = {}) {
   const force = options.force === true;
+  const ensureSession = options.ensureSession === true;
   const now = Date.now();
   if (!force && supabaseCheckedAt && now - supabaseCheckedAt < SUPABASE_CACHE_MS) {
     return cachedSupabaseUser;
   }
   try {
+    if (ensureSession) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        cachedSupabaseUser = null;
+        supabaseCheckedAt = Date.now();
+        return cachedSupabaseUser;
+      }
+      const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
+      if (expiresAt && expiresAt - Date.now() < 60 * 1000) {
+        await supabase.auth.refreshSession();
+      }
+    }
     const { data: { user }, error } = await supabase.auth.getUser();
     
     if (error) {
