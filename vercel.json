@@ -23,6 +23,14 @@
     {
       "path": "/api/sync-news-stock-links",
       "schedule": "10,40 * * * *"
+    },
+    {
+      "path": "/api/run-strategy-signals",
+      "schedule": "0 1 * * 6"
+    },
+    {
+      "path": "/api/calc-strategy-performance",
+      "schedule": "0 10 * * *"
     }
   ]
 }

@@ -44,7 +44,7 @@
       </section>
 
       <section class="card-list">
-        <article v-for="card in strategyCards" :key="card.code" class="strategy-card">
+        <article v-for="card in cards" :key="card.strategy_id" class="strategy-card">
           <div class="card-header">
             <div class="card-title">{{ card.name }}</div>
             <div class="card-badges">
@@ -66,25 +66,25 @@
           <div class="card-performance">
             <div class="perf-item">
               <span class="perf-label">{{ t("最新单日") }}</span>
-              <span class="perf-value">00%</span>
+              <span class="perf-value">{{ formatPercent(card.daily) }}</span>
             </div>
             <div class="perf-item">
               <span class="perf-label">{{ t("累计绩效") }}</span>
-              <span class="perf-value">00%</span>
+              <span class="perf-value">{{ formatPercent(card.cumulative) }}</span>
             </div>
           </div>
 
           <div class="card-section-title">{{ t("仓位配置") }}</div>
           <div class="holdings">
-            <div v-for="(holding, idx) in card.holdings" :key="`${card.code}-${idx}`" class="holding-row">
+            <div v-for="holding in card.holdings" :key="holding.stock_id" class="holding-row">
               <div class="holding-left">
                 <div class="holding-name">{{ holding.name }}</div>
-                <div class="holding-code">{{ holding.code }}</div>
+                <div class="holding-code">{{ holding.stock_id }}</div>
               </div>
               <div class="holding-right">
-                <div class="holding-price">{{ holding.price }}</div>
-                <div class="holding-shares">{{ holding.shares }}</div>
-                <div class="holding-weight">{{ holding.weight }}</div>
+                <div class="holding-price">—</div>
+                <div class="holding-shares">—</div>
+                <div class="holding-weight">{{ formatPercent(holding.weight) }}</div>
               </div>
             </div>
           </div>
@@ -96,6 +96,8 @@
             </div>
           </div>
         </article>
+
+        <div v-if="!cards.length" class="empty">{{ t("暂无策略数据") }}</div>
       </section>
 
       <BottomTabbar />
@@ -104,52 +106,87 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
 import { t } from "../services/i18n.js";
+import { fetchLatestStrategyRuns, fetchStrategySignals, fetchStockNames } from "../services/strategy.js";
 
-const strategyCards = ref([
-  {
-    code: "S-A01",
-    name: t("固定金额 · 高收益高风险"),
-    capital: t("固定金额 5万"),
-    risk: t("高收益高风险（高回撤）"),
-    holdings: [
-      { name: t("股票名称"), code: "2330", price: "—", shares: "—", weight: "—" },
-      { name: t("股票名称"), code: "2317", price: "—", shares: "—", weight: "—" },
-      { name: t("股票名称"), code: "2454", price: "—", shares: "—", weight: "—" },
-      { name: t("股票名称"), code: "2308", price: "—", shares: "—", weight: "—" },
-      { name: t("股票名称"), code: "2382", price: "—", shares: "—", weight: "—" },
-    ],
-  },
-  {
-    code: "S-B02",
-    name: t("固定金额 · 中收益低风险"),
-    capital: t("固定金额 10万"),
-    risk: t("中收益低风险（低回撤）"),
-    holdings: [
-      { name: t("股票名称"), code: "1101", price: "—", shares: "—", weight: "—" },
-      { name: t("股票名称"), code: "1216", price: "—", shares: "—", weight: "—" },
-      { name: t("股票名称"), code: "1301", price: "—", shares: "—", weight: "—" },
-      { name: t("股票名称"), code: "2303", price: "—", shares: "—", weight: "—" },
-      { name: t("股票名称"), code: "2412", price: "—", shares: "—", weight: "—" },
-    ],
-  },
-  {
-    code: "S-C03",
-    name: t("定投 · 中收益中风险"),
-    capital: t("定投 每周 5000"),
-    risk: t("中收益中风险（平衡）"),
-    holdings: [
-      { name: t("股票名称"), code: "2881", price: "—", shares: "—", weight: "—" },
-      { name: t("股票名称"), code: "2882", price: "—", shares: "—", weight: "—" },
-      { name: t("股票名称"), code: "2884", price: "—", shares: "—", weight: "—" },
-      { name: t("股票名称"), code: "2885", price: "—", shares: "—", weight: "—" },
-      { name: t("股票名称"), code: "2891", price: "—", shares: "—", weight: "—" },
-    ],
-  },
-]);
+const cards = ref([]);
+
+const capitalLabels = {
+  fixed_5w: t("固定金额 5万"),
+  fixed_10w: t("固定金额 10万"),
+  fixed_50w: t("固定金额 50万"),
+  dca_2k: t("定投 每周 2000"),
+  dca_5k: t("定投 每周 5000"),
+  dca_10k: t("定投 每周 10000"),
+};
+
+const riskLabels = {
+  high_high: t("高收益高风险（高回撤）"),
+  high_mid: t("高收益中风险（中回撤）"),
+  mid_mid: t("中收益中风险（平衡）"),
+  mid_low: t("中收益低风险（低回撤）"),
+  low_low: t("低收益低风险（防守）"),
+};
+
+const formatPercent = (value) => {
+  if (value === null || value === undefined) return "00%";
+  const percent = Number(value) * 100;
+  return `${percent.toFixed(2)}%`;
+};
+
+const parseStrategyId = (id = "") => {
+  const parts = id.split("_");
+  if (parts.length < 3) return { capital: "", risk: "" };
+  const capital = parts.slice(0, 2).join("_");
+  const risk = parts.slice(2).join("_");
+  return { capital, risk };
+};
+
+const loadStrategies = async () => {
+  const runs = await fetchLatestStrategyRuns(30);
+  if (!runs.length) {
+    cards.value = [];
+    return;
+  }
+  const latestWeek = runs[0].week_end;
+  const strategyIds = runs.map((row) => row.strategy_id);
+  const signals = await fetchStrategySignals(latestWeek, strategyIds);
+  const stockIds = [...new Set(signals.map((s) => s.stock_id))];
+  const stockNames = await fetchStockNames(stockIds);
+
+  const signalsByStrategy = new Map();
+  signals.forEach((signal) => {
+    if (!signalsByStrategy.has(signal.strategy_id)) {
+      signalsByStrategy.set(signal.strategy_id, []);
+    }
+    signalsByStrategy.get(signal.strategy_id).push(signal);
+  });
+
+  cards.value = runs.map((run, index) => {
+    const { capital, risk } = parseStrategyId(run.strategy_id);
+    const holdings = (signalsByStrategy.get(run.strategy_id) || []).map((signal) => ({
+      stock_id: signal.stock_id,
+      name: stockNames[signal.stock_id] || t("股票名称"),
+      weight: signal.target_weight,
+    }));
+    const metrics = run.metrics || {};
+    return {
+      strategy_id: run.strategy_id,
+      code: `S-${String(index + 1).padStart(2, "0")}`,
+      name: `${capitalLabels[capital] || capital} · ${riskLabels[risk] || risk}`,
+      capital: capitalLabels[capital] || capital,
+      risk: riskLabels[risk] || risk,
+      daily: metrics.daily_return ?? null,
+      cumulative: metrics.cumulative_return ?? null,
+      holdings,
+    };
+  });
+};
+
+onMounted(loadStrategies);
 </script>
 
 <style scoped>
@@ -403,5 +440,11 @@ const strategyCards = ref([
 .footnote-title {
   font-weight: 600;
   color: var(--ink);
+}
+
+.empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 24px 0 32px;
 }
 </style>
