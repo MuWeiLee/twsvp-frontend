@@ -183,6 +183,7 @@ import { getProfileSupabase, getUserGroupNamesSupabase } from "../services/profi
 import { t } from "../services/i18n.js";
 import { applyShareMeta } from "../services/shareMeta.js";
 import { decodeShareId, encodeShareId } from "../services/shareLinks.js";
+import { getFollowErrorMessage } from "../services/followErrors.js";
 import { supabase } from "../services/supabase.js";
 import {
   addFeedLikeSupabase,
@@ -380,7 +381,7 @@ const toggleFollow = async () => {
       .eq("followee_id", userId);
     if (error) {
       console.error("取消关注失败:", error);
-      window.alert(t("取消关注失败，请稍后重试。"));
+      window.alert(getFollowErrorMessage(error, { action: "unfollow" }));
       return;
     }
     list.delete(userId);
@@ -394,7 +395,7 @@ const toggleFollow = async () => {
         );
       if (error) {
         console.error("关注失败:", error);
-        window.alert(t("关注失败，请稍后重试。"));
+        window.alert(getFollowErrorMessage(error, { action: "follow" }));
         return;
       }
     }
