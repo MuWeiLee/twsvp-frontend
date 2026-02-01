@@ -73,13 +73,23 @@ export default async function handler(req, res) {
   try {
     const params = parseParams(req);
     const apiKey = requiredEnv("NEWSDATA_API_KEY");
-    const q = params.q || process.env.NEWSDATA_Q || "";
-    const qInTitle =
+    const rawQ = params.q || process.env.NEWSDATA_Q || "";
+    const rawQInTitle =
       params.q_in_title ||
       params.qInTitle ||
       process.env.NEWSDATA_Q_IN_TITLE ||
       "財報 OR 财报 OR 營收 OR 法說 OR EPS OR 展望 OR 財經 OR 财经 OR 股票 OR 股票 OR 法人 OR 投信 OR 機構 OR 机构 OR 营收";
-    const qInMeta = params.q_in_meta || params.qInMeta || process.env.NEWSDATA_Q_IN_META;
+    const rawQInMeta = params.q_in_meta || params.qInMeta || process.env.NEWSDATA_Q_IN_META;
+    let q = rawQ;
+    let qInTitle = rawQInTitle;
+    let qInMeta = rawQInMeta;
+    // NewsData only allows one of q, qInTitle, qInMeta
+    if (q) {
+      qInTitle = "";
+      qInMeta = "";
+    } else if (qInTitle) {
+      qInMeta = "";
+    }
     const country = params.country || process.env.NEWSDATA_COUNTRY || "tw";
     const language = params.language || process.env.NEWSDATA_LANGUAGE || "zht,zh";
     const category =
