@@ -36,67 +36,66 @@
         </router-link>
       </nav>
 
-      <section class="strategy-hero">
+      <section class="hero">
         <div class="hero-title">{{ t("量化策略") }}</div>
         <div class="hero-subtitle">
           {{ t("每周更新选股，每日计算本周与累计绩效") }}
         </div>
-        <div class="hero-tags">
-          <span class="tag">{{ t("回撤") }}</span>
-          <span class="tag">{{ t("波动") }}</span>
-          <span class="tag">{{ t("夏普") }}</span>
-        </div>
       </section>
 
-      <section class="panel">
-        <div class="panel-title">{{ t("策略ID表") }}</div>
-        <div class="panel-subtitle">{{ t("资金方式 × 风险等级") }}</div>
-        <div class="matrix">
-          <div class="matrix-head">
-            <div class="cell"></div>
-            <div v-for="risk in riskStrategies" :key="risk.id" class="cell head">
-              <div class="risk-name">{{ risk.name }}</div>
-              <div class="risk-desc">{{ risk.desc }}</div>
+      <section class="card-list">
+        <article v-for="card in strategyCards" :key="card.code" class="strategy-card">
+          <div class="card-header">
+            <div class="card-title">{{ card.name }}</div>
+            <div class="card-badges">
+              <span class="badge">{{ card.code }}</span>
             </div>
           </div>
-          <div v-for="capital in capitalStrategies" :key="capital.id" class="matrix-row">
-            <div class="cell row-head">
-              <div class="capital-name">{{ capital.name }}</div>
-              <div class="capital-desc">{{ capital.desc }}</div>
+
+          <div class="card-meta">
+            <div class="meta-item">
+              <span class="meta-label">{{ t("资金方式") }}</span>
+              <span class="meta-value">{{ card.capital }}</span>
             </div>
-            <div v-for="risk in riskStrategies" :key="risk.id" class="cell">
-              <div class="strategy-id">{{ makeStrategyId(capital, risk) }}</div>
-              <div class="strategy-meta">
-                <span>{{ t("每周更新") }}</span>
-                <span>·</span>
-                <span>{{ t("每日绩效") }}</span>
+            <div class="meta-item">
+              <span class="meta-label">{{ t("风险收益") }}</span>
+              <span class="meta-value">{{ card.risk }}</span>
+            </div>
+          </div>
+
+          <div class="card-performance">
+            <div class="perf-item">
+              <span class="perf-label">{{ t("最新单日") }}</span>
+              <span class="perf-value">00%</span>
+            </div>
+            <div class="perf-item">
+              <span class="perf-label">{{ t("累计绩效") }}</span>
+              <span class="perf-value">00%</span>
+            </div>
+          </div>
+
+          <div class="card-section-title">{{ t("仓位配置") }}</div>
+          <div class="holdings">
+            <div v-for="(holding, idx) in card.holdings" :key="`${card.code}-${idx}`" class="holding-row">
+              <div class="holding-left">
+                <div class="holding-name">{{ holding.name }}</div>
+                <div class="holding-code">{{ holding.code }}</div>
+              </div>
+              <div class="holding-right">
+                <div class="holding-price">{{ holding.price }}</div>
+                <div class="holding-shares">{{ holding.shares }}</div>
+                <div class="holding-weight">{{ holding.weight }}</div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
 
-      <section class="panel">
-        <div class="panel-title">{{ t("本周绩效概览") }}</div>
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-label">{{ t("平均回撤") }}</div>
-            <div class="stat-value">—</div>
+          <div class="card-footnote">
+            <div class="footnote-title">{{ t("策略指标（内部记录）") }}</div>
+            <div class="footnote-content">
+              {{ t("回撤 / 波动 / 夏普 / 年化收益 / 胜率") }}
+            </div>
           </div>
-          <div class="stat-card">
-            <div class="stat-label">{{ t("平均波动") }}</div>
-            <div class="stat-value">—</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">{{ t("平均夏普") }}</div>
-            <div class="stat-value">—</div>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-title">{{ t("最新策略信号") }}</div>
-        <div class="signal-empty">{{ t("暂无信号，等待下一次周更新") }}</div>
+        </article>
       </section>
 
       <BottomTabbar />
@@ -110,24 +109,47 @@ import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
 import { t } from "../services/i18n.js";
 
-const capitalStrategies = ref([
-  { id: "fixed_5w", name: t("固定金额 5万"), desc: t("降低零股配置问题") },
-  { id: "fixed_10w", name: t("固定金额 10万"), desc: t("中等资金规模") },
-  { id: "fixed_50w", name: t("固定金额 50万"), desc: t("高资金配置") },
-  { id: "dca_2k", name: t("定投 每周 2000"), desc: t("稳健累积") },
-  { id: "dca_5k", name: t("定投 每周 5000"), desc: t("中等投入") },
-  { id: "dca_10k", name: t("定投 每周 10000"), desc: t("加速累积") },
+const strategyCards = ref([
+  {
+    code: "S-A01",
+    name: t("固定金额 · 高收益高风险"),
+    capital: t("固定金额 5万"),
+    risk: t("高收益高风险（高回撤）"),
+    holdings: [
+      { name: t("股票名称"), code: "2330", price: "—", shares: "—", weight: "—" },
+      { name: t("股票名称"), code: "2317", price: "—", shares: "—", weight: "—" },
+      { name: t("股票名称"), code: "2454", price: "—", shares: "—", weight: "—" },
+      { name: t("股票名称"), code: "2308", price: "—", shares: "—", weight: "—" },
+      { name: t("股票名称"), code: "2382", price: "—", shares: "—", weight: "—" },
+    ],
+  },
+  {
+    code: "S-B02",
+    name: t("固定金额 · 中收益低风险"),
+    capital: t("固定金额 10万"),
+    risk: t("中收益低风险（低回撤）"),
+    holdings: [
+      { name: t("股票名称"), code: "1101", price: "—", shares: "—", weight: "—" },
+      { name: t("股票名称"), code: "1216", price: "—", shares: "—", weight: "—" },
+      { name: t("股票名称"), code: "1301", price: "—", shares: "—", weight: "—" },
+      { name: t("股票名称"), code: "2303", price: "—", shares: "—", weight: "—" },
+      { name: t("股票名称"), code: "2412", price: "—", shares: "—", weight: "—" },
+    ],
+  },
+  {
+    code: "S-C03",
+    name: t("定投 · 中收益中风险"),
+    capital: t("定投 每周 5000"),
+    risk: t("中收益中风险（平衡）"),
+    holdings: [
+      { name: t("股票名称"), code: "2881", price: "—", shares: "—", weight: "—" },
+      { name: t("股票名称"), code: "2882", price: "—", shares: "—", weight: "—" },
+      { name: t("股票名称"), code: "2884", price: "—", shares: "—", weight: "—" },
+      { name: t("股票名称"), code: "2885", price: "—", shares: "—", weight: "—" },
+      { name: t("股票名称"), code: "2891", price: "—", shares: "—", weight: "—" },
+    ],
+  },
 ]);
-
-const riskStrategies = ref([
-  { id: "high_high", name: t("高收益高风险"), desc: t("高回撤") },
-  { id: "high_mid", name: t("高收益中风险"), desc: t("中回撤") },
-  { id: "mid_mid", name: t("中收益中风险"), desc: t("平衡") },
-  { id: "mid_low", name: t("中收益低风险"), desc: t("低回撤") },
-  { id: "low_low", name: t("低收益低风险"), desc: t("防守") },
-]);
-
-const makeStrategyId = (capital, risk) => `${capital.id}_${risk.id}`;
 </script>
 
 <style scoped>
@@ -198,11 +220,11 @@ const makeStrategyId = (capital, risk) => `${capital.id}_${risk.id}`;
   text-decoration: none;
 }
 
-.strategy-hero {
-  padding: 20px 16px 8px;
+.hero {
+  padding: 20px 16px 4px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .hero-title {
@@ -216,133 +238,170 @@ const makeStrategyId = (capital, risk) => `${capital.id}_${risk.id}`;
   color: var(--muted);
 }
 
-.hero-tags {
+.card-list {
+  padding: 8px 16px 0;
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.tag {
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 999px;
+.strategy-card {
   background: var(--surface);
-  color: var(--muted);
-}
-
-.panel {
-  background: var(--surface);
-  margin: 12px 16px 0;
   border-radius: 16px;
   padding: 16px;
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.panel-title {
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card-title {
   font-size: 16px;
   font-weight: 600;
   color: var(--ink);
 }
 
-.panel-subtitle {
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 6px;
-}
-
-.matrix {
-  display: grid;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.matrix-head,
-.matrix-row {
-  display: grid;
-  grid-template-columns: 130px repeat(5, minmax(120px, 1fr));
+.card-badges {
+  display: flex;
   gap: 8px;
 }
 
-.cell {
+.badge {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.card-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
   background: rgba(148, 163, 184, 0.08);
   border-radius: 12px;
-  padding: 10px;
+  padding: 12px;
+}
+
+.meta-item {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
-.cell.head {
-  background: rgba(59, 130, 246, 0.08);
+.meta-label {
+  font-size: 11px;
+  color: var(--muted);
 }
 
-.row-head {
-  background: rgba(15, 23, 42, 0.06);
-}
-
-.risk-name,
-.capital-name {
+.meta-value {
   font-size: 13px;
   font-weight: 600;
   color: var(--ink);
 }
 
-.risk-desc,
-.capital-desc {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.strategy-id {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.strategy-meta {
-  font-size: 11px;
-  color: var(--muted);
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.stats-grid {
-  margin-top: 12px;
+.card-performance {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
-.stat-card {
+.perf-item {
   background: rgba(15, 23, 42, 0.06);
   border-radius: 12px;
   padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.stat-label {
-  font-size: 12px;
+.perf-label {
+  font-size: 11px;
   color: var(--muted);
 }
 
-.stat-value {
+.perf-value {
   font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.card-section-title {
+  font-size: 13px;
   font-weight: 600;
   color: var(--ink);
-  margin-top: 6px;
 }
 
-.signal-empty {
-  margin-top: 12px;
-  font-size: 12px;
+.holdings {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.holding-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.holding-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.holding-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.holding-code {
+  font-size: 11px;
   color: var(--muted);
 }
 
-@media (max-width: 600px) {
-  .matrix-head,
-  .matrix-row {
-    grid-template-columns: 110px repeat(5, minmax(120px, 1fr));
-    overflow-x: auto;
-  }
+.holding-right {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--ink);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.holding-price,
+.holding-shares,
+.holding-weight {
+  min-width: 54px;
+  text-align: right;
+}
+
+.card-footnote {
+  background: rgba(59, 130, 246, 0.08);
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.footnote-title {
+  font-weight: 600;
+  color: var(--ink);
 }
 </style>
