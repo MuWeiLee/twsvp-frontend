@@ -1,7 +1,7 @@
 <template>
   <div class="app-shell">
     <div class="phone-frame fade-in">
-      <nav class="nav">
+      <nav class="nav slide-in">
         <router-link class="nav-logo" to="/feed" aria-label="TWSVP">
           <img :src="logoUrl" alt="TWSVP" />
         </router-link>
@@ -36,128 +36,130 @@
         </router-link>
       </nav>
 
-      <div class="tabs">
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'news' }"
-          @click="activeTab = 'news'"
-        >
-          {{ t("资讯") }}
-        </button>
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'strategy' }"
-          @click="activeTab = 'strategy'"
-        >
-          {{ t("策略") }}
-        </button>
+      <header class="tabs-wrap">
+        <div class="tabs">
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'news' }"
+            @click="activeTab = 'news'"
+          >
+            {{ t("资讯") }}
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'strategy' }"
+            @click="activeTab = 'strategy'"
+          >
+            {{ t("策略") }}
+          </button>
+        </div>
+      </header>
+
+      <div class="content-scroll">
+        <section v-if="activeTab === 'news'" class="news-list">
+          <article
+            v-for="item in items"
+            :key="item.article_id"
+            class="news-card"
+            @click="openLink(item.link)"
+          >
+            <h3 class="news-title">{{ item.title || "—" }}</h3>
+            <p v-if="item.description" class="news-summary">{{ item.description }}</p>
+            <p v-else-if="item.content" class="news-summary">{{ item.content }}</p>
+            <div class="news-meta">
+              <span>{{ formatTime(item.pub_date) }}</span>
+              <span class="dot">·</span>
+              <span>{{ formatCreator(item.creator) }}</span>
+            </div>
+          </article>
+          <div v-if="!loading && !items.length" class="empty">
+            {{ t("暂无资讯") }}
+          </div>
+          <div ref="loadTrigger" class="load-trigger">
+            <span v-if="loading || isLoadingMore || isRefreshing">{{ t("加载中...") }}</span>
+            <span v-else-if="hasMore">{{ t("下滑加载更多") }}</span>
+            <span v-else>{{ t("已加载全部") }}</span>
+          </div>
+        </section>
+
+        <section v-else class="card-list">
+          <article v-for="card in cards" :key="card.strategy_id" class="strategy-card">
+            <div class="card-header">
+              <div class="card-title">{{ card.name }}</div>
+              <div class="card-code">{{ card.code }}</div>
+            </div>
+
+            <div class="card-meta">
+              <div class="meta-item">
+                <span class="meta-label">{{ t("资金方式") }}</span>
+                <span class="meta-value">{{ card.capital }}</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">{{ t("风险收益") }}</span>
+                <span class="meta-value">{{ card.risk }}</span>
+              </div>
+            </div>
+
+            <div class="card-performance">
+              <div class="perf-item">
+                <span class="perf-label">{{ t("前日") }}</span>
+                <span class="perf-value">{{ formatPercent(card.prevDay) }}</span>
+              </div>
+              <div class="perf-item">
+                <span class="perf-label">{{ t("今日") }}</span>
+                <span class="perf-value">{{ formatPercent(card.today) }}</span>
+              </div>
+              <div class="perf-item">
+                <span class="perf-label">{{ t("累计") }}</span>
+                <span class="perf-value">{{ formatPercent(card.cumulative) }}</span>
+              </div>
+            </div>
+
+            <div class="dual-section">
+              <div class="dual-title">{{ t("前日仓位") }}</div>
+              <div class="dual-title">{{ t("今日仓位") }}</div>
+              <div class="dual-col">
+                <div
+                  v-for="holding in card.prevHoldings"
+                  :key="holding.stock_id"
+                  class="holding-mini"
+                >
+                  <div class="mini-row">
+                    <div class="mini-name">{{ holding.name }}</div>
+                    <div class="mini-value">{{ t("开") }}: —</div>
+                    <div class="mini-value">{{ t("仓位") }}: {{ formatPercent(holding.weight) }}</div>
+                  </div>
+                  <div class="mini-row">
+                    <div class="mini-code">{{ holding.stock_id }}</div>
+                    <div class="mini-value">{{ t("收") }}: —</div>
+                    <div class="mini-value">{{ t("绩效") }}: —</div>
+                  </div>
+                </div>
+              </div>
+              <div class="dual-col">
+                <div
+                  v-for="holding in card.todayHoldings"
+                  :key="holding.stock_id"
+                  class="holding-mini"
+                >
+                  <div class="mini-row">
+                    <div class="mini-name">{{ holding.name }}</div>
+                    <div class="mini-value">{{ t("开") }}: —</div>
+                    <div class="mini-value">{{ t("仓位") }}: {{ formatPercent(holding.weight) }}</div>
+                  </div>
+                  <div class="mini-row">
+                    <div class="mini-code">{{ holding.stock_id }}</div>
+                    <div class="mini-value">{{ t("收") }}: —</div>
+                    <div class="mini-value">{{ t("绩效") }}: —</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <div v-if="!cards.length" class="empty">{{ t("暂无策略数据") }}</div>
+        </section>
       </div>
-
-      <section v-if="activeTab === 'news'" class="news-list">
-        <article
-          v-for="item in items"
-          :key="item.article_id"
-          class="news-card"
-          @click="openLink(item.link)"
-        >
-          <h3 class="news-title">{{ item.title || "—" }}</h3>
-          <p v-if="item.description" class="news-summary">{{ item.description }}</p>
-          <p v-else-if="item.content" class="news-summary">{{ item.content }}</p>
-          <div class="news-meta">
-            <span>{{ formatTime(item.pub_date) }}</span>
-            <span class="dot">·</span>
-            <span>{{ formatCreator(item.creator) }}</span>
-          </div>
-        </article>
-        <div v-if="!loading && !items.length" class="empty">
-          {{ t("暂无资讯") }}
-        </div>
-        <div ref="loadTrigger" class="load-trigger">
-          <span v-if="loading || isLoadingMore || isRefreshing">{{ t("加载中...") }}</span>
-          <span v-else-if="hasMore">{{ t("下滑加载更多") }}</span>
-          <span v-else>{{ t("已加载全部") }}</span>
-        </div>
-      </section>
-
-      <section v-else class="card-list">
-        <article v-for="card in cards" :key="card.strategy_id" class="strategy-card">
-          <div class="card-header">
-            <div class="card-title">{{ card.name }}</div>
-            <div class="card-badges">
-              <span class="badge">{{ card.code }}</span>
-            </div>
-          </div>
-
-          <div class="card-meta">
-            <div class="meta-item">
-              <span class="meta-label">{{ t("资金方式") }}</span>
-              <span class="meta-value">{{ card.capital }}</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">{{ t("风险收益") }}</span>
-              <span class="meta-value">{{ card.risk }}</span>
-            </div>
-          </div>
-
-          <div class="card-performance">
-            <div class="perf-item">
-              <span class="perf-label">{{ t("前日绩效") }}</span>
-              <span class="perf-value">{{ formatPercent(card.prevDay) }}</span>
-            </div>
-            <div class="perf-item">
-              <span class="perf-label">{{ t("今日绩效") }}</span>
-              <span class="perf-value">{{ formatPercent(card.today) }}</span>
-            </div>
-            <div class="perf-item">
-              <span class="perf-label">{{ t("累计绩效") }}</span>
-              <span class="perf-value">{{ formatPercent(card.cumulative) }}</span>
-            </div>
-          </div>
-
-          <div class="dual-section">
-            <div class="dual-title">{{ t("前日仓位") }}</div>
-            <div class="dual-title">{{ t("今日仓位") }}</div>
-            <div class="dual-col">
-              <div
-                v-for="holding in card.prevHoldings"
-                :key="holding.stock_id"
-                class="holding-mini"
-              >
-                <div class="mini-top">
-                  <div class="mini-name">{{ holding.name }}</div>
-                  <div class="mini-open">{{ t("开盘") }} · —</div>
-                  <div class="mini-weight">{{ t("仓位") }} · {{ formatPercent(holding.weight) }}</div>
-                </div>
-                <div class="mini-bottom">
-                  <div class="mini-code">{{ holding.stock_id }}</div>
-                  <div class="mini-close">{{ t("收盘") }} · —</div>
-                  <div class="mini-perf">{{ t("绩效") }} · —</div>
-                </div>
-              </div>
-            </div>
-            <div class="dual-col">
-              <div
-                v-for="holding in card.todayHoldings"
-                :key="holding.stock_id"
-                class="holding-mini"
-              >
-                <div class="mini-top">
-                  <div class="mini-name">{{ holding.name }}</div>
-                  <div class="mini-open">{{ t("开盘") }} · —</div>
-                  <div class="mini-weight">{{ t("仓位") }} · {{ formatPercent(holding.weight) }}</div>
-                </div>
-                <div class="mini-bottom">
-                  <div class="mini-code">{{ holding.stock_id }}</div>
-                  <div class="mini-close">{{ t("收盘") }} · —</div>
-                  <div class="mini-perf">{{ t("绩效") }} · —</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <div v-if="!cards.length" class="empty">{{ t("暂无策略数据") }}</div>
-      </section>
 
       <BottomTabbar />
     </div>
@@ -464,10 +466,16 @@ onUnmounted(() => {
   text-decoration: none;
 }
 
+.tabs-wrap {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px 8px;
+}
+
 .tabs {
   display: flex;
   gap: 12px;
-  padding: 12px 16px 0;
+  padding-top: 8px;
 }
 
 .tab-btn {
@@ -485,40 +493,51 @@ onUnmounted(() => {
   border-bottom-color: var(--ink);
 }
 
-.news-list {
+.content-scroll {
   padding: 12px 16px 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
+.news-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .news-card {
   background: var(--surface);
   border-radius: 0;
-  padding: 16px;
+  padding: 12px;
   border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   cursor: pointer;
 }
 
 .news-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink);
-  margin-bottom: 8px;
   line-height: 1.45;
 }
 
 .news-summary {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--muted);
-  line-height: 1.6;
-  margin-bottom: 12px;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .news-meta {
   font-size: 12px;
   color: var(--muted);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
 }
@@ -531,29 +550,10 @@ onUnmounted(() => {
   text-align: center;
   color: var(--muted);
   font-size: 12px;
-  padding-bottom: 16px;
-}
-
-.hero {
-  padding: 16px 16px 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.hero-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--ink);
-}
-
-.hero-subtitle {
-  font-size: 14px;
-  color: var(--muted);
+  padding: 4px 0 16px;
 }
 
 .card-list {
-  padding: 8px 16px 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -582,33 +582,25 @@ onUnmounted(() => {
   color: var(--ink);
 }
 
-.card-badges {
-  display: flex;
-  gap: 8px;
-}
-
-.badge {
-  font-size: 11px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(59, 130, 246, 0.1);
-  color: #2563eb;
+.card-code {
+  font-size: 12px;
   font-weight: 600;
+  color: var(--muted);
 }
 
 .card-meta {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  background: rgba(148, 163, 184, 0.08);
-  border-radius: 0;
-  padding: 12px;
 }
 
 .meta-item {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
 }
 
 .meta-label {
@@ -620,6 +612,7 @@ onUnmounted(() => {
   font-size: 13px;
   font-weight: 600;
   color: var(--ink);
+  text-align: right;
 }
 
 .card-performance {
@@ -629,12 +622,12 @@ onUnmounted(() => {
 }
 
 .perf-item {
-  background: rgba(15, 23, 42, 0.06);
-  border-radius: 0;
-  padding: 12px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
   gap: 6px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
 }
 
 .perf-label {
@@ -643,9 +636,10 @@ onUnmounted(() => {
 }
 
 .perf-value {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--ink);
+  text-align: right;
 }
 
 .dual-section {
@@ -667,20 +661,20 @@ onUnmounted(() => {
 }
 
 .holding-mini {
-  background: rgba(148, 163, 184, 0.08);
+  background: var(--surface);
   border-radius: 0;
   padding: 10px;
+  border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.mini-top,
-.mini-bottom {
-  display: flex;
-  justify-content: space-between;
+.mini-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
   gap: 8px;
-  flex-wrap: wrap;
+  align-items: center;
 }
 
 .mini-name {
@@ -694,28 +688,10 @@ onUnmounted(() => {
   color: var(--muted);
 }
 
-.mini-open,
-.mini-close,
-.mini-weight,
-.mini-perf {
+.mini-value {
   font-size: 11px;
   color: var(--muted);
-}
-
-.card-footnote {
-  background: rgba(59, 130, 246, 0.08);
-  border-radius: 0;
-  padding: 12px;
-  font-size: 12px;
-  color: var(--muted);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.footnote-title {
-  font-weight: 600;
-  color: var(--ink);
+  text-align: right;
 }
 
 .empty {
