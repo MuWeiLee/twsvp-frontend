@@ -414,6 +414,7 @@ import {
   getBrokerById,
   getBrokerPreferenceLocal,
 } from "../services/brokers.js";
+import { getFollowErrorMessage } from "../services/followErrors.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -503,7 +504,7 @@ const toggleStockFollow = async () => {
       );
     if (error) {
       console.error("关注股票失败:", error);
-      window.alert(t("关注失败，请稍后重试。"));
+      window.alert(getFollowErrorMessage(error, { action: "follow" }));
       return;
     }
     list.add(symbol);
@@ -515,7 +516,7 @@ const toggleStockFollow = async () => {
       .eq("stock_symbol", symbol);
     if (error) {
       console.error("取消关注股票失败:", error);
-      window.alert(t("取消关注失败，请稍后重试。"));
+      window.alert(getFollowErrorMessage(error, { action: "unfollow" }));
       return;
     }
     list.delete(symbol);

@@ -80,7 +80,11 @@
           <div v-if="!isLoading && !filteredItems.length" class="empty">
             {{ t("暂无通知") }}
           </div>
-          <div v-if="isLoading || isLoadingMore || hasMore" ref="loadTrigger" class="load-trigger">
+          <div
+            v-if="(isLoading || isLoadingMore || hasMore) && (filteredItems.length || isLoading || isLoadingMore)"
+            ref="loadTrigger"
+            class="load-trigger"
+          >
             <span v-if="isLoading || isLoadingMore">{{ t("加载中...") }}</span>
             <span v-else-if="hasMore">{{ t("下滑加载更多") }}</span>
           </div>
@@ -173,16 +177,17 @@ const buildItem = (row) => {
     const others = Math.max(0, replyCount - 1);
     title =
       others > 0
-        ? t("{actorName} 与另外 {others} 个人在你的观点留言。", {
+        ? t("{actorName} 与另外 {others} 个人在你的观点留言", {
             actorName,
             others,
           })
-        : t("{actorName} 在你的观点留言。", { actorName });
-    detail = row.detail || "";
+        : t("{actorName}在你的观点留言", { actorName });
+    const detailText = row.detail || "";
+    detail = detailText.split("\n").filter(Boolean)[0] || "";
     tab = "comment";
   } else if (row.type === "follow") {
     if (!row.title) {
-      title = t("{actorName}关注你", { actorName });
+      title = t("{actorName}关注了你", { actorName });
     }
     detail = row.detail || "";
     summary = "";
