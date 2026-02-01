@@ -1,27 +1,14 @@
 <template>
   <div class="app-shell">
-    <div
-      class="phone-frame fade-in"
-      @touchstart="handleTouchStart"
-      @touchmove="handleTouchMove"
-      @touchend="handleTouchEnd"
-      @touchcancel="handleTouchEnd"
-    >
+    <div class="phone-frame fade-in">
       <nav class="nav">
         <router-link class="nav-logo" to="/feed" aria-label="TWSVP">
           <img :src="logoUrl" alt="TWSVP" />
         </router-link>
-        <div class="nav-title">{{ t("资讯") }}</div>
+        <div class="nav-title">{{ t("量化") }}</div>
         <router-link class="nav-btn" to="/search" :aria-label="t('搜索')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle
-              cx="11"
-              cy="11"
-              r="7"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            />
+            <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2" />
             <path
               d="M20 20l-4-4"
               fill="none"
@@ -49,39 +36,68 @@
         </router-link>
       </nav>
 
-      <div class="refresh-indicator" :style="{ height: `${pullDistance}px` }">
-        <span :class="{ active: pullDistance >= PULL_THRESHOLD }">{{ refreshLabel }}</span>
-      </div>
-
-      <section class="news-list">
-        <article
-          v-for="item in items"
-          :key="item.article_id"
-          class="news-card"
-          @click="openLink(item.link)"
-        >
-          <h3 class="news-title">{{ item.title || "—" }}</h3>
-          <p v-if="item.description" class="news-summary">{{ item.description }}</p>
-          <p v-else-if="item.content" class="news-summary">{{ item.content }}</p>
-          <div class="news-meta">
-            <span>{{ formatTime(item.pub_date) }}</span>
-            <span class="dot">·</span>
-            <span>{{ formatCreator(item.creator) }}</span>
-          </div>
-        </article>
-        <div v-if="!loading && !items.length" class="empty">
-          {{ t("暂无资讯") }}
+      <section class="strategy-hero">
+        <div class="hero-title">{{ t("量化策略") }}</div>
+        <div class="hero-subtitle">
+          {{ t("每周更新选股，每日计算本周与累计绩效") }}
         </div>
-        <div ref="loadTrigger" class="load-trigger">
-          <span v-if="loading || isLoadingMore || isRefreshing">{{ t("加载中...") }}</span>
-          <span v-else-if="hasMore">{{ t("下滑加载更多") }}</span>
-          <span v-else>{{ t("已加载全部") }}</span>
+        <div class="hero-tags">
+          <span class="tag">{{ t("回撤") }}</span>
+          <span class="tag">{{ t("波动") }}</span>
+          <span class="tag">{{ t("夏普") }}</span>
         </div>
       </section>
 
-      <p class="legal">
-        {{ t("任何观点仅作为记录与回溯，不作为预测价格与投资建议。") }}
-      </p>
+      <section class="panel">
+        <div class="panel-title">{{ t("策略ID表") }}</div>
+        <div class="panel-subtitle">{{ t("资金方式 × 风险等级") }}</div>
+        <div class="matrix">
+          <div class="matrix-head">
+            <div class="cell"></div>
+            <div v-for="risk in riskStrategies" :key="risk.id" class="cell head">
+              <div class="risk-name">{{ risk.name }}</div>
+              <div class="risk-desc">{{ risk.desc }}</div>
+            </div>
+          </div>
+          <div v-for="capital in capitalStrategies" :key="capital.id" class="matrix-row">
+            <div class="cell row-head">
+              <div class="capital-name">{{ capital.name }}</div>
+              <div class="capital-desc">{{ capital.desc }}</div>
+            </div>
+            <div v-for="risk in riskStrategies" :key="risk.id" class="cell">
+              <div class="strategy-id">{{ makeStrategyId(capital, risk) }}</div>
+              <div class="strategy-meta">
+                <span>{{ t("每周更新") }}</span>
+                <span>·</span>
+                <span>{{ t("每日绩效") }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">{{ t("本周绩效概览") }}</div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">{{ t("平均回撤") }}</div>
+            <div class="stat-value">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">{{ t("平均波动") }}</div>
+            <div class="stat-value">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">{{ t("平均夏普") }}</div>
+            <div class="stat-value">—</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">{{ t("最新策略信号") }}</div>
+        <div class="signal-empty">{{ t("暂无信号，等待下一次周更新") }}</div>
+      </section>
 
       <BottomTabbar />
     </div>
@@ -89,164 +105,54 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
+import { ref } from "vue";
 import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
-import { fetchNewsSupabase } from "../services/news.js";
-import { formatFeedTimestamp } from "../services/feeds.js";
 import { t } from "../services/i18n.js";
 
-const PAGE_SIZE = 20;
-const PULL_THRESHOLD = 60;
-const PULL_MAX = 90;
+const capitalStrategies = ref([
+  { id: "fixed_5w", name: t("固定金额 5万"), desc: t("降低零股配置问题") },
+  { id: "fixed_10w", name: t("固定金额 10万"), desc: t("中等资金规模") },
+  { id: "fixed_50w", name: t("固定金额 50万"), desc: t("高资金配置") },
+  { id: "dca_2k", name: t("定投 每周 2000"), desc: t("稳健累积") },
+  { id: "dca_5k", name: t("定投 每周 5000"), desc: t("中等投入") },
+  { id: "dca_10k", name: t("定投 每周 10000"), desc: t("加速累积") },
+]);
 
-const items = ref([]);
-const loading = ref(false);
-const isLoadingMore = ref(false);
-const isRefreshing = ref(false);
-const hasMore = ref(true);
-const page = ref(1);
-const loadTrigger = ref(null);
-const pullDistance = ref(0);
-const touchStartY = ref(null);
-let loadObserver = null;
+const riskStrategies = ref([
+  { id: "high_high", name: t("高收益高风险"), desc: t("高回撤") },
+  { id: "high_mid", name: t("高收益中风险"), desc: t("中回撤") },
+  { id: "mid_mid", name: t("中收益中风险"), desc: t("平衡") },
+  { id: "mid_low", name: t("中收益低风险"), desc: t("低回撤") },
+  { id: "low_low", name: t("低收益低风险"), desc: t("防守") },
+]);
 
-const refreshLabel = computed(() => {
-  if (isRefreshing.value) return t("刷新中...");
-  if (pullDistance.value >= PULL_THRESHOLD) return t("松开刷新");
-  return t("下拉刷新");
-});
-
-const formatCreator = (creator) => {
-  if (!creator) return "—";
-  if (Array.isArray(creator)) return creator.filter(Boolean).join(" ");
-  return `${creator}`;
-};
-
-const formatTime = (value) => formatFeedTimestamp(value);
-
-const openLink = (link) => {
-  if (!link) return;
-  window.open(link, "_blank", "noopener");
-};
-
-const loadNews = async ({ append = false } = {}) => {
-  if (append) {
-    isLoadingMore.value = true;
-  } else {
-    loading.value = true;
-  }
-  try {
-    const rows = await fetchNewsSupabase({ page: page.value, pageSize: PAGE_SIZE });
-    items.value = append ? [...items.value, ...rows] : rows;
-    hasMore.value = rows.length === PAGE_SIZE;
-  } catch (error) {
-    console.error("Load news failed:", error);
-  } finally {
-    if (append) {
-      isLoadingMore.value = false;
-    } else {
-      loading.value = false;
-    }
-  }
-};
-
-const refreshNews = async () => {
-  if (isRefreshing.value) return;
-  isRefreshing.value = true;
-  page.value = 1;
-  hasMore.value = true;
-  await loadNews({ append: false });
-  isRefreshing.value = false;
-};
-
-const loadMore = async () => {
-  if (!hasMore.value || isLoadingMore.value || loading.value) return;
-  page.value += 1;
-  await loadNews({ append: true });
-};
-
-const handleTouchStart = (event) => {
-  if (window.scrollY > 0 || loading.value || isRefreshing.value) return;
-  const touch = event.touches?.[0];
-  if (!touch) return;
-  touchStartY.value = touch.clientY;
-};
-
-const handleTouchMove = (event) => {
-  if (touchStartY.value === null) return;
-  const touch = event.touches?.[0];
-  if (!touch) return;
-  const delta = touch.clientY - touchStartY.value;
-  if (delta <= 0) return;
-  event.preventDefault();
-  pullDistance.value = Math.min(PULL_MAX, delta);
-};
-
-const handleTouchEnd = async () => {
-  if (touchStartY.value === null) return;
-  if (pullDistance.value >= PULL_THRESHOLD) {
-    await refreshNews();
-  }
-  pullDistance.value = 0;
-  touchStartY.value = null;
-};
-
-const setupInfiniteScroll = () => {
-  if (!loadTrigger.value) return;
-  if (loadObserver) {
-    loadObserver.disconnect();
-  }
-  loadObserver = new IntersectionObserver(
-    (entries) => {
-      if (entries[0]?.isIntersecting) {
-        loadMore();
-      }
-    },
-    { rootMargin: "160px 0px" }
-  );
-  loadObserver.observe(loadTrigger.value);
-};
-
-onMounted(loadNews);
-onMounted(async () => {
-  await nextTick();
-  setupInfiniteScroll();
-});
-onUnmounted(() => {
-  if (loadObserver) {
-    loadObserver.disconnect();
-  }
-});
+const makeStrategyId = (capital, risk) => `${capital.id}_${risk.id}`;
 </script>
 
 <style scoped>
 .app-shell {
   min-height: 100vh;
+  background: var(--bg);
   display: flex;
   justify-content: center;
-  background: var(--bg);
-  color: var(--ink);
+  padding: 16px 0 24px;
 }
 
 .phone-frame {
-  width: min(600px, 100%);
-  min-height: 100vh;
+  width: min(100%, 520px);
   background: var(--bg);
-  position: relative;
-  display: flex;
-  flex-direction: column;
+  border-radius: 28px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  border: 1px solid var(--border);
+  overflow: hidden;
 }
 
 .nav {
-  position: sticky;
-  top: 0;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 12px;
-  padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px 14px;
-  height: calc(64px + env(safe-area-inset-top, 0px));
+  gap: 8px;
+  padding: 14px 16px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   z-index: 2;
@@ -280,109 +186,163 @@ onUnmounted(() => {
 }
 
 .nav-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
   border: 1px solid var(--border);
-  background: var(--surface);
-  border-radius: 10px;
-  height: 32px;
-  width: 32px;
-  padding: 0;
-  cursor: pointer;
-  text-decoration: none;
-  color: var(--ink);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.nav-btn svg {
-  width: 18px;
-  height: 18px;
-}
-
-.refresh-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  color: var(--muted);
-  overflow: hidden;
-  transition: height 0.2s ease;
-}
-
-.refresh-indicator span.active {
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.news-list {
-  padding: 16px 16px calc(92px + env(safe-area-inset-bottom, 0px));
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  flex: 1;
-}
-
-.news-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  cursor: pointer;
-}
-
-.news-title {
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.4;
-  color: var(--ink);
-}
-
-.news-summary {
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--muted);
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.news-meta {
-  font-size: 12px;
-  color: var(--muted);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.news-meta .dot {
-  font-size: 12px;
-}
-
-.load-trigger,
-.empty {
-  text-align: center;
-  font-size: 13px;
-  color: var(--muted);
-  padding: 16px 0;
-}
-
-.legal {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
-  width: min(600px, 100%);
-  text-align: left;
-  font-size: 12px;
-  color: var(--muted);
-  padding: 6px 16px;
-  margin: 0;
-  line-height: 1.5;
   background: var(--bg);
-  z-index: 4;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.strategy-hero {
+  padding: 20px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hero-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.hero-subtitle {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.hero-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tag {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.panel {
+  background: var(--surface);
+  margin: 12px 16px 0;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+}
+
+.panel-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.panel-subtitle {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.matrix {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.matrix-head,
+.matrix-row {
+  display: grid;
+  grid-template-columns: 130px repeat(5, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.cell {
+  background: rgba(148, 163, 184, 0.08);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cell.head {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.row-head {
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.risk-name,
+.capital-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.risk-desc,
+.capital-desc {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.strategy-id {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.strategy-meta {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.stats-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.stat-card {
+  background: rgba(15, 23, 42, 0.06);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-top: 6px;
+}
+
+.signal-empty {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+@media (max-width: 600px) {
+  .matrix-head,
+  .matrix-row {
+    grid-template-columns: 110px repeat(5, minmax(120px, 1fr));
+    overflow-x: auto;
+  }
 }
 </style>
