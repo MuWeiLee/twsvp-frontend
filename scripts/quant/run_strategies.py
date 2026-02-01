@@ -1,0 +1,261 @@
+#!/usr/bin/env python3
+import argparse
+import datetime as dt
+import json
+import math
+import os
+import sys
+import urllib.parse
+import urllib.request
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+
+STRATEGY_CAPITALS = [
+    {"id": "fixed_5w", "name": "固定金额 5万", "capital": 50000},
+    {"id": "fixed_10w", "name": "固定金额 10万", "capital": 100000},
+    {"id": "fixed_50w", "name": "固定金额 50万", "capital": 500000},
+    {"id": "dca_2k", "name": "定投 每周 2000", "capital": 2000},
+    {"id": "dca_5k", "name": "定投 每周 5000", "capital": 5000},
+    {"id": "dca_10k", "name": "定投 每周 10000", "capital": 10000},
+]
+
+STRATEGY_RISKS = [
+    {"id": "high_high", "name": "高收益高风险", "risk_level": "high", "vol_weight": 0.6, "score_weight": 0.4},
+    {"id": "high_mid", "name": "高收益中风险", "risk_level": "mid", "vol_weight": 0.3, "score_weight": 0.7},
+    {"id": "mid_mid", "name": "中收益中风险", "risk_level": "mid", "vol_weight": 0.1, "score_weight": 0.9},
+    {"id": "mid_low", "name": "中收益低风险", "risk_level": "low", "vol_weight": -0.2, "score_weight": 1.0},
+    {"id": "low_low", "name": "低收益低风险", "risk_level": "low", "vol_weight": -0.5, "score_weight": 1.0},
+]
+
+MAX_PICKS = 5
+
+
+def request_json(method, path, params=None, payload=None, prefer=None):
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise RuntimeError("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
+
+    url = f"{SUPABASE_URL}/rest/v1/{path}"
+    if params:
+        url = f"{url}?{urllib.parse.urlencode(params, doseq=True)}"
+
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+    }
+    if prefer:
+        headers["Prefer"] = prefer
+
+    data = None
+    if payload is not None:
+        data = json.dumps(payload).encode("utf-8")
+
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    with urllib.request.urlopen(req) as resp:
+        body = resp.read().decode("utf-8")
+        return json.loads(body) if body else []
+
+
+def to_date(value):
+    if isinstance(value, dt.date):
+        return value
+    return dt.datetime.strptime(value, "%Y-%m-%d").date()
+
+
+def percent_change(a, b):
+    if a is None or b is None or a == 0:
+        return 0.0
+    return (b - a) / a
+
+
+def stddev(values):
+    if not values:
+        return 0.0
+    mean = sum(values) / len(values)
+    variance = sum((v - mean) ** 2 for v in values) / len(values)
+    return math.sqrt(variance)
+
+
+def zscore(values):
+    if not values:
+        return 0.0
+    mean = sum(values) / len(values)
+    sd = stddev(values)
+    if sd == 0:
+        return 0.0
+    return (values[-1] - mean) / sd
+
+
+def fetch_active_stocks():
+    return request_json(
+        "GET",
+        "stocks",
+        params={
+            "select": "stock_id,name,is_active",
+            "is_active": "eq.true",
+        },
+    )
+
+
+def fetch_prices_range(stock_id, start_date, end_date):
+    return request_json(
+        "GET",
+        "stock_prices",
+        params={
+            "select": "trade_date,close,volume",
+            "stock_id": f"eq.{stock_id}",
+            "trade_date": f"gte.{start_date}",
+            "trade_date": f"lte.{end_date}",
+            "order": "trade_date.asc",
+        },
+    )
+
+
+def compute_score(prices):
+    if len(prices) < 2:
+        return None
+    closes = [row["close"] for row in prices if row.get("close") is not None]
+    volumes = [row.get("volume") or 0 for row in prices]
+    if len(closes) < 2:
+        return None
+    momentum = percent_change(closes[0], closes[-1])
+    returns = []
+    for i in range(1, len(closes)):
+        returns.append(percent_change(closes[i - 1], closes[i]))
+    vol = stddev(returns)
+    volume_score = zscore(volumes)
+    return {
+        "momentum": momentum,
+        "volatility": vol,
+        "volume_z": volume_score,
+        "score": momentum * 0.7 + volume_score * 0.3,
+    }
+
+
+def build_strategy_id(capital, risk):
+    return f"{capital['id']}_{risk['id']}"
+
+
+def allocate_weights(scores):
+    positive = [max(0.0, s) for s in scores]
+    total = sum(positive)
+    if total <= 0:
+        return [1.0 / len(scores) for _ in scores]
+    return [s / total for s in positive]
+
+
+def run(week_end, lookback_days, dry_run):
+    active_stocks = fetch_active_stocks()
+    if not active_stocks:
+        print("No active stocks")
+        return
+
+    start_date = (week_end - dt.timedelta(days=lookback_days)).strftime("%Y-%m-%d")
+    end_date = week_end.strftime("%Y-%m-%d")
+
+    stock_stats = []
+    for stock in active_stocks:
+        stock_id = stock.get("stock_id")
+        if not stock_id:
+            continue
+        prices = fetch_prices_range(stock_id, start_date, end_date)
+        if not prices:
+            continue
+        stats = compute_score(prices)
+        if not stats:
+            continue
+        stock_stats.append({
+            "stock_id": stock_id,
+            "name": stock.get("name") or stock_id,
+            **stats,
+        })
+
+    if not stock_stats:
+        print("No stats computed")
+        return
+
+    runs_payload = []
+    signals_payload = []
+
+    for capital in STRATEGY_CAPITALS:
+        for risk in STRATEGY_RISKS:
+            strategy_id = build_strategy_id(capital, risk)
+            # risk-adjusted score
+            scored = []
+            for item in stock_stats:
+                adjusted = item["score"] * risk["score_weight"] + item["volatility"] * risk["vol_weight"]
+                scored.append((adjusted, item))
+            scored.sort(key=lambda x: x[0], reverse=True)
+            picks = [item for _, item in scored[:MAX_PICKS]]
+
+            weights = allocate_weights([p["score"] for p in picks])
+            for pick, weight in zip(picks, weights):
+                signals_payload.append({
+                    "strategy_id": strategy_id,
+                    "risk_level": risk["risk_level"],
+                    "week_end": end_date,
+                    "stock_id": pick["stock_id"],
+                    "target_weight": round(weight, 6),
+                    "score": round(pick["score"], 6),
+                    "reason": {
+                        "momentum": pick["momentum"],
+                        "volatility": pick["volatility"],
+                        "volume_z": pick["volume_z"],
+                    },
+                })
+
+            runs_payload.append({
+                "strategy_id": strategy_id,
+                "risk_level": risk["risk_level"],
+                "week_end": end_date,
+                "universe_count": len(stock_stats),
+                "selected_count": len(picks),
+                "gross_exposure": 1.0,
+                "risk_state": "normal",
+                "metrics": {
+                    "drawdown": None,
+                    "volatility": None,
+                    "sharpe": None,
+                    "annualized_return": None,
+                    "win_rate": None,
+                },
+            })
+
+    if dry_run:
+        print(json.dumps({"runs": runs_payload[:2], "signals": signals_payload[:5]}, ensure_ascii=False, indent=2))
+        return
+
+    request_json(
+        "POST",
+        "strategy_runs",
+        payload=runs_payload,
+        prefer="resolution=merge-duplicates",
+    )
+    request_json(
+        "POST",
+        "strategy_signals",
+        payload=signals_payload,
+        prefer="resolution=merge-duplicates",
+    )
+    print(f"Saved runs={len(runs_payload)} signals={len(signals_payload)}")
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--week-end", required=False, help="YYYY-MM-DD, default latest Friday")
+    parser.add_argument("--lookback", type=int, default=20)
+    parser.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args()
+
+    if args.week_end:
+        week_end = to_date(args.week_end)
+    else:
+        today = dt.date.today()
+        delta = (today.weekday() - 4) % 7
+        week_end = today - dt.timedelta(days=delta)
+    run(week_end, args.lookback, args.dry_run)
+
+
+if __name__ == "__main__":
+    main()
