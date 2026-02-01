@@ -51,6 +51,8 @@ const routes = [
   { path: "/broker-selection", component: BrokerSelectionView },
   { path: "/agreement/user", component: UserAgreementView },
   { path: "/agreement/privacy", component: PrivacyPolicyView },
+  { path: "/admin", redirect: "/admin/backend/dashboard" },
+  { path: "/admin/dashboard", redirect: "/admin/backend/dashboard" },
   {
     path: "/admin/backend",
     component: AdminLayout,
@@ -141,7 +143,7 @@ router.beforeEach(async (to) => {
     to.path === "/" || to.path === "/login" || to.path === "/auth/callback";
   const isAgreementRoute =
     to.path === "/agreement/user" || to.path === "/agreement/privacy";
-  const isAdminRoute = to.path.startsWith("/admin/backend");
+  const isAdminRoute = to.path.startsWith("/admin");
   const supabaseUser = await getCurrentUserSupabase();
 
   if (supabaseUser) {

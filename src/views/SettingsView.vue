@@ -15,7 +15,15 @@
           </svg>
         </router-link>
         <div class="nav-title">{{ t("设置") }}</div>
-        <span class="nav-space" aria-hidden="true"></span>
+        <router-link
+          v-if="isAdmin"
+          class="nav-admin"
+          to="/admin/backend/dashboard"
+          aria-label="进入后台"
+        >
+          进入后台
+        </router-link>
+        <span v-else class="nav-space" aria-hidden="true"></span>
       </nav>
 
       <header class="slide-in">
@@ -228,6 +236,7 @@ import {
 import { fetchBrokerPreferenceSupabase, getBrokerById } from "../services/brokers.js";
 
 const router = useRouter();
+const ADMIN_EMAIL = "pai.product.manager@gmail.com";
 
 const account = reactive({
   email: "—",
@@ -247,6 +256,8 @@ const brokerLabel = computed(() => {
   const broker = getBrokerById(brokerId.value);
   return broker ? broker.name : t("未设置");
 });
+
+const isAdmin = computed(() => account.email === ADMIN_EMAIL);
 
 const toggle = (key) => {
   preferences[key] = !preferences[key];
@@ -377,6 +388,18 @@ const setLanguage = async (value) => {
 
 .nav-space {
   margin-left: auto;
+}
+
+.nav-admin {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .title {
