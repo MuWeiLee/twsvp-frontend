@@ -485,6 +485,8 @@ const syncStockFollowState = (symbol) => {
 const toggleStockFollow = async () => {
   const symbol = activeSymbol.value;
   if (!symbol) return;
+  const supabaseUser = await getCurrentUserSupabase({ force: true });
+  currentUserId.value = supabaseUser?.id || "";
   if (!currentUserId.value) {
     router.push("/login");
     return;
@@ -1014,7 +1016,7 @@ const loadMore = async () => {
 };
 
 const loadUser = async () => {
-  const supabaseUser = await getCurrentUserSupabase();
+  const supabaseUser = await getCurrentUserSupabase({ force: true });
   currentUserId.value = supabaseUser?.id || "";
   brokerId.value = await fetchBrokerPreferenceSupabase(currentUserId.value);
   await loadLikedIds();

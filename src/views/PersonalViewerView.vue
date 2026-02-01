@@ -364,6 +364,8 @@ const syncFollowState = (userId) => {
 const toggleFollow = async () => {
   const userId = resolvedUserId.value;
   if (!userId) return;
+  const supabaseUser = await getCurrentUserSupabase({ force: true });
+  currentUserId.value = supabaseUser?.id || "";
   if (!currentUserId.value) {
     router.push("/login");
     return;
@@ -416,7 +418,7 @@ const loadProfile = async () => {
     return;
   }
 
-  const supabaseUser = await getCurrentUserSupabase();
+  const supabaseUser = await getCurrentUserSupabase({ force: true });
   currentUserId.value = supabaseUser?.id || "";
 
   const [profile, tags] = await Promise.all([

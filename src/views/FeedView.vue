@@ -341,7 +341,7 @@ const getInitials = (name) => {
 };
 
 const loadUser = async () => {
-  const supabaseUser = await getCurrentUserSupabase();
+  const supabaseUser = await getCurrentUserSupabase({ force: true });
   if (!supabaseUser) {
     return;
   }
@@ -544,6 +544,8 @@ const loadRecommendations = async () => {
 };
 
 const handleQuickFollow = async () => {
+  const supabaseUser = await getCurrentUserSupabase({ force: true });
+  currentUserId.value = supabaseUser?.id || "";
   if (!currentUserId.value) {
     router.push("/login");
     return;
