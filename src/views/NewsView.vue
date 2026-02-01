@@ -5,7 +5,7 @@
         <router-link class="nav-logo" to="/feed" aria-label="TWSVP">
           <img :src="logoUrl" alt="TWSVP" />
         </router-link>
-        <div class="nav-title">{{ t("量化") }}</div>
+        <div class="nav-title">{{ t("资讯") }}</div>
         <router-link class="nav-btn" to="/search" :aria-label="t('搜索')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2" />
@@ -36,14 +36,50 @@
         </router-link>
       </nav>
 
-      <section class="hero">
-        <div class="hero-title">{{ t("量化策略") }}</div>
-        <div class="hero-subtitle">
-          {{ t("每周更新选股，每日计算本周与累计绩效") }}
+      <div class="tabs">
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'news' }"
+          @click="activeTab = 'news'"
+        >
+          {{ t("资讯") }}
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'strategy' }"
+          @click="activeTab = 'strategy'"
+        >
+          {{ t("策略") }}
+        </button>
+      </div>
+
+      <section v-if="activeTab === 'news'" class="news-list">
+        <article
+          v-for="item in items"
+          :key="item.article_id"
+          class="news-card"
+          @click="openLink(item.link)"
+        >
+          <h3 class="news-title">{{ item.title || "—" }}</h3>
+          <p v-if="item.description" class="news-summary">{{ item.description }}</p>
+          <p v-else-if="item.content" class="news-summary">{{ item.content }}</p>
+          <div class="news-meta">
+            <span>{{ formatTime(item.pub_date) }}</span>
+            <span class="dot">·</span>
+            <span>{{ formatCreator(item.creator) }}</span>
+          </div>
+        </article>
+        <div v-if="!loading && !items.length" class="empty">
+          {{ t("暂无资讯") }}
+        </div>
+        <div ref="loadTrigger" class="load-trigger">
+          <span v-if="loading || isLoadingMore || isRefreshing">{{ t("加载中...") }}</span>
+          <span v-else-if="hasMore">{{ t("下滑加载更多") }}</span>
+          <span v-else>{{ t("已加载全部") }}</span>
         </div>
       </section>
 
-      <section class="card-list">
+      <section v-else class="card-list">
         <article v-for="card in cards" :key="card.strategy_id" class="strategy-card">
           <div class="card-header">
             <div class="card-title">{{ card.name }}</div>
@@ -118,13 +154,6 @@
               </div>
             </div>
           </div>
-
-          <div class="card-footnote">
-            <div class="footnote-title">{{ t("策略指标（内部记录）") }}</div>
-            <div class="footnote-content">
-              {{ t("回撤 / 波动 / 夏普 / 年化收益 / 胜率") }}
-            </div>
-          </div>
         </article>
 
         <div v-if="!cards.length" class="empty">{{ t("暂无策略数据") }}</div>
@@ -136,11 +165,30 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
+import { fetchNewsSupabase } from "../services/news.js";
+import { formatFeedTimestamp } from "../services/feeds.js";
 import { t } from "../services/i18n.js";
 import { fetchLatestStrategyRuns, fetchStrategySignals, fetchStockNames } from "../services/strategy.js";
+
+const activeTab = ref("news");
+
+const PAGE_SIZE = 20;
+const PULL_THRESHOLD = 60;
+const PULL_MAX = 90;
+
+const items = ref([]);
+const loading = ref(false);
+const isLoadingMore = ref(false);
+const isRefreshing = ref(false);
+const hasMore = ref(true);
+const page = ref(1);
+const loadTrigger = ref(null);
+const pullDistance = ref(0);
+const touchStartY = ref(null);
+let loadObserver = null;
 
 const cards = ref([]);
 
@@ -159,6 +207,105 @@ const riskLabels = {
   mid_mid: t("中收益中风险（平衡）"),
   mid_low: t("中收益低风险（低回撤）"),
   low_low: t("低收益低风险（防守）"),
+};
+
+const refreshLabel = computed(() => {
+  if (isRefreshing.value) return t("刷新中...");
+  if (pullDistance.value >= PULL_THRESHOLD) return t("松开刷新");
+  return t("下拉刷新");
+});
+
+const formatCreator = (creator) => {
+  if (!creator) return "—";
+  if (Array.isArray(creator)) return creator.filter(Boolean).join(" ");
+  return `${creator}`;
+};
+
+const formatTime = (value) => formatFeedTimestamp(value);
+
+const openLink = (link) => {
+  if (!link) return;
+  window.open(link, "_blank", "noopener");
+};
+
+const loadNews = async ({ append = false } = {}) => {
+  if (append) {
+    isLoadingMore.value = true;
+  } else {
+    loading.value = true;
+  }
+  try {
+    const rows = await fetchNewsSupabase({ page: page.value, pageSize: PAGE_SIZE });
+    items.value = append ? [...items.value, ...rows] : rows;
+    hasMore.value = rows.length === PAGE_SIZE;
+  } catch (error) {
+    console.error("Load news failed:", error);
+  } finally {
+    if (append) {
+      isLoadingMore.value = false;
+    } else {
+      loading.value = false;
+    }
+  }
+};
+
+const refreshNews = async () => {
+  if (isRefreshing.value) return;
+  isRefreshing.value = true;
+  page.value = 1;
+  hasMore.value = true;
+  await loadNews({ append: false });
+  isRefreshing.value = false;
+};
+
+const loadMore = async () => {
+  if (!hasMore.value || isLoadingMore.value || loading.value) return;
+  page.value += 1;
+  await loadNews({ append: true });
+};
+
+const handleTouchStart = (event) => {
+  if (window.scrollY > 0 || loading.value || isRefreshing.value) return;
+  const touch = event.touches?.[0];
+  if (!touch) return;
+  touchStartY.value = touch.clientY;
+};
+
+const handleTouchMove = (event) => {
+  if (touchStartY.value === null) return;
+  const touch = event.touches?.[0];
+  if (!touch) return;
+  const delta = touch.clientY - touchStartY.value;
+  if (delta <= 0) return;
+  event.preventDefault();
+  pullDistance.value = Math.min(PULL_MAX, delta);
+};
+
+const handleTouchEnd = async () => {
+  if (touchStartY.value === null) return;
+  if (pullDistance.value >= PULL_THRESHOLD) {
+    await refreshNews();
+  }
+  pullDistance.value = 0;
+  touchStartY.value = null;
+};
+
+const setupInfiniteScroll = () => {
+  if (!loadTrigger.value) return;
+  if (loadObserver) {
+    loadObserver.disconnect();
+  }
+  loadObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          loadMore();
+        }
+      });
+    },
+    { threshold: 0.1 }
+  );
+  loadObserver.observe(loadTrigger.value);
 };
 
 const formatPercent = (value) => {
@@ -241,7 +388,16 @@ const loadStrategies = async () => {
   });
 };
 
-onMounted(loadStrategies);
+onMounted(async () => {
+  await loadNews({ append: false });
+  await nextTick();
+  setupInfiniteScroll();
+  await loadStrategies();
+});
+
+onUnmounted(() => {
+  if (loadObserver) loadObserver.disconnect();
+});
 </script>
 
 <style scoped>
@@ -312,8 +468,78 @@ onMounted(loadStrategies);
   text-decoration: none;
 }
 
+.tabs {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px 0;
+}
+
+.tab-btn {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  padding: 8px 4px;
+  border-bottom: 2px solid transparent;
+}
+
+.tab-btn.active {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+.news-list {
+  padding: 12px 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.news-card {
+  background: var(--surface);
+  border-radius: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.news-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 8px;
+  line-height: 1.45;
+}
+
+.news-summary {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.news-meta {
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot {
+  font-size: 10px;
+}
+
+.load-trigger {
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  padding-bottom: 16px;
+}
+
 .hero {
-  padding: 20px 16px 4px;
+  padding: 16px 16px 4px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -339,9 +565,9 @@ onMounted(loadStrategies);
 
 .strategy-card {
   background: var(--surface);
-  border-radius: 16px;
+  border-radius: 0;
   padding: 16px;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+  border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -379,7 +605,7 @@ onMounted(loadStrategies);
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   background: rgba(148, 163, 184, 0.08);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 12px;
 }
 
@@ -408,7 +634,7 @@ onMounted(loadStrategies);
 
 .perf-item {
   background: rgba(15, 23, 42, 0.06);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -446,7 +672,7 @@ onMounted(loadStrategies);
 
 .holding-mini {
   background: rgba(148, 163, 184, 0.08);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 10px;
   display: flex;
   flex-direction: column;
@@ -482,7 +708,7 @@ onMounted(loadStrategies);
 
 .card-footnote {
   background: rgba(59, 130, 246, 0.08);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 12px;
   font-size: 12px;
   color: var(--muted);
