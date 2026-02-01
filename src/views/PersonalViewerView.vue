@@ -199,7 +199,6 @@ import {
   removeFeedLikeSupabase,
   updateFeedLikeCountSupabase,
 } from "../services/feeds.js";
-import { addNotificationSupabase } from "../services/notifications.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -395,11 +394,6 @@ const toggleFollow = async () => {
         window.alert(t("关注失败，请稍后重试。"));
         return;
       }
-      addNotificationSupabase({
-        user_id: userId,
-        type: "follow",
-        actor_user_id: currentUserId.value,
-      });
     }
     list.add(userId);
   }

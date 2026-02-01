@@ -255,7 +255,6 @@ import {
   updateFeedLikeCountSupabase,
 } from "../services/feeds.js";
 import { supabase } from "../services/supabase.js";
-import { addNotificationSupabase } from "../services/notifications.js";
 
 const router = useRouter();
 const activeTab = ref("all");
@@ -580,15 +579,6 @@ const handleQuickFollow = async () => {
       window.alert(t("关注失败，请稍后重试。"));
       return;
     }
-    followRows.forEach((row) => {
-      if (row.followee_id && row.followee_id !== currentUserId.value) {
-        addNotificationSupabase({
-          user_id: row.followee_id,
-          type: "follow",
-          actor_user_id: currentUserId.value,
-        });
-      }
-    });
   }
   if (stockRows.length) {
     const { error } = await supabase.from("user_stock_follows").upsert(stockRows, {
