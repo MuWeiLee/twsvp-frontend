@@ -83,11 +83,17 @@ export default async function handler(req, res) {
     let q = rawQ;
     let qInTitle = rawQInTitle;
     let qInMeta = rawQInMeta;
-    // NewsData only allows one of q, qInTitle, qInMeta
+    // NewsData only allows one of q, qInTitle, qInMeta.
+    // Prefer q; if q is empty but qInTitle exists, fall back to q.
     if (q) {
       qInTitle = "";
       qInMeta = "";
     } else if (qInTitle) {
+      q = qInTitle;
+      qInTitle = "";
+      qInMeta = "";
+    } else if (qInMeta) {
+      q = qInMeta;
       qInMeta = "";
     }
     const country = params.country || process.env.NEWSDATA_COUNTRY || "tw";
