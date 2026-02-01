@@ -545,8 +545,9 @@ const loadRecommendations = async () => {
 
 const handleQuickFollow = async () => {
   const supabaseUser = await getCurrentUserSupabase({ force: true, ensureSession: true });
-  currentUserId.value = supabaseUser?.id || "";
-  if (!currentUserId.value) {
+  const authUserId = supabaseUser?.id || "";
+  currentUserId.value = authUserId;
+  if (!authUserId) {
     window.alert(t("请重新登录后再关注"));
     router.push("/login");
     return;
@@ -555,9 +556,9 @@ const handleQuickFollow = async () => {
   const nextFollowedUsers = new Set(followedUsers.value);
   recommendedUsers.value.forEach((item) => {
     if (item.user_id) nextFollowedUsers.add(item.user_id);
-    if (item.user_id && item.user_id !== currentUserId.value) {
+    if (item.user_id && item.user_id !== authUserId) {
       followRows.push({
-        follower_id: currentUserId.value,
+        follower_id: authUserId,
         followee_id: item.user_id,
       });
     }
@@ -568,7 +569,7 @@ const handleQuickFollow = async () => {
     if (item.symbol) nextFollowedStocks.add(item.symbol);
     if (item.symbol) {
       stockRows.push({
-        user_id: currentUserId.value,
+        user_id: authUserId,
         stock_symbol: item.symbol,
       });
     }

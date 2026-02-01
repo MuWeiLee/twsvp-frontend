@@ -365,8 +365,9 @@ const toggleFollow = async () => {
   const userId = resolvedUserId.value;
   if (!userId) return;
   const supabaseUser = await getCurrentUserSupabase({ force: true, ensureSession: true });
-  currentUserId.value = supabaseUser?.id || "";
-  if (!currentUserId.value) {
+  const authUserId = supabaseUser?.id || "";
+  currentUserId.value = authUserId;
+  if (!authUserId) {
     window.alert(t("请重新登录后再关注"));
     router.push("/login");
     return;
@@ -376,7 +377,7 @@ const toggleFollow = async () => {
     const { error } = await supabase
       .from("user_follows")
       .delete()
-      .eq("follower_id", currentUserId.value)
+      .eq("follower_id", authUserId)
       .eq("followee_id", userId);
     if (error) {
       console.error("取消关注失败:", error);
@@ -385,11 +386,11 @@ const toggleFollow = async () => {
     }
     list.delete(userId);
   } else {
-    if (currentUserId.value !== userId) {
+    if (authUserId !== userId) {
       const { error } = await supabase
         .from("user_follows")
         .upsert(
-          { follower_id: currentUserId.value, followee_id: userId },
+          { follower_id: authUserId, followee_id: userId },
           { onConflict: "follower_id,followee_id" }
         );
       if (error) {
