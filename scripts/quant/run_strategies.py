@@ -25,6 +25,21 @@ STRATEGY_RISKS = [
     {"id": "steady", "name": "稳收益", "risk_level": "steady"},
 ]
 
+STRATEGY_LABELS = {
+    "fixed_5w_aggressive": "F5-AG",
+    "fixed_5w_low_vol": "F5-LV",
+    "fixed_5w_income": "F5-IN",
+    "fixed_5w_steady": "F5-ST",
+    "fixed_20w_aggressive": "F20-AG",
+    "fixed_20w_low_vol": "F20-LV",
+    "fixed_20w_income": "F20-IN",
+    "fixed_20w_steady": "F20-ST",
+    "fixed_50w_aggressive": "F50-AG",
+    "fixed_50w_low_vol": "F50-LV",
+    "fixed_50w_income": "F50-IN",
+    "fixed_50w_steady": "F50-ST",
+}
+
 MAX_PICKS = 5
 DEFAULT_LIQUIDITY_TOP = 500
 
@@ -298,14 +313,15 @@ def in_price_bucket(price, bucket_min, bucket_max):
     return True
 
 
-def run(week_end, lookback_days, dry_run, stock_limit=None, liquidity_top=None):
+def run(week_end, lookback_days, dry_run, stock_limit=None, liquidity_top=None, as_of=None):
     active_stocks = fetch_active_stocks(limit=stock_limit)
     if not active_stocks:
         print("No active stocks")
         return
 
-    start_date = (week_end - dt.timedelta(days=lookback_days)).strftime("%Y-%m-%d")
-    end_date = week_end.strftime("%Y-%m-%d")
+    data_end = as_of or week_end
+    start_date = (data_end - dt.timedelta(days=lookback_days)).strftime("%Y-%m-%d")
+    end_date = data_end.strftime("%Y-%m-%d")
 
     stock_stats = []
     filtered = [s for s in active_stocks if not is_etf(s)]
@@ -414,12 +430,13 @@ def run(week_end, lookback_days, dry_run, stock_limit=None, liquidity_top=None):
             runs_payload.append({
                 "strategy_id": strategy_id,
                 "risk_level": risk["risk_level"],
-                "week_end": end_date,
+                "week_end": week_end.strftime("%Y-%m-%d"),
                 "universe_count": len(stock_stats),
                 "selected_count": len(picks),
                 "gross_exposure": 1.0,
                 "risk_state": "normal",
                 "metrics": {
+                    "label": STRATEGY_LABELS.get(strategy_id, strategy_id),
                     "drawdown": None,
                     "volatility": None,
                     "sharpe": None,
@@ -453,6 +470,7 @@ def run(week_end, lookback_days, dry_run, stock_limit=None, liquidity_top=None):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--week-end", required=False, help="YYYY-MM-DD, default latest Friday")
+    parser.add_argument("--as-of", required=False, help="YYYY-MM-DD, use data up to this date")
     parser.add_argument("--lookback", type=int, default=20)
     parser.add_argument("--stock-limit", type=int, default=0, help="limit number of stocks for faster dry-run")
     parser.add_argument(
@@ -472,7 +490,15 @@ def main():
         week_end = today - dt.timedelta(days=delta)
     stock_limit = args.stock_limit if args.stock_limit and args.stock_limit > 0 else None
     liquidity_top = args.liquidity_top if args.liquidity_top and args.liquidity_top > 0 else None
-    run(week_end, args.lookback, args.dry_run, stock_limit=stock_limit, liquidity_top=liquidity_top)
+    as_of = to_date(args.as_of) if args.as_of else None
+    run(
+        week_end,
+        args.lookback,
+        args.dry_run,
+        stock_limit=stock_limit,
+        liquidity_top=liquidity_top,
+        as_of=as_of,
+    )
 
 
 if __name__ == "__main__":

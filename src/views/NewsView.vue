@@ -214,6 +214,21 @@ const allowedStrategies = new Set([
   "fixed_50w_steady",
 ]);
 
+const strategyLabels = {
+  fixed_5w_aggressive: "F5-AG",
+  fixed_5w_low_vol: "F5-LV",
+  fixed_5w_income: "F5-IN",
+  fixed_5w_steady: "F5-ST",
+  fixed_20w_aggressive: "F20-AG",
+  fixed_20w_low_vol: "F20-LV",
+  fixed_20w_income: "F20-IN",
+  fixed_20w_steady: "F20-ST",
+  fixed_50w_aggressive: "F50-AG",
+  fixed_50w_low_vol: "F50-LV",
+  fixed_50w_income: "F50-IN",
+  fixed_50w_steady: "F50-ST",
+};
+
 const refreshLabel = computed(() => {
   if (isRefreshing.value) return t("刷新中...");
   if (pullDistance.value >= PULL_THRESHOLD) return t("松开刷新");
@@ -391,10 +406,11 @@ const loadStrategies = async () => {
         weight: signal.target_weight,
       }));
     const metrics = run.metrics || {};
+    const label = metrics.label || strategyLabels[run.strategy_id] || run.strategy_id;
     return {
       strategy_id: run.strategy_id,
-      code: `S-${String(index + 1).padStart(2, "0")}`,
-      name: run.strategy_id,
+      code: label,
+      name: label,
       prevDay: metrics.prev_day_return ?? null,
       today: metrics.today_return ?? null,
       cumulative: metrics.cumulative_return ?? null,

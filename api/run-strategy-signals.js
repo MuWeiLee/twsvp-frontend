@@ -60,6 +60,21 @@ const STRATEGY_RISKS = [
   { id: "steady", riskLevel: "steady" },
 ];
 
+const STRATEGY_LABELS = {
+  fixed_5w_aggressive: "F5-AG",
+  fixed_5w_low_vol: "F5-LV",
+  fixed_5w_income: "F5-IN",
+  fixed_5w_steady: "F5-ST",
+  fixed_20w_aggressive: "F20-AG",
+  fixed_20w_low_vol: "F20-LV",
+  fixed_20w_income: "F20-IN",
+  fixed_20w_steady: "F20-ST",
+  fixed_50w_aggressive: "F50-AG",
+  fixed_50w_low_vol: "F50-LV",
+  fixed_50w_income: "F50-IN",
+  fixed_50w_steady: "F50-ST",
+};
+
 const allocateWeights = (scores) => {
   const positives = scores.map((s) => Math.max(0, s));
   const total = positives.reduce((sum, v) => sum + v, 0);
@@ -384,6 +399,7 @@ export default async function handler(req, res) {
           gross_exposure: 1.0,
           risk_state: "normal",
           metrics: {
+            label: STRATEGY_LABELS[strategyId] || strategyId,
             drawdown: null,
             volatility: null,
             sharpe: null,
