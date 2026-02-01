@@ -239,6 +239,7 @@ import { useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { getProfileSupabase } from "../services/profile.js";
 import { t } from "../services/i18n.js";
+import { getFollowErrorMessage } from "../services/followErrors.js";
 import {
   addFeedLikeSupabase,
   attachFeedPerformance,
@@ -545,8 +546,9 @@ const loadRecommendations = async () => {
 
 const handleQuickFollow = async () => {
   const supabaseUser = await getCurrentUserSupabase({ force: true, ensureSession: true });
-  currentUserId.value = supabaseUser?.id || "";
-  if (!currentUserId.value) {
+  const authUserId = supabaseUser?.id || "";
+  currentUserId.value = authUserId;
+  if (!authUserId) {
     window.alert(t("请重新登录后再关注"));
     router.push("/login");
     return;
@@ -555,9 +557,9 @@ const handleQuickFollow = async () => {
   const nextFollowedUsers = new Set(followedUsers.value);
   recommendedUsers.value.forEach((item) => {
     if (item.user_id) nextFollowedUsers.add(item.user_id);
-    if (item.user_id && item.user_id !== currentUserId.value) {
+    if (item.user_id && item.user_id !== authUserId) {
       followRows.push({
-        follower_id: currentUserId.value,
+        follower_id: authUserId,
         followee_id: item.user_id,
       });
     }
@@ -568,7 +570,7 @@ const handleQuickFollow = async () => {
     if (item.symbol) nextFollowedStocks.add(item.symbol);
     if (item.symbol) {
       stockRows.push({
-        user_id: currentUserId.value,
+        user_id: authUserId,
         stock_symbol: item.symbol,
       });
     }
@@ -579,7 +581,7 @@ const handleQuickFollow = async () => {
     });
     if (error) {
       console.error("一键关注用户失败:", error);
-      window.alert(t("关注失败，请稍后重试。"));
+      window.alert(getFollowErrorMessage(error, { action: "follow" }));
       return;
     }
   }
@@ -589,7 +591,7 @@ const handleQuickFollow = async () => {
     });
     if (error) {
       console.error("一键关注股票失败:", error);
-      window.alert(t("关注失败，请稍后重试。"));
+      window.alert(getFollowErrorMessage(error, { action: "follow" }));
       return;
     }
   }
