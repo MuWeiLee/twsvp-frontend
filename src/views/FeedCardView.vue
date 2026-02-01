@@ -517,13 +517,16 @@ const submitReply = async () => {
   const trimmed = replyContent.value.trim();
   if (!trimmed) return;
   replySubmitting.value = true;
-  const data = await addFeedReplySupabase({
+  const { data, error } = await addFeedReplySupabase({
     feedId: feed.value.feed_id,
     userId: currentUserId.value,
     content: trimmed,
   });
   replySubmitting.value = false;
-  if (!data) {
+  if (!data || error) {
+    if (error) {
+      console.error("留言失败:", error);
+    }
     window.alert(t("留言失败，请稍后重试。"));
     return;
   }

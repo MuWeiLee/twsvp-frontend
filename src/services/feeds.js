@@ -283,7 +283,9 @@ export async function fetchFeedRepliesSupabase(feedId) {
 }
 
 export async function addFeedReplySupabase({ feedId, userId, content }) {
-  if (!feedId || !userId || !content) return null;
+  if (!feedId || !userId || !content) {
+    return { data: null, error: new Error("missing params") };
+  }
   const { data, error } = await supabase
     .from("feed_replies")
     .insert({ feed_id: feedId, user_id: userId, content })
@@ -294,7 +296,7 @@ export async function addFeedReplySupabase({ feedId, userId, content }) {
 
   if (error) {
     console.error("创建 feed_replies 失败:", error);
-    return null;
+    return { data: null, error };
   }
 
   try {
@@ -316,7 +318,7 @@ export async function addFeedReplySupabase({ feedId, userId, content }) {
     console.error("创建留言通知失败:", notifyError);
   }
 
-  return data;
+  return { data, error: null };
 }
 
 export async function fetchFeedsBySymbolSupabase(

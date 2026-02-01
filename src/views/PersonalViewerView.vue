@@ -365,31 +365,43 @@ const syncFollowState = (userId) => {
 const toggleFollow = async () => {
   const userId = resolvedUserId.value;
   if (!userId) return;
+  if (!currentUserId.value) {
+    router.push("/login");
+    return;
+  }
   const list = readFollowedUsers();
   if (list.has(userId)) {
-    list.delete(userId);
-    if (currentUserId.value) {
-      await supabase
-        .from("user_follows")
-        .delete()
-        .eq("follower_id", currentUserId.value)
-        .eq("followee_id", userId);
+    const { error } = await supabase
+      .from("user_follows")
+      .delete()
+      .eq("follower_id", currentUserId.value)
+      .eq("followee_id", userId);
+    if (error) {
+      console.error("取消关注失败:", error);
+      window.alert(t("取消关注失败，请稍后重试。"));
+      return;
     }
+    list.delete(userId);
   } else {
-    list.add(userId);
-    if (currentUserId.value && currentUserId.value !== userId) {
-      addNotificationSupabase({
-        user_id: userId,
-        type: "follow",
-        actor_user_id: currentUserId.value,
-      });
-      await supabase
+    if (currentUserId.value !== userId) {
+      const { error } = await supabase
         .from("user_follows")
         .upsert(
           { follower_id: currentUserId.value, followee_id: userId },
           { onConflict: "follower_id,followee_id" }
         );
+      if (error) {
+        console.error("关注失败:", error);
+        window.alert(t("关注失败，请稍后重试。"));
+        return;
+      }
+      addNotificationSupabase({
+        user_id: userId,
+        type: "follow",
+        actor_user_id: currentUserId.value,
+      });
     }
+    list.add(userId);
   }
   saveFollowedUsers(list);
   isFollowing.value = list.has(userId);

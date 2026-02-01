@@ -482,33 +482,43 @@ const syncStockFollowState = (symbol) => {
   isStockFollowed.value = symbol ? list.has(symbol) : false;
 };
 
-const toggleStockFollow = () => {
+const toggleStockFollow = async () => {
   const symbol = activeSymbol.value;
   if (!symbol) return;
+  if (!currentUserId.value) {
+    router.push("/login");
+    return;
+  }
   const list = readFollowedStocks();
   const next = !list.has(symbol);
   if (next) {
-    list.add(symbol);
-  } else {
-    list.delete(symbol);
-  }
-  saveFollowedStocks(list);
-  isStockFollowed.value = next;
-  if (!currentUserId.value) return;
-  if (next) {
-    supabase
+    const { error } = await supabase
       .from("user_stock_follows")
       .upsert(
         { user_id: currentUserId.value, stock_symbol: symbol },
         { onConflict: "user_id,stock_symbol" }
       );
+    if (error) {
+      console.error("关注股票失败:", error);
+      window.alert(t("关注失败，请稍后重试。"));
+      return;
+    }
+    list.add(symbol);
   } else {
-    supabase
+    const { error } = await supabase
       .from("user_stock_follows")
       .delete()
       .eq("user_id", currentUserId.value)
       .eq("stock_symbol", symbol);
+    if (error) {
+      console.error("取消关注股票失败:", error);
+      window.alert(t("取消关注失败，请稍后重试。"));
+      return;
+    }
+    list.delete(symbol);
   }
+  saveFollowedStocks(list);
+  isStockFollowed.value = next;
 };
 let chartResizeObserver;
 

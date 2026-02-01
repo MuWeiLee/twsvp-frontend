@@ -545,15 +545,15 @@ const loadRecommendations = async () => {
 };
 
 const handleQuickFollow = async () => {
+  if (!currentUserId.value) {
+    router.push("/login");
+    return;
+  }
   const followRows = [];
+  const nextFollowedUsers = new Set(followedUsers.value);
   recommendedUsers.value.forEach((item) => {
-    if (item.user_id) followedUsers.value.add(item.user_id);
-    if (currentUserId.value && item.user_id && item.user_id !== currentUserId.value) {
-      addNotificationSupabase({
-        user_id: item.user_id,
-        type: "follow",
-        actor_user_id: currentUserId.value,
-      });
+    if (item.user_id) nextFollowedUsers.add(item.user_id);
+    if (item.user_id && item.user_id !== currentUserId.value) {
       followRows.push({
         follower_id: currentUserId.value,
         followee_id: item.user_id,
@@ -561,9 +561,10 @@ const handleQuickFollow = async () => {
     }
   });
   const stockRows = [];
+  const nextFollowedStocks = new Set(followedStocks.value);
   recommendedStocks.value.forEach((item) => {
-    if (item.symbol) followedStocks.value.add(item.symbol);
-    if (currentUserId.value && item.symbol) {
+    if (item.symbol) nextFollowedStocks.add(item.symbol);
+    if (item.symbol) {
       stockRows.push({
         user_id: currentUserId.value,
         stock_symbol: item.symbol,
@@ -571,15 +572,36 @@ const handleQuickFollow = async () => {
     }
   });
   if (followRows.length) {
-    await supabase.from("user_follows").upsert(followRows, {
+    const { error } = await supabase.from("user_follows").upsert(followRows, {
       onConflict: "follower_id,followee_id",
+    });
+    if (error) {
+      console.error("一键关注用户失败:", error);
+      window.alert(t("关注失败，请稍后重试。"));
+      return;
+    }
+    followRows.forEach((row) => {
+      if (row.followee_id && row.followee_id !== currentUserId.value) {
+        addNotificationSupabase({
+          user_id: row.followee_id,
+          type: "follow",
+          actor_user_id: currentUserId.value,
+        });
+      }
     });
   }
   if (stockRows.length) {
-    await supabase.from("user_stock_follows").upsert(stockRows, {
+    const { error } = await supabase.from("user_stock_follows").upsert(stockRows, {
       onConflict: "user_id,stock_symbol",
     });
+    if (error) {
+      console.error("一键关注股票失败:", error);
+      window.alert(t("关注失败，请稍后重试。"));
+      return;
+    }
   }
+  followedUsers.value = nextFollowedUsers;
+  followedStocks.value = nextFollowedStocks;
   saveFollowState();
   page.value = 1;
   hasMore.value = true;
