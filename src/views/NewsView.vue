@@ -5,7 +5,7 @@
         <router-link class="nav-logo" to="/feed" aria-label="TWSVP">
           <img :src="logoUrl" alt="TWSVP" />
         </router-link>
-        <div class="nav-title">{{ t("资讯") }}</div>
+        <div class="nav-title">{{ t("挖掘") }}</div>
         <router-link class="nav-btn" to="/search" :aria-label="t('搜索')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2" />
@@ -55,7 +55,16 @@
         </div>
       </header>
 
-      <div class="content-scroll">
+      <div
+        class="content-scroll"
+        @touchstart="handleTouchStart"
+        @touchmove="handleTouchMove"
+        @touchend="handleTouchEnd"
+        @touchcancel="handleTouchEnd"
+      >
+        <div class="refresh-indicator" :style="{ height: `${pullDistance}px` }">
+          <span :class="{ active: pullDistance >= PULL_THRESHOLD }">{{ refreshLabel }}</span>
+        </div>
         <section v-if="activeTab === 'news'" class="news-list">
           <article
             v-for="item in items"
@@ -360,16 +369,22 @@ const loadStrategies = async () => {
 
   cards.value = latestRuns.map((run, index) => {
     const { capital, risk } = parseStrategyId(run.strategy_id);
-    const latestHoldings = (latestByStrategy.get(run.strategy_id) || []).map((signal) => ({
-      stock_id: signal.stock_id,
-      name: stockNames[signal.stock_id] || t("股票名称"),
-      weight: signal.target_weight,
-    }));
-    const prevHoldings = (prevByStrategy.get(run.strategy_id) || []).map((signal) => ({
-      stock_id: signal.stock_id,
-      name: stockNames[signal.stock_id] || t("股票名称"),
-      weight: signal.target_weight,
-    }));
+    const latestHoldings = (latestByStrategy.get(run.strategy_id) || [])
+      .sort((a, b) => (b.score || 0) - (a.score || 0))
+      .slice(0, 5)
+      .map((signal) => ({
+        stock_id: signal.stock_id,
+        name: stockNames[signal.stock_id] || t("股票名称"),
+        weight: signal.target_weight,
+      }));
+    const prevHoldings = (prevByStrategy.get(run.strategy_id) || [])
+      .sort((a, b) => (b.score || 0) - (a.score || 0))
+      .slice(0, 5)
+      .map((signal) => ({
+        stock_id: signal.stock_id,
+        name: stockNames[signal.stock_id] || t("股票名称"),
+        weight: signal.target_weight,
+      }));
     const metrics = run.metrics || {};
     return {
       strategy_id: run.strategy_id,
@@ -494,21 +509,38 @@ onUnmounted(() => {
 }
 
 .content-scroll {
-  padding: 12px 16px 0;
+  padding: 0 16px 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.refresh-indicator {
+  height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  transition: height 0.2s ease;
+}
+
+.refresh-indicator span.active {
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .news-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding-top: 12px;
 }
 
 .news-card {
   background: var(--surface);
-  border-radius: 0;
+  border-radius: var(--radius-card);
   padding: 12px;
   border: 1px solid var(--border);
   display: flex;
@@ -557,11 +589,12 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  padding-top: 12px;
 }
 
 .strategy-card {
   background: var(--surface);
-  border-radius: 0;
+  border-radius: var(--radius-card);
   padding: 16px;
   border: 1px solid var(--border);
   display: flex;
@@ -599,8 +632,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border);
+  padding: 6px 0;
 }
 
 .meta-label {
@@ -619,6 +651,7 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+  padding-top: 4px;
 }
 
 .perf-item {
@@ -626,8 +659,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border);
+  padding: 6px 0;
 }
 
 .perf-label {
@@ -662,7 +694,7 @@ onUnmounted(() => {
 
 .holding-mini {
   background: var(--surface);
-  border-radius: 0;
+  border-radius: var(--radius-card);
   padding: 10px;
   border: 1px solid var(--border);
   display: flex;

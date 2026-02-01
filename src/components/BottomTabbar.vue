@@ -42,7 +42,7 @@
           />
         </svg>
       </span>
-      <span class="tab-label">{{ t("资讯") }}</span>
+      <span class="tab-label">{{ t("挖掘") }}</span>
     </router-link>
     <router-link class="tab-item" active-class="active" to="/create-feed">
       <span class="tab-icon" aria-hidden="true">
