@@ -65,8 +65,12 @@
 
           <div class="card-performance">
             <div class="perf-item">
-              <span class="perf-label">{{ t("最新单日") }}</span>
-              <span class="perf-value">{{ formatPercent(card.daily) }}</span>
+              <span class="perf-label">{{ t("前日绩效") }}</span>
+              <span class="perf-value">{{ formatPercent(card.prevDay) }}</span>
+            </div>
+            <div class="perf-item">
+              <span class="perf-label">{{ t("今日绩效") }}</span>
+              <span class="perf-value">{{ formatPercent(card.today) }}</span>
             </div>
             <div class="perf-item">
               <span class="perf-label">{{ t("累计绩效") }}</span>
@@ -74,17 +78,43 @@
             </div>
           </div>
 
-          <div class="card-section-title">{{ t("仓位配置") }}</div>
-          <div class="holdings">
-            <div v-for="holding in card.holdings" :key="holding.stock_id" class="holding-row">
-              <div class="holding-left">
-                <div class="holding-name">{{ holding.name }}</div>
-                <div class="holding-code">{{ holding.stock_id }}</div>
+          <div class="dual-section">
+            <div class="dual-title">{{ t("前日仓位") }}</div>
+            <div class="dual-title">{{ t("今日仓位") }}</div>
+            <div class="dual-col">
+              <div
+                v-for="holding in card.prevHoldings"
+                :key="holding.stock_id"
+                class="holding-mini"
+              >
+                <div class="mini-top">
+                  <div class="mini-name">{{ holding.name }}</div>
+                  <div class="mini-open">{{ t("开盘") }} · —</div>
+                  <div class="mini-weight">{{ t("仓位") }} · {{ formatPercent(holding.weight) }}</div>
+                </div>
+                <div class="mini-bottom">
+                  <div class="mini-code">{{ holding.stock_id }}</div>
+                  <div class="mini-close">{{ t("收盘") }} · —</div>
+                  <div class="mini-perf">{{ t("绩效") }} · —</div>
+                </div>
               </div>
-              <div class="holding-right">
-                <div class="holding-price">—</div>
-                <div class="holding-shares">—</div>
-                <div class="holding-weight">{{ formatPercent(holding.weight) }}</div>
+            </div>
+            <div class="dual-col">
+              <div
+                v-for="holding in card.todayHoldings"
+                :key="holding.stock_id"
+                class="holding-mini"
+              >
+                <div class="mini-top">
+                  <div class="mini-name">{{ holding.name }}</div>
+                  <div class="mini-open">{{ t("开盘") }} · —</div>
+                  <div class="mini-weight">{{ t("仓位") }} · {{ formatPercent(holding.weight) }}</div>
+                </div>
+                <div class="mini-bottom">
+                  <div class="mini-code">{{ holding.stock_id }}</div>
+                  <div class="mini-close">{{ t("收盘") }} · —</div>
+                  <div class="mini-perf">{{ t("绩效") }} · —</div>
+                </div>
               </div>
             </div>
           </div>
@@ -106,7 +136,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { onMounted, ref } from "vue";
 import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
 import { t } from "../services/i18n.js";
@@ -146,28 +176,51 @@ const parseStrategyId = (id = "") => {
 };
 
 const loadStrategies = async () => {
-  const runs = await fetchLatestStrategyRuns(30);
+  const runs = await fetchLatestStrategyRuns(60);
   if (!runs.length) {
     cards.value = [];
     return;
   }
-  const latestWeek = runs[0].week_end;
-  const strategyIds = runs.map((row) => row.strategy_id);
-  const signals = await fetchStrategySignals(latestWeek, strategyIds);
-  const stockIds = [...new Set(signals.map((s) => s.stock_id))];
+  const weekEnds = [...new Set(runs.map((row) => row.week_end))].sort().reverse();
+  const latestWeek = weekEnds[0];
+  const prevWeek = weekEnds[1];
+
+  const latestRuns = runs.filter((row) => row.week_end === latestWeek);
+  const prevRuns = prevWeek ? runs.filter((row) => row.week_end === prevWeek) : [];
+
+  const latestIds = latestRuns.map((row) => row.strategy_id);
+  const prevIds = prevRuns.map((row) => row.strategy_id);
+
+  const latestSignals = await fetchStrategySignals(latestWeek, latestIds);
+  const prevSignals = prevWeek ? await fetchStrategySignals(prevWeek, prevIds) : [];
+
+  const stockIds = [...new Set([...latestSignals, ...prevSignals].map((s) => s.stock_id))];
   const stockNames = await fetchStockNames(stockIds);
 
-  const signalsByStrategy = new Map();
-  signals.forEach((signal) => {
-    if (!signalsByStrategy.has(signal.strategy_id)) {
-      signalsByStrategy.set(signal.strategy_id, []);
+  const latestByStrategy = new Map();
+  latestSignals.forEach((signal) => {
+    if (!latestByStrategy.has(signal.strategy_id)) {
+      latestByStrategy.set(signal.strategy_id, []);
     }
-    signalsByStrategy.get(signal.strategy_id).push(signal);
+    latestByStrategy.get(signal.strategy_id).push(signal);
   });
 
-  cards.value = runs.map((run, index) => {
+  const prevByStrategy = new Map();
+  prevSignals.forEach((signal) => {
+    if (!prevByStrategy.has(signal.strategy_id)) {
+      prevByStrategy.set(signal.strategy_id, []);
+    }
+    prevByStrategy.get(signal.strategy_id).push(signal);
+  });
+
+  cards.value = latestRuns.map((run, index) => {
     const { capital, risk } = parseStrategyId(run.strategy_id);
-    const holdings = (signalsByStrategy.get(run.strategy_id) || []).map((signal) => ({
+    const latestHoldings = (latestByStrategy.get(run.strategy_id) || []).map((signal) => ({
+      stock_id: signal.stock_id,
+      name: stockNames[signal.stock_id] || t("股票名称"),
+      weight: signal.target_weight,
+    }));
+    const prevHoldings = (prevByStrategy.get(run.strategy_id) || []).map((signal) => ({
       stock_id: signal.stock_id,
       name: stockNames[signal.stock_id] || t("股票名称"),
       weight: signal.target_weight,
@@ -179,9 +232,11 @@ const loadStrategies = async () => {
       name: `${capitalLabels[capital] || capital} · ${riskLabels[risk] || risk}`,
       capital: capitalLabels[capital] || capital,
       risk: riskLabels[risk] || risk,
-      daily: metrics.daily_return ?? null,
+      prevDay: metrics.prev_day_return ?? null,
+      today: metrics.today_return ?? null,
       cumulative: metrics.cumulative_return ?? null,
-      holdings,
+      prevHoldings,
+      todayHoldings: latestHoldings,
     };
   });
 };
@@ -347,7 +402,7 @@ onMounted(loadStrategies);
 
 .card-performance {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -371,59 +426,58 @@ onMounted(loadStrategies);
   color: var(--ink);
 }
 
-.card-section-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
+.dual-section {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
-.holdings {
+.dual-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.dual-col {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.holding-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 12px;
+.holding-mini {
   background: rgba(148, 163, 184, 0.08);
-}
-
-.holding-left {
+  border-radius: 12px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
-.holding-name {
+.mini-top,
+.mini-bottom {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mini-name {
   font-size: 13px;
   font-weight: 600;
   color: var(--ink);
 }
 
-.holding-code {
+.mini-code {
   font-size: 11px;
   color: var(--muted);
 }
 
-.holding-right {
-  display: flex;
-  gap: 12px;
-  font-size: 12px;
-  color: var(--ink);
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.holding-price,
-.holding-shares,
-.holding-weight {
-  min-width: 54px;
-  text-align: right;
+.mini-open,
+.mini-close,
+.mini-weight,
+.mini-perf {
+  font-size: 11px;
+  color: var(--muted);
 }
 
 .card-footnote {

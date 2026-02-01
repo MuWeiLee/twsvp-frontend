@@ -73,7 +73,7 @@ export default async function handler(req, res) {
       const chunk = stockIds.slice(i, i + chunkSize);
       const { data: prices, error: priceError } = await supabase
         .from("stock_prices")
-        .select("stock_id,trade_date,close")
+        .select("stock_id,trade_date,open,close")
         .in("stock_id", chunk)
         .order("trade_date", { ascending: false });
       if (priceError) throw new Error(`stock_prices query failed: ${priceError.message}`);
@@ -95,24 +95,31 @@ export default async function handler(req, res) {
     runs.forEach((run) => {
       const sigs = signalsByStrategy.get(run.strategy_id) || [];
       if (!sigs.length) return;
-      let daily = 0;
+      let today = 0;
+      let prevDay = 0;
       let cumulative = 0;
       sigs.forEach((sig) => {
         const prices = priceMap.get(sig.stock_id) || [];
-        if (prices.length < 2) return;
-        const latest = prices[0].close;
-        const prev = prices[1].close;
+        if (!prices.length) return;
+        const latest = prices[0];
+        const prev = prices[1];
         const weekStart = prices.find((p) => p.trade_date >= run.week_end) || prices[prices.length - 1];
-        const dailyRet = prev ? (latest - prev) / prev : 0;
-        const cumRet = weekStart?.close ? (latest - weekStart.close) / weekStart.close : 0;
-        daily += (sig.target_weight || 0) * dailyRet;
-        cumulative += (sig.target_weight || 0) * cumRet;
+        if (latest?.open && latest?.close) {
+          today += (sig.target_weight || 0) * ((latest.close - latest.open) / latest.open);
+        }
+        if (prev?.open && prev?.close) {
+          prevDay += (sig.target_weight || 0) * ((prev.close - prev.open) / prev.open);
+        }
+        if (weekStart?.open && latest?.close) {
+          cumulative += (sig.target_weight || 0) * ((latest.close - weekStart.open) / weekStart.open);
+        }
       });
       updates.push({
         run_id: run.run_id,
         metrics: {
           ...(run.metrics || {}),
-          daily_return: Number(daily.toFixed(6)),
+          prev_day_return: Number(prevDay.toFixed(6)),
+          today_return: Number(today.toFixed(6)),
           cumulative_return: Number(cumulative.toFixed(6)),
         },
       });

@@ -43,7 +43,7 @@ def is_etf(stock):
     return False
 
 
-def request_json(method, path, params=None, payload=None, prefer=None, retries=3):
+def request_json(method, path, params=None, payload=None, prefer=None, retries=3, return_response=False):
     if not SUPABASE_URL or not SUPABASE_KEY:
         raise RuntimeError("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
 
@@ -69,6 +69,8 @@ def request_json(method, path, params=None, payload=None, prefer=None, retries=3
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 body = resp.read().decode("utf-8")
+                if return_response:
+                    return resp.status, (json.loads(body) if body else [])
                 return json.loads(body) if body else []
         except Exception as exc:
             last_error = exc
@@ -309,12 +311,15 @@ def run(week_end, lookback_days, dry_run, stock_limit=None, liquidity_top=None):
     request_json(
         "POST",
         "strategy_runs",
+        params={"on_conflict": "strategy_id,week_end"},
         payload=runs_payload,
         prefer="resolution=merge-duplicates",
     )
+
     request_json(
         "POST",
         "strategy_signals",
+        params={"on_conflict": "strategy_id,week_end,stock_id"},
         payload=signals_payload,
         prefer="resolution=merge-duplicates",
     )
