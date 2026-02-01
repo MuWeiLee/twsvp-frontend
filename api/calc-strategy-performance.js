@@ -115,7 +115,8 @@ export default async function handler(req, res) {
         }
       });
       updates.push({
-        run_id: run.run_id,
+        strategy_id: run.strategy_id,
+        week_end: run.week_end,
         metrics: {
           ...(run.metrics || {}),
           prev_day_return: Number(prevDay.toFixed(6)),
@@ -132,15 +133,17 @@ export default async function handler(req, res) {
 
     const { error: updateError } = await supabase
       .from("strategy_runs")
-      .upsert(updates, { onConflict: "run_id" });
+      .upsert(updates, { onConflict: "strategy_id,week_end" });
     if (updateError) throw new Error(`strategy_runs update failed: ${updateError.message}`);
 
     // update rebalance metrics snapshot (if exists)
-    const rebalanceUpdates = updates.map((row) => ({
-      strategy_id: runs.find((r) => r.run_id === row.run_id)?.strategy_id,
-      rebalance_date: latestWeek,
-      performance: row.metrics,
-    })).filter((row) => row.strategy_id);
+    const rebalanceUpdates = updates
+      .map((row) => ({
+        strategy_id: row.strategy_id,
+        rebalance_date: row.week_end,
+        performance: row.metrics,
+      }))
+      .filter((row) => row.strategy_id);
     if (rebalanceUpdates.length) {
       await supabase
         .from("strategy_rebalances")
