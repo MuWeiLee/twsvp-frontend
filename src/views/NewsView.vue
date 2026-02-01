@@ -253,13 +253,16 @@ onUnmounted(() => {
 }
 
 .nav-logo {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
+  border-radius: 0;
+  background: transparent;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0;
-  overflow: hidden;
+  border: 0;
+  text-decoration: none;
+  padding: 0;
 }
 
 .nav-logo img {
