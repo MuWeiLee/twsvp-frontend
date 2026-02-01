@@ -239,6 +239,7 @@ import { useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { getProfileSupabase } from "../services/profile.js";
 import { t } from "../services/i18n.js";
+import { getFollowErrorMessage } from "../services/followErrors.js";
 import {
   addFeedLikeSupabase,
   attachFeedPerformance,
@@ -579,7 +580,7 @@ const handleQuickFollow = async () => {
     });
     if (error) {
       console.error("一键关注用户失败:", error);
-      window.alert(t("关注失败，请稍后重试。"));
+      window.alert(getFollowErrorMessage(error, { action: "follow" }));
       return;
     }
   }
@@ -589,7 +590,7 @@ const handleQuickFollow = async () => {
     });
     if (error) {
       console.error("一键关注股票失败:", error);
-      window.alert(t("关注失败，请稍后重试。"));
+      window.alert(getFollowErrorMessage(error, { action: "follow" }));
       return;
     }
   }
