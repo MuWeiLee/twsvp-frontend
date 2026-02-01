@@ -596,6 +596,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding-top: 12px;
 }
 
 .news-card {
@@ -642,6 +643,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  padding-top: 12px;
 }
 
 .strategy-card {
@@ -782,12 +784,16 @@ onUnmounted(() => {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   width: min(600px, 100%);
-  padding: 0 16px;
+  padding: 6px 16px;
+  margin: 0;
   font-size: 12px;
   color: var(--muted);
-  text-align: center;
+  line-height: 1.5;
+  text-align: left;
+  background: var(--bg);
+  z-index: 4;
 }
 
 .empty {
