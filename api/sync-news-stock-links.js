@@ -56,7 +56,7 @@ export default async function handler(req, res) {
     const sinceHours = Number(params.since_hours || params.sinceHours || 24);
     const newsLimit = Number(params.news_limit || params.newsLimit || 200);
     const dryRun = `${params.dry_run || ""}` === "1";
-    const minNameMatches = Number(params.min_name_matches || params.minNameMatches || 3);
+    const minNameMatches = Number(params.min_name_matches || params.minNameMatches || 1);
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
@@ -93,40 +93,26 @@ export default async function handler(req, res) {
     const stockMatches = [];
     for (const article of articles || []) {
       if (!article?.article_id) continue;
-      const rawText = `${article.title || ""} ${article.description || ""} ${article.content || ""}`;
-      const text = normalizeText(rawText);
-      const rawTextSpaced = `${article.title || ""} ${article.description || ""} ${article.content || ""}`;
-      const codeMatches = new Set();
-      if (!text) continue;
+      const rawDescription = `${article.description || ""}`;
+      const descriptionText = normalizeText(rawDescription);
+      const nameMatches = new Set();
+      if (!descriptionText) continue;
       for (const stock of activeStocks) {
         const name = normalizeText(stock.name);
         const stockId = `${stock.stock_id}`.trim();
         if (!stockId) continue;
 
-        const codePattern = new RegExp(`(^|[^A-Za-z0-9])${escapeRegExp(stockId)}(?![A-Za-z0-9])`);
-        if (codePattern.test(rawTextSpaced)) {
-          if (!codeMatches.has(stockId)) {
-            stockMatches.push({
-              article_id: article.article_id,
-              stock_id: stockId,
-              matched_text: stockId,
-              match_method: "exact_code",
-            });
-            codeMatches.add(stockId);
-          }
-          continue;
-        }
-
         if (!name) continue;
         const namePattern = new RegExp(escapeRegExp(name), "g");
-        const count = (text.match(namePattern) || []).length;
-        if (count >= minNameMatches) {
+        const count = (descriptionText.match(namePattern) || []).length;
+        if (count >= minNameMatches && !nameMatches.has(stockId)) {
           stockMatches.push({
             article_id: article.article_id,
             stock_id: stockId,
             matched_text: stock.name,
-            match_method: "exact_name",
+            match_method: "desc_name",
           });
+          nameMatches.add(stockId);
         }
       }
     }
