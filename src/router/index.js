@@ -185,6 +185,7 @@ router.beforeEach(async (to) => {
 });
 
 router.afterEach((to) => {
+  document.title = "TWSVP";
   trackPageView(to.path, document.title);
 });
 
