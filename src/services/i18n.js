@@ -95,11 +95,11 @@ const translations = {
   "{actorName} 与另外 {others} 个人点赞了你的观点。":
     "{actorName} 與另外 {others} 個人點讚了你的觀點。",
   "{actorName} 点赞了你的观点。": "{actorName} 點讚了你的觀點。",
-  "{actorName} 在你的观点留言。": "{actorName} 在你的觀點留言。",
-  "{actorName} 与另外 {others} 个人在你的观点留言。":
-    "{actorName} 與另外 {others} 個人在你的觀點留言。",
-  "{actorName}关注你": "{actorName}關注你",
-  "{actorName}在你的观点下留言": "{actorName}在你的觀點下留言",
+  "{actorName} 在你的观点留言": "{actorName} 在你的觀點留言",
+  "{actorName} 与另外 {others} 个人在你的观点留言":
+    "{actorName} 與另外 {others} 個人在你的觀點留言",
+  "{actorName}关注了你": "{actorName}關注了你",
+  "{actorName}在你的观点留言": "{actorName}在你的觀點留言",
   "未填写留言内容": "未填寫留言內容",
   "留言失败，请稍后重试。": "留言失敗，請稍後重試。",
   "观点被收藏": "觀點被收藏",

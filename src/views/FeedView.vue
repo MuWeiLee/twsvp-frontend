@@ -239,6 +239,8 @@ import { useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
 import { getProfileSupabase } from "../services/profile.js";
 import { t } from "../services/i18n.js";
+import { getFollowErrorMessage } from "../services/followErrors.js";
+import { addNotificationSupabase } from "../services/notifications.js";
 import {
   addFeedLikeSupabase,
   attachFeedPerformance,
@@ -553,6 +555,7 @@ const handleQuickFollow = async () => {
   }
   const followRows = [];
   const nextFollowedUsers = new Set(followedUsers.value);
+  const followNoticeTargets = [];
   recommendedUsers.value.forEach((item) => {
     if (item.user_id) nextFollowedUsers.add(item.user_id);
     if (item.user_id && item.user_id !== currentUserId.value) {
@@ -560,6 +563,9 @@ const handleQuickFollow = async () => {
         follower_id: currentUserId.value,
         followee_id: item.user_id,
       });
+      if (!followedUsers.value.has(item.user_id)) {
+        followNoticeTargets.push(item.user_id);
+      }
     }
   });
   const stockRows = [];
@@ -579,9 +585,18 @@ const handleQuickFollow = async () => {
     });
     if (error) {
       console.error("一键关注用户失败:", error);
-      window.alert(t("关注失败，请稍后重试。"));
+      window.alert(getFollowErrorMessage(error, { action: "follow" }));
       return;
     }
+    await Promise.all(
+      followNoticeTargets.map((followeeId) =>
+        addNotificationSupabase({
+          user_id: followeeId,
+          type: "follow",
+          actor_user_id: currentUserId.value,
+        })
+      )
+    );
   }
   if (stockRows.length) {
     const { error } = await supabase.from("user_stock_follows").upsert(stockRows, {
@@ -589,7 +604,7 @@ const handleQuickFollow = async () => {
     });
     if (error) {
       console.error("一键关注股票失败:", error);
-      window.alert(t("关注失败，请稍后重试。"));
+      window.alert(getFollowErrorMessage(error, { action: "follow" }));
       return;
     }
   }
