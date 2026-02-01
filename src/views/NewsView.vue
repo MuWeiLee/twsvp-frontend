@@ -196,17 +196,13 @@ const capitalLabels = {
   fixed_5w: t("固定金额 5万"),
   fixed_20w: t("固定金额 20万"),
   fixed_50w: t("固定金额 50万"),
-  dca_2k: t("定投 每周 2000"),
-  dca_5k: t("定投 每周 5000"),
-  dca_10k: t("定投 每周 10000"),
 };
 
 const riskLabels = {
-  high_high: t("高收益高风险（高回撤）"),
-  high_mid: t("高收益中风险（中回撤）"),
-  mid_mid: t("中收益中风险（平衡）"),
-  mid_low: t("中收益低风险（低回撤）"),
-  low_low: t("低收益低风险（防守）"),
+  aggressive: t("激进型"),
+  low_vol: t("低波型"),
+  income: t("创收型"),
+  steady: t("稳收益"),
 };
 
 const refreshLabel = computed(() => {

@@ -47,29 +47,17 @@ const stddev = (values) => {
   return Math.sqrt(variance);
 };
 
-const zscore = (values) => {
-  if (!values.length) return 0;
-  const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
-  const sd = stddev(values);
-  if (!sd) return 0;
-  return (values[values.length - 1] - mean) / sd;
-};
-
 const STRATEGY_CAPITALS = [
-  { id: "fixed_5w", name: "固定金额 5万", liquidityTop: 800 },
-  { id: "fixed_20w", name: "固定金额 20万", liquidityTop: 500 },
-  { id: "fixed_50w", name: "固定金额 50万", liquidityTop: 300 },
-  { id: "dca_2k", name: "定投 每周 2000" },
-  { id: "dca_5k", name: "定投 每周 5000" },
-  { id: "dca_10k", name: "定投 每周 10000" },
+  { id: "fixed_5w", name: "固定金额 5万", priceMin: 10, priceMax: 100 },
+  { id: "fixed_20w", name: "固定金额 20万", priceMin: 100, priceMax: 500 },
+  { id: "fixed_50w", name: "固定金额 50万", priceMin: 500, priceMax: null },
 ];
 
 const STRATEGY_RISKS = [
-  { id: "high_high", riskLevel: "high", momWeight: 0.7, volWeight: 0.4, liqWeight: 0.2 },
-  { id: "high_mid", riskLevel: "mid", momWeight: 0.7, volWeight: 0.2, liqWeight: 0.2 },
-  { id: "mid_mid", riskLevel: "mid", momWeight: 0.5, volWeight: 0.0, liqWeight: 0.3 },
-  { id: "mid_low", riskLevel: "low", momWeight: 0.3, volWeight: -0.3, liqWeight: 0.5 },
-  { id: "low_low", riskLevel: "low", momWeight: 0.1, volWeight: -0.6, liqWeight: 0.6 },
+  { id: "aggressive", riskLevel: "aggressive" },
+  { id: "low_vol", riskLevel: "low_vol" },
+  { id: "income", riskLevel: "income" },
+  { id: "steady", riskLevel: "steady" },
 ];
 
 const allocateWeights = (scores) => {
@@ -77,6 +65,97 @@ const allocateWeights = (scores) => {
   const total = positives.reduce((sum, v) => sum + v, 0);
   if (!total) return scores.map(() => 1 / scores.length);
   return positives.map((s) => s / total);
+};
+
+const crossZscore = (values) => {
+  if (!values.length) return [];
+  const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+  const sd = stddev(values);
+  if (!sd) return values.map(() => 0);
+  return values.map((v) => (v - mean) / sd);
+};
+
+const targetScore = (value, target, tolerance) => {
+  if (!tolerance) return 0;
+  const diff = Math.abs(value - target);
+  const score = 1 - diff / tolerance;
+  return Math.max(0, Math.min(1, score));
+};
+
+const aboveScore = (value, threshold, span) => {
+  if (!span) return 0;
+  const score = (value - threshold) / span;
+  return Math.max(0, Math.min(1, score));
+};
+
+const buildProfileScores = (items) => {
+  if (!items.length) return;
+  const keys = [
+    "ret_1",
+    "ret_3",
+    "ret_5",
+    "ret_10",
+    "volatility",
+    "avg_volume",
+    "avg_turnover",
+    "avg_range",
+    "vol_stability",
+    "last_volume",
+  ];
+  keys.forEach((key) => {
+    const values = items.map((item) => item[key] || 0);
+    const zs = crossZscore(values);
+    items.forEach((item, idx) => {
+      item[`${key}_z`] = zs[idx];
+    });
+  });
+  items.forEach((item) => {
+    const dailyRet = (item.ret_10 || 0) / 10;
+    item.daily_ret = dailyRet;
+    item.mid_return_score = targetScore(item.ret_5 || 0, 0.02, 0.01);
+    item.low_return_score = targetScore(item.ret_1 || 0, 0.005, 0.005);
+    item.high_return_score = aboveScore(item.ret_1 || 0, 0.03, 0.03);
+    item.steady_return_score = targetScore(dailyRet, 0.015, 0.005);
+    item.momentum_accel = (item.ret_3 || 0) - (item.ret_1 || 0);
+  });
+};
+
+const profileScore = (profileId, item) => {
+  if (profileId === "aggressive") {
+    return item.high_return_score * 0.5 + item.volatility_z * 0.4 - item.avg_volume_z * 0.3;
+  }
+  if (profileId === "low_vol") {
+    return (
+      item.avg_turnover_z * 0.35 +
+      item.avg_volume_z * 0.15 +
+      item.mid_return_score * 0.35 -
+      item.avg_range_z * 0.15
+    );
+  }
+  if (profileId === "income") {
+    return (
+      item.ret_3_z * 0.3 +
+      item.low_return_score * 0.4 -
+      item.volatility_z * 0.3 +
+      item.momentum_accel * 0.2
+    );
+  }
+  if (profileId === "steady") {
+    return (
+      item.avg_turnover_z * 0.35 +
+      item.avg_volume_z * 0.15 +
+      item.steady_return_score * 0.3 -
+      item.vol_stability_z * 0.2
+    );
+  }
+  return 0;
+};
+
+const inPriceBucket = (price, min, max) => {
+  if (price === null || price === undefined) return false;
+  if (min !== null && min !== undefined && price < min) return false;
+  if (max !== null && max !== undefined && price >= max) return false;
+  return true;
 };
 
 const buildWeightMap = (signals = []) => {
@@ -171,7 +250,7 @@ export default async function handler(req, res) {
       const chunk = stockIds.slice(i, i + chunkSize);
       const { data: prices, error } = await supabase
         .from("stock_prices")
-        .select("stock_id,trade_date,close,volume,turnover")
+        .select("stock_id,trade_date,close,volume,turnover,high,low")
         .in("stock_id", chunk)
         .gte("trade_date", toDateString(startDate))
         .lte("trade_date", weekEnd)
@@ -194,64 +273,104 @@ export default async function handler(req, res) {
           ? r.turnover
           : (r.close || 0) * (r.volume || 0)
       );
+      const highs = rows.map((r) => r.high).filter((v) => v !== null && v !== undefined);
+      const lows = rows.map((r) => r.low).filter((v) => v !== null && v !== undefined);
       const returns = closes.slice(1).map((v, idx) => percentChange(closes[idx], v));
-      const momentum = percentChange(closes[0], closes[closes.length - 1]);
       const volatility = stddev(returns);
-      const volumeZ = zscore(volumes);
-      const turnoverZ = zscore(turnovers);
       const avgVolume = volumes.reduce((sum, v) => sum + v, 0) / volumes.length;
       const avgTurnover = turnovers.reduce((sum, v) => sum + v, 0) / turnovers.length;
+      const lastClose = closes[closes.length - 1];
+      const prevClose = closes.length > 1 ? closes[closes.length - 2] : lastClose;
+      const close3 = closes.length > 3 ? closes[closes.length - 4] : closes[0];
+      const close5 = closes.length > 5 ? closes[closes.length - 6] : closes[0];
+      const close10 = closes.length > 10 ? closes[closes.length - 11] : closes[0];
+      const ret1 = percentChange(prevClose, lastClose);
+      const ret3 = percentChange(close3, lastClose);
+      const ret5 = percentChange(close5, lastClose);
+      const ret10 = percentChange(close10, lastClose);
+      let avgRange = 0;
+      if (highs.length && lows.length && highs.length === lows.length) {
+        const ranges = highs.map((h, idx) => {
+          const low = lows[idx];
+          if (!low) return 0;
+          return (h - low) / low;
+        });
+        avgRange = ranges.reduce((sum, v) => sum + v, 0) / ranges.length;
+      }
+      const volStd = stddev(volumes);
+      const volStability = volStd / (avgVolume + 1e-6);
+      const lastVolume = volumes[volumes.length - 1] || 0;
       stats.push({
         stock_id: stock.stock_id,
         name: stock.name || stock.stock_id,
-        momentum,
         volatility,
-        volume_z: volumeZ,
-        turnover_z: turnoverZ,
         avg_volume: avgVolume,
         avg_turnover: avgTurnover,
-        score: momentum * 0.7 + volumeZ * 0.3,
+        last_volume: lastVolume,
+        ret_1: ret1,
+        ret_3: ret3,
+        ret_5: ret5,
+        ret_10: ret10,
+        avg_range: avgRange,
+        vol_stability: volStability,
+        last_close: lastClose,
       });
     });
 
     stats.sort((a, b) => (b.avg_turnover || 0) - (a.avg_turnover || 0));
     const universe = stats.slice(0, liquidityTop);
+    buildProfileScores(universe);
 
     const runsPayload = [];
     const signalsPayload = [];
 
     STRATEGY_CAPITALS.forEach((capital) => {
-      const capitalUniverse = capital.liquidityTop
-        ? universe.slice(0, capital.liquidityTop)
-        : universe;
+      const capitalUniverse = universe;
       STRATEGY_RISKS.forEach((risk) => {
         const strategyId = `${capital.id}_${risk.id}`;
-        const ranked = capitalUniverse
-          .map((item) => ({
-            item,
-            adjusted:
-              item.momentum * risk.momWeight +
-              item.volatility * risk.volWeight +
-              item.turnover_z * risk.liqWeight,
-          }))
-          .sort((a, b) => b.adjusted - a.adjusted)
-          .slice(0, maxPicks)
-          .map((entry) => entry.item);
+        capitalUniverse.forEach((item) => {
+          item.profile_score = profileScore(risk.id, item);
+        });
 
-        const weights = allocateWeights(ranked.map((r) => r.score));
-        ranked.forEach((pick, idx) => {
+        const bucketCandidates = capitalUniverse
+          .filter((item) =>
+            inPriceBucket(item.last_close, capital.priceMin, capital.priceMax)
+          )
+          .sort((a, b) => (b.profile_score || 0) - (a.profile_score || 0));
+        const overallCandidates = [...capitalUniverse].sort(
+          (a, b) => (b.profile_score || 0) - (a.profile_score || 0)
+        );
+
+        const picks = bucketCandidates.slice(0, 3);
+        if (picks.length < 3) {
+          overallCandidates.forEach((item) => {
+            if (picks.length >= 3) return;
+            if (!picks.includes(item)) picks.push(item);
+          });
+        }
+        overallCandidates.forEach((item) => {
+          if (picks.length >= maxPicks) return;
+          if (!picks.includes(item)) picks.push(item);
+        });
+
+        const weights = allocateWeights(picks.map((r) => r.profile_score || 0));
+        picks.forEach((pick, idx) => {
           signalsPayload.push({
             strategy_id: strategyId,
             risk_level: risk.riskLevel,
             week_end: weekEnd,
             stock_id: pick.stock_id,
             target_weight: Number(weights[idx].toFixed(6)),
-            score: Number(pick.score.toFixed(6)),
+            score: Number((pick.profile_score || 0).toFixed(6)),
             reason: {
-              momentum: pick.momentum,
+              ret_1: pick.ret_1,
+              ret_3: pick.ret_3,
+              ret_5: pick.ret_5,
+              ret_10: pick.ret_10,
+              avg_volume: pick.avg_volume,
+              avg_turnover: pick.avg_turnover,
+              avg_range: pick.avg_range,
               volatility: pick.volatility,
-              volume_z: pick.volume_z,
-              turnover_z: pick.turnover_z,
             },
           });
         });
@@ -261,7 +380,7 @@ export default async function handler(req, res) {
           risk_level: risk.riskLevel,
           week_end: weekEnd,
           universe_count: capitalUniverse.length,
-          selected_count: ranked.length,
+          selected_count: picks.length,
           gross_exposure: 1.0,
           risk_state: "normal",
           metrics: {

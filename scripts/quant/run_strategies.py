@@ -13,20 +13,16 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
 STRATEGY_CAPITALS = [
-    {"id": "fixed_5w", "name": "固定金额 5万", "capital": 50000, "liquidity_top": 800},
-    {"id": "fixed_20w", "name": "固定金额 20万", "capital": 200000, "liquidity_top": 500},
-    {"id": "fixed_50w", "name": "固定金额 50万", "capital": 500000, "liquidity_top": 300},
-    {"id": "dca_2k", "name": "定投 每周 2000", "capital": 2000},
-    {"id": "dca_5k", "name": "定投 每周 5000", "capital": 5000},
-    {"id": "dca_10k", "name": "定投 每周 10000", "capital": 10000},
+    {"id": "fixed_5w", "name": "固定金额 5万", "capital": 50000, "price_min": 10, "price_max": 100},
+    {"id": "fixed_20w", "name": "固定金额 20万", "capital": 200000, "price_min": 100, "price_max": 500},
+    {"id": "fixed_50w", "name": "固定金额 50万", "capital": 500000, "price_min": 500, "price_max": None},
 ]
 
 STRATEGY_RISKS = [
-    {"id": "high_high", "name": "高收益高风险", "risk_level": "high", "mom_weight": 0.7, "vol_weight": 0.4, "liq_weight": 0.2},
-    {"id": "high_mid", "name": "高收益中风险", "risk_level": "mid", "mom_weight": 0.7, "vol_weight": 0.2, "liq_weight": 0.2},
-    {"id": "mid_mid", "name": "中收益中风险", "risk_level": "mid", "mom_weight": 0.5, "vol_weight": 0.0, "liq_weight": 0.3},
-    {"id": "mid_low", "name": "中收益低风险", "risk_level": "low", "mom_weight": 0.3, "vol_weight": -0.3, "liq_weight": 0.5},
-    {"id": "low_low", "name": "低收益低风险", "risk_level": "low", "mom_weight": 0.1, "vol_weight": -0.6, "liq_weight": 0.6},
+    {"id": "aggressive", "name": "激进型", "risk_level": "aggressive"},
+    {"id": "low_vol", "name": "低波型", "risk_level": "low_vol"},
+    {"id": "income", "name": "创收型", "risk_level": "income"},
+    {"id": "steady", "name": "稳收益", "risk_level": "steady"},
 ]
 
 MAX_PICKS = 5
@@ -98,16 +94,6 @@ def stddev(values):
     return math.sqrt(variance)
 
 
-def zscore(values):
-    if not values:
-        return 0.0
-    mean = sum(values) / len(values)
-    sd = stddev(values)
-    if sd == 0:
-        return 0.0
-    return (values[-1] - mean) / sd
-
-
 def fetch_active_stocks(limit=None):
     params = {
         "select": "stock_id,name,is_active",
@@ -141,7 +127,7 @@ def fetch_prices_bulk(stock_ids, start_date, end_date):
         "GET",
         "stock_prices",
         params={
-            "select": "stock_id,trade_date,close,volume,turnover",
+            "select": "stock_id,trade_date,close,volume,turnover,high,low",
             "stock_id": f"in.({in_list})",
             "trade_date": f"gte.{start_date}",
             "trade_date": f"lte.{end_date}",
@@ -161,25 +147,44 @@ def compute_score(prices):
         else (row.get("close") or 0) * (row.get("volume") or 0)
         for row in prices
     ]
+    highs = [row.get("high") for row in prices if row.get("high") is not None]
+    lows = [row.get("low") for row in prices if row.get("low") is not None]
     if len(closes) < 2:
         return None
-    momentum = percent_change(closes[0], closes[-1])
     returns = []
     for i in range(1, len(closes)):
         returns.append(percent_change(closes[i - 1], closes[i]))
     vol = stddev(returns)
-    volume_score = zscore(volumes)
-    turnover_score = zscore(turnovers)
     avg_volume = sum(volumes) / len(volumes) if volumes else 0.0
     avg_turnover = sum(turnovers) / len(turnovers) if turnovers else 0.0
+    last_close = closes[-1]
+    prev_close = closes[-2] if len(closes) > 1 else closes[-1]
+    close_3 = closes[-4] if len(closes) > 3 else closes[0]
+    close_5 = closes[-6] if len(closes) > 5 else closes[0]
+    close_10 = closes[-11] if len(closes) > 10 else closes[0]
+    ret_1 = percent_change(prev_close, last_close)
+    ret_3 = percent_change(close_3, last_close)
+    ret_5 = percent_change(close_5, last_close)
+    ret_10 = percent_change(close_10, last_close)
+    avg_range = 0.0
+    if highs and lows and len(highs) == len(lows):
+        ranges = [(h - l) / l if l else 0 for h, l in zip(highs, lows)]
+        avg_range = sum(ranges) / len(ranges) if ranges else 0.0
+    vol_std = stddev(volumes) if volumes else 0.0
+    vol_stability = vol_std / (avg_volume + 1e-6)
+    last_volume = volumes[-1] if volumes else 0.0
     return {
-        "momentum": momentum,
         "volatility": vol,
-        "volume_z": volume_score,
-        "turnover_z": turnover_score,
         "avg_volume": avg_volume,
         "avg_turnover": avg_turnover,
-        "score": momentum * 0.7 + volume_score * 0.3,
+        "last_volume": last_volume,
+        "ret_1": ret_1,
+        "ret_3": ret_3,
+        "ret_5": ret_5,
+        "ret_10": ret_10,
+        "avg_range": avg_range,
+        "vol_stability": vol_stability,
+        "last_close": last_close,
     }
 
 
@@ -193,6 +198,104 @@ def allocate_weights(scores):
     if total <= 0:
         return [1.0 / len(scores) for _ in scores]
     return [s / total for s in positive]
+
+
+def cross_zscore(values):
+    if not values:
+        return []
+    mean = sum(values) / len(values)
+    sd = stddev(values)
+    if sd == 0:
+        return [0.0 for _ in values]
+    return [(v - mean) / sd for v in values]
+
+
+def target_score(value, target, tolerance):
+    if tolerance <= 0:
+        return 0.0
+    diff = abs(value - target)
+    score = 1.0 - (diff / tolerance)
+    return max(0.0, min(1.0, score))
+
+
+def above_score(value, threshold, span):
+    if span <= 0:
+        return 0.0
+    score = (value - threshold) / span
+    return max(0.0, min(1.0, score))
+
+
+def build_profile_scores(items):
+    if not items:
+        return
+    keys = [
+        "ret_1",
+        "ret_3",
+        "ret_5",
+        "ret_10",
+        "volatility",
+        "avg_volume",
+        "avg_turnover",
+        "avg_range",
+        "vol_stability",
+        "last_volume",
+    ]
+    for key in keys:
+        values = [item.get(key, 0.0) or 0.0 for item in items]
+        zs = cross_zscore(values)
+        for item, z in zip(items, zs):
+            item[f"{key}_z"] = z
+
+    for item in items:
+        daily_ret = (item.get("ret_10") or 0.0) / 10.0
+        item["daily_ret"] = daily_ret
+        item["mid_return_score"] = target_score(item.get("ret_5") or 0.0, 0.02, 0.01)
+        item["low_return_score"] = target_score(item.get("ret_1") or 0.0, 0.005, 0.005)
+        item["high_return_score"] = above_score(item.get("ret_1") or 0.0, 0.03, 0.03)
+        item["steady_return_score"] = target_score(daily_ret, 0.015, 0.005)
+        item["momentum_accel"] = (item.get("ret_3") or 0.0) - (item.get("ret_1") or 0.0)
+
+
+def profile_score(profile_id, item):
+    if profile_id == "aggressive":
+        return (
+            (item.get("high_return_score") or 0.0) * 0.5
+            + (item.get("volatility_z") or 0.0) * 0.4
+            - (item.get("avg_volume_z") or 0.0) * 0.3
+        )
+    if profile_id == "low_vol":
+        return (
+            (item.get("avg_turnover_z") or 0.0) * 0.35
+            + (item.get("avg_volume_z") or 0.0) * 0.15
+            + (item.get("mid_return_score") or 0.0) * 0.35
+            - (item.get("avg_range_z") or 0.0) * 0.15
+        )
+    if profile_id == "income":
+        accel = item.get("momentum_accel") or 0.0
+        return (
+            (item.get("ret_3_z") or 0.0) * 0.3
+            + (item.get("low_return_score") or 0.0) * 0.4
+            - (item.get("volatility_z") or 0.0) * 0.3
+            + accel * 0.2
+        )
+    if profile_id == "steady":
+        return (
+            (item.get("avg_turnover_z") or 0.0) * 0.35
+            + (item.get("avg_volume_z") or 0.0) * 0.15
+            + (item.get("steady_return_score") or 0.0) * 0.3
+            - (item.get("vol_stability_z") or 0.0) * 0.2
+        )
+    return 0.0
+
+
+def in_price_bucket(price, bucket_min, bucket_max):
+    if price is None:
+        return False
+    if bucket_min is not None and price < bucket_min:
+        return False
+    if bucket_max is not None and price >= bucket_max:
+        return False
+    return True
 
 
 def run(week_end, lookback_days, dry_run, stock_limit=None, liquidity_top=None):
@@ -248,29 +351,46 @@ def run(week_end, lookback_days, dry_run, stock_limit=None, liquidity_top=None):
         stock_stats.sort(key=lambda x: x.get("avg_turnover") or 0, reverse=True)
         stock_stats = stock_stats[:liquidity_top]
 
+    build_profile_scores(stock_stats)
+
     runs_payload = []
     signals_payload = []
 
     for capital in STRATEGY_CAPITALS:
         capital_universe = stock_stats
-        capital_liq = capital.get("liquidity_top") or liquidity_top
-        if capital_liq:
-            capital_universe = stock_stats[:capital_liq]
         for risk in STRATEGY_RISKS:
             strategy_id = build_strategy_id(capital, risk)
-            # risk-adjusted score
-            scored = []
-            for item in capital_universe:
-                adjusted = (
-                    item["momentum"] * risk["mom_weight"]
-                    + item["volatility"] * risk["vol_weight"]
-                    + item["turnover_z"] * risk["liq_weight"]
-                )
-                scored.append((adjusted, item))
-            scored.sort(key=lambda x: x[0], reverse=True)
-            picks = [item for _, item in scored[:MAX_PICKS]]
 
-            weights = allocate_weights([p["score"] for p in picks])
+            for item in capital_universe:
+                item["profile_score"] = profile_score(risk["id"], item)
+
+            bucket_candidates = [
+                item
+                for item in capital_universe
+                if in_price_bucket(item.get("last_close"), capital.get("price_min"), capital.get("price_max"))
+            ]
+            bucket_candidates.sort(key=lambda x: x.get("profile_score") or 0.0, reverse=True)
+            overall_candidates = sorted(
+                capital_universe, key=lambda x: x.get("profile_score") or 0.0, reverse=True
+            )
+
+            picks = bucket_candidates[:3]
+            if len(picks) < 3:
+                for item in overall_candidates:
+                    if item in picks:
+                        continue
+                    picks.append(item)
+                    if len(picks) >= 3:
+                        break
+
+            for item in overall_candidates:
+                if len(picks) >= MAX_PICKS:
+                    break
+                if item in picks:
+                    continue
+                picks.append(item)
+
+            weights = allocate_weights([p.get("profile_score") or 0.0 for p in picks])
             for pick, weight in zip(picks, weights):
                 signals_payload.append({
                     "strategy_id": strategy_id,
@@ -278,12 +398,16 @@ def run(week_end, lookback_days, dry_run, stock_limit=None, liquidity_top=None):
                     "week_end": end_date,
                     "stock_id": pick["stock_id"],
                     "target_weight": round(weight, 6),
-                    "score": round(pick["score"], 6),
+                    "score": round(pick.get("profile_score") or 0.0, 6),
                     "reason": {
-                        "momentum": pick["momentum"],
-                        "volatility": pick["volatility"],
-                        "volume_z": pick["volume_z"],
-                        "turnover_z": pick["turnover_z"],
+                        "ret_1": pick.get("ret_1"),
+                        "ret_3": pick.get("ret_3"),
+                        "ret_5": pick.get("ret_5"),
+                        "ret_10": pick.get("ret_10"),
+                        "avg_volume": pick.get("avg_volume"),
+                        "avg_turnover": pick.get("avg_turnover"),
+                        "avg_range": pick.get("avg_range"),
+                        "volatility": pick.get("volatility"),
                     },
                 })
 
