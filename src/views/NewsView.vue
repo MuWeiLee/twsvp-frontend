@@ -263,6 +263,7 @@ onUnmounted(() => {
   border: 0;
   text-decoration: none;
   padding: 0;
+  cursor: pointer;
 }
 
 .nav-logo img {
