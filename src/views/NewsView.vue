@@ -36,7 +36,7 @@
         </router-link>
       </nav>
 
-      <header class="tabs-wrap">
+      <header class="tabs-wrap" :class="{ hidden: !showTabs }">
         <div class="tabs">
           <button
             class="tab-btn"
@@ -56,7 +56,8 @@
       </header>
 
       <div
-        class="content-scroll"
+        ref="scrollContainer"
+        class="feed-scroll"
         @touchstart="handleTouchStart"
         @touchmove="handleTouchMove"
         @touchend="handleTouchEnd"
@@ -185,6 +186,8 @@ import { t } from "../services/i18n.js";
 import { fetchLatestStrategyRuns, fetchStrategySignals, fetchStockNames } from "../services/strategy.js";
 
 const activeTab = ref("news");
+const showTabs = ref(true);
+const lastScrollY = ref(0);
 
 const PAGE_SIZE = 20;
 const PULL_THRESHOLD = 60;
@@ -197,6 +200,7 @@ const isRefreshing = ref(false);
 const hasMore = ref(true);
 const page = ref(1);
 const loadTrigger = ref(null);
+const scrollContainer = ref(null);
 const pullDistance = ref(0);
 const touchStartY = ref(null);
 let loadObserver = null;
@@ -272,7 +276,8 @@ const loadMore = async () => {
 };
 
 const handleTouchStart = (event) => {
-  if (window.scrollY > 0 || loading.value || isRefreshing.value) return;
+  if (loading.value || isRefreshing.value) return;
+  if (!scrollContainer.value || scrollContainer.value.scrollTop > 0) return;
   const touch = event.touches?.[0];
   if (!touch) return;
   touchStartY.value = touch.clientY;
@@ -304,15 +309,26 @@ const setupInfiniteScroll = () => {
   }
   loadObserver = new IntersectionObserver(
     (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          loadMore();
-        }
-      });
+      if (entries[0]?.isIntersecting) {
+        loadMore();
+      }
     },
-    { threshold: 0.1 }
+    { root: scrollContainer.value, rootMargin: "160px 0px" }
   );
   loadObserver.observe(loadTrigger.value);
+};
+
+const handleScroll = () => {
+  const current = scrollContainer.value?.scrollTop || 0;
+  if (current <= 4) {
+    showTabs.value = true;
+    lastScrollY.value = current;
+    return;
+  }
+  const delta = current - lastScrollY.value;
+  if (Math.abs(delta) < 6) return;
+  showTabs.value = delta <= 0;
+  lastScrollY.value = current;
 };
 
 const formatPercent = (value) => {
@@ -403,42 +419,66 @@ const loadStrategies = async () => {
 
 onMounted(async () => {
   await loadNews({ append: false });
+  await loadStrategies();
   await nextTick();
   setupInfiniteScroll();
-  await loadStrategies();
+  if (scrollContainer.value) {
+    lastScrollY.value = scrollContainer.value.scrollTop || 0;
+    scrollContainer.value.addEventListener("scroll", handleScroll, { passive: true });
+  }
 });
 
 onUnmounted(() => {
+  if (scrollContainer.value) {
+    scrollContainer.value.removeEventListener("scroll", handleScroll);
+  }
   if (loadObserver) loadObserver.disconnect();
 });
 </script>
 
 <style scoped>
 .app-shell {
-  min-height: 100vh;
+  max-width: 600px;
+  margin: 0 auto;
   background: var(--bg);
-  display: flex;
-  justify-content: center;
-  padding: 16px 0 24px;
+  min-height: 100vh;
+  height: 100vh;
+  --nav-height: 64px;
+  --tabs-height: 44px;
+  --header-gap: 0px;
 }
 
 .phone-frame {
-  width: min(100%, 520px);
+  width: 100%;
+  min-height: 100vh;
+  height: 100vh;
   background: var(--bg);
-  border-radius: 28px;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
-  border: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+  position: relative;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
 .nav {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 14px 16px;
+  justify-content: flex-start;
+  gap: 12px;
+  height: calc(var(--nav-height) + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) 16px 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  z-index: 2;
+  box-shadow: 0 1px 2px rgba(15, 20, 25, 0.04);
+  z-index: 5;
 }
 
 .nav-logo {
@@ -462,67 +502,93 @@ onUnmounted(() => {
 }
 
 .nav-title {
-  font-size: 18px;
-  font-weight: 600;
+  font-weight: 500;
+  font-size: 20px;
   margin-right: auto;
-  text-align: left;
 }
 
 .nav-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
   border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--ink);
+  background: var(--surface);
+  border-radius: 10px;
+  height: 32px;
+  width: 32px;
+  padding: 0;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  color: var(--ink);
   text-decoration: none;
 }
 
+.nav-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
 .tabs-wrap {
-  background: var(--surface);
+  position: fixed;
+  top: calc(var(--nav-height) + env(safe-area-inset-top, 0px));
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
-  padding: 0 16px 8px;
+  z-index: 4;
+  padding: 0 16px;
+  transition: transform 0.2s ease;
+}
+
+.tabs-wrap.hidden {
+  transform: translateY(-120%);
 }
 
 .tabs {
   display: flex;
-  gap: 12px;
-  padding-top: 8px;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+  margin-top: 6px;
+  align-items: center;
 }
 
 .tab-btn {
+  border: 0;
+  background: transparent;
+  font-family: inherit;
   font-size: 14px;
   font-weight: 600;
-  color: var(--muted);
-  background: transparent;
-  border: none;
-  padding: 8px 4px;
+  padding: 10px 0;
   border-bottom: 2px solid transparent;
+  cursor: pointer;
+  color: var(--muted);
 }
 
 .tab-btn.active {
   color: var(--ink);
-  border-bottom-color: var(--ink);
+  border-color: var(--ink);
 }
 
-.content-scroll {
-  padding: 0 16px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.feed-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: calc(var(--nav-height) + var(--tabs-height) + var(--header-gap) + env(safe-area-inset-top, 0px))
+    16px
+    calc(140px + env(safe-area-inset-bottom, 0px));
+  overscroll-behavior: contain;
 }
 
 .refresh-indicator {
-  height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  color: var(--muted);
   font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
   transition: height 0.2s ease;
 }
 
@@ -531,11 +597,18 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
+.load-trigger {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 24px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .news-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding-top: 12px;
 }
 
 .news-card {
@@ -578,28 +651,20 @@ onUnmounted(() => {
   font-size: 10px;
 }
 
-.load-trigger {
-  text-align: center;
-  color: var(--muted);
-  font-size: 12px;
-  padding: 4px 0 16px;
-}
-
 .card-list {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding-top: 12px;
 }
 
 .strategy-card {
   background: var(--surface);
   border-radius: var(--radius-card);
-  padding: 16px;
+  padding: 12px;
   border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .card-header {
@@ -610,7 +675,7 @@ onUnmounted(() => {
 }
 
 .card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink);
 }
@@ -732,3 +797,4 @@ onUnmounted(() => {
   padding: 24px 0 32px;
 }
 </style>
+
