@@ -135,6 +135,18 @@ export default async function handler(req, res) {
       .upsert(updates, { onConflict: "run_id" });
     if (updateError) throw new Error(`strategy_runs update failed: ${updateError.message}`);
 
+    // update rebalance metrics snapshot (if exists)
+    const rebalanceUpdates = updates.map((row) => ({
+      strategy_id: runs.find((r) => r.run_id === row.run_id)?.strategy_id,
+      rebalance_date: latestWeek,
+      performance: row.metrics,
+    })).filter((row) => row.strategy_id);
+    if (rebalanceUpdates.length) {
+      await supabase
+        .from("strategy_rebalances")
+        .upsert(rebalanceUpdates, { onConflict: "strategy_id,rebalance_date" });
+    }
+
     res.status(200).json({ status: "ok", updated: updates.length });
   } catch (error) {
     res.status(500).json({ error: "Unexpected error", detail: error.message });

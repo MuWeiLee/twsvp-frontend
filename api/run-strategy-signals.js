@@ -79,6 +79,40 @@ const allocateWeights = (scores) => {
   return positives.map((s) => s / total);
 };
 
+const buildWeightMap = (signals = []) => {
+  const map = new Map();
+  signals.forEach((row) => {
+    map.set(row.stock_id, row.target_weight || 0);
+  });
+  return map;
+};
+
+const computeTurnover = (prevSignals = [], nextSignals = []) => {
+  if (!prevSignals.length && !nextSignals.length) return 0;
+  const prevMap = buildWeightMap(prevSignals);
+  const nextMap = buildWeightMap(nextSignals);
+  const all = new Set([...prevMap.keys(), ...nextMap.keys()]);
+  let diffSum = 0;
+  all.forEach((key) => {
+    diffSum += Math.abs((nextMap.get(key) || 0) - (prevMap.get(key) || 0));
+  });
+  return diffSum / 2;
+};
+
+const extractDelta = (prevSignals = [], nextSignals = []) => {
+  const prevMap = buildWeightMap(prevSignals);
+  const nextMap = buildWeightMap(nextSignals);
+  const added = [];
+  const removed = [];
+  nextMap.forEach((weight, stockId) => {
+    if (!prevMap.has(stockId)) added.push({ stock_id: stockId, weight });
+  });
+  prevMap.forEach((weight, stockId) => {
+    if (!nextMap.has(stockId)) removed.push({ stock_id: stockId, weight });
+  });
+  return { added, removed };
+};
+
 export default async function handler(req, res) {
   if (req.method !== "GET" && req.method !== "POST") {
     res.status(405).json({ error: "Method Not Allowed" });
@@ -255,6 +289,56 @@ export default async function handler(req, res) {
       .from("strategy_signals")
       .upsert(signalsPayload, { onConflict: "strategy_id,week_end,stock_id" });
     if (signalError) throw new Error(`strategy_signals upsert failed: ${signalError.message}`);
+
+    // record rebalance results
+    const { data: prevRuns } = await supabase
+      .from("strategy_runs")
+      .select("strategy_id,week_end")
+      .lt("week_end", weekEnd)
+      .order("week_end", { ascending: false })
+      .limit(30);
+    const prevWeek = prevRuns && prevRuns.length ? prevRuns[0].week_end : null;
+    if (prevWeek) {
+      const { data: prevSignals, error: prevError } = await supabase
+        .from("strategy_signals")
+        .select("strategy_id,stock_id,target_weight")
+        .eq("week_end", prevWeek);
+      if (!prevError) {
+        const prevByStrategy = new Map();
+        (prevSignals || []).forEach((row) => {
+          if (!prevByStrategy.has(row.strategy_id)) {
+            prevByStrategy.set(row.strategy_id, []);
+          }
+          prevByStrategy.get(row.strategy_id).push(row);
+        });
+        const nextByStrategy = new Map();
+        signalsPayload.forEach((row) => {
+          if (!nextByStrategy.has(row.strategy_id)) {
+            nextByStrategy.set(row.strategy_id, []);
+          }
+          nextByStrategy.get(row.strategy_id).push(row);
+        });
+        const rebalances = [];
+        nextByStrategy.forEach((nextRows, strategyId) => {
+          const prevRows = prevByStrategy.get(strategyId) || [];
+          const turnover = computeTurnover(prevRows, nextRows);
+          const delta = extractDelta(prevRows, nextRows);
+          rebalances.push({
+            strategy_id: strategyId,
+            rebalance_date: weekEnd,
+            prev_date: prevWeek,
+            turnover,
+            added: delta.added,
+            removed: delta.removed,
+          });
+        });
+        if (rebalances.length) {
+          await supabase.from("strategy_rebalances").upsert(rebalances, {
+            onConflict: "strategy_id,rebalance_date",
+          });
+        }
+      }
+    }
 
     res.status(200).json({ status: "ok", runs: runsPayload.length, signals: signalsPayload.length });
   } catch (error) {
