@@ -26,11 +26,11 @@
     },
     {
       "path": "/api/run-strategy-signals",
-      "schedule": "0 9 * * *"
+      "schedule": "0 12 * * *"
     },
     {
       "path": "/api/calc-strategy-performance",
-      "schedule": "0 11 * * *"
+      "schedule": "0 9 * * *"
     }
   ]
 }
