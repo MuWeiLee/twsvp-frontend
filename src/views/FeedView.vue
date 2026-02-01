@@ -545,6 +545,7 @@ const loadRecommendations = async () => {
 };
 
 const handleQuickFollow = async () => {
+  const followRows = [];
   recommendedUsers.value.forEach((item) => {
     if (item.user_id) followedUsers.value.add(item.user_id);
     if (currentUserId.value && item.user_id && item.user_id !== currentUserId.value) {
@@ -553,11 +554,32 @@ const handleQuickFollow = async () => {
         type: "follow",
         actor_user_id: currentUserId.value,
       });
+      followRows.push({
+        follower_id: currentUserId.value,
+        followee_id: item.user_id,
+      });
     }
   });
+  const stockRows = [];
   recommendedStocks.value.forEach((item) => {
     if (item.symbol) followedStocks.value.add(item.symbol);
+    if (currentUserId.value && item.symbol) {
+      stockRows.push({
+        user_id: currentUserId.value,
+        stock_symbol: item.symbol,
+      });
+    }
   });
+  if (followRows.length) {
+    await supabase.from("user_follows").upsert(followRows, {
+      onConflict: "follower_id,followee_id",
+    });
+  }
+  if (stockRows.length) {
+    await supabase.from("user_stock_follows").upsert(stockRows, {
+      onConflict: "user_id,stock_symbol",
+    });
+  }
   saveFollowState();
   page.value = 1;
   hasMore.value = true;

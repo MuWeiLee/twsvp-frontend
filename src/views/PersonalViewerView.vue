@@ -183,6 +183,7 @@ import { getProfileSupabase, getUserGroupNamesSupabase } from "../services/profi
 import { t } from "../services/i18n.js";
 import { applyShareMeta } from "../services/shareMeta.js";
 import { decodeShareId, encodeShareId } from "../services/shareLinks.js";
+import { supabase } from "../services/supabase.js";
 import {
   addFeedLikeSupabase,
   fetchFeedsSupabase,
@@ -367,6 +368,13 @@ const toggleFollow = async () => {
   const list = readFollowedUsers();
   if (list.has(userId)) {
     list.delete(userId);
+    if (currentUserId.value) {
+      await supabase
+        .from("user_follows")
+        .delete()
+        .eq("follower_id", currentUserId.value)
+        .eq("followee_id", userId);
+    }
   } else {
     list.add(userId);
     if (currentUserId.value && currentUserId.value !== userId) {
@@ -375,6 +383,12 @@ const toggleFollow = async () => {
         type: "follow",
         actor_user_id: currentUserId.value,
       });
+      await supabase
+        .from("user_follows")
+        .upsert(
+          { follower_id: currentUserId.value, followee_id: userId },
+          { onConflict: "follower_id,followee_id" }
+        );
     }
   }
   saveFollowedUsers(list);
