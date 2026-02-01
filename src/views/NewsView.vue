@@ -99,18 +99,7 @@
               <div class="card-code">{{ card.code }}</div>
             </div>
 
-            <div class="card-meta">
-              <div class="meta-item">
-                <span class="meta-label">{{ t("资金方式") }}</span>
-                <span class="meta-value">{{ card.capital }}</span>
-              </div>
-              <div class="meta-item">
-                <span class="meta-label">{{ t("风险收益") }}</span>
-                <span class="meta-value">{{ card.risk }}</span>
-              </div>
-            </div>
-
-            <div class="card-performance">
+          <div class="card-performance">
               <div class="perf-item">
                 <span class="perf-label">{{ t("前日") }}</span>
                 <span class="perf-value">{{ formatPercent(card.prevDay) }}</span>
@@ -172,6 +161,9 @@
       </div>
 
       <BottomTabbar />
+      <p class="legal">
+        {{ t("任何觀點僅作為記錄與回溯，不作為預測價格與投資建議。") }}
+      </p>
     </div>
   </div>
 </template>
@@ -207,18 +199,20 @@ let loadObserver = null;
 
 const cards = ref([]);
 
-const capitalLabels = {
-  fixed_5w: t("固定金额 5万"),
-  fixed_20w: t("固定金额 20万"),
-  fixed_50w: t("固定金额 50万"),
-};
-
-const riskLabels = {
-  aggressive: t("激进型"),
-  low_vol: t("低波型"),
-  income: t("创收型"),
-  steady: t("稳收益"),
-};
+const allowedStrategies = new Set([
+  "fixed_5w_aggressive",
+  "fixed_5w_low_vol",
+  "fixed_5w_income",
+  "fixed_5w_steady",
+  "fixed_20w_aggressive",
+  "fixed_20w_low_vol",
+  "fixed_20w_income",
+  "fixed_20w_steady",
+  "fixed_50w_aggressive",
+  "fixed_50w_low_vol",
+  "fixed_50w_income",
+  "fixed_50w_steady",
+]);
 
 const refreshLabel = computed(() => {
   if (isRefreshing.value) return t("刷新中...");
@@ -337,14 +331,6 @@ const formatPercent = (value) => {
   return `${percent.toFixed(2)}%`;
 };
 
-const parseStrategyId = (id = "") => {
-  const parts = id.split("_");
-  if (parts.length < 3) return { capital: "", risk: "" };
-  const capital = parts.slice(0, 2).join("_");
-  const risk = parts.slice(2).join("_");
-  return { capital, risk };
-};
-
 const loadStrategies = async () => {
   const runs = await fetchLatestStrategyRuns(60);
   if (!runs.length) {
@@ -355,8 +341,12 @@ const loadStrategies = async () => {
   const latestWeek = weekEnds[0];
   const prevWeek = weekEnds[1];
 
-  const latestRuns = runs.filter((row) => row.week_end === latestWeek);
-  const prevRuns = prevWeek ? runs.filter((row) => row.week_end === prevWeek) : [];
+  const latestRuns = runs.filter(
+    (row) => row.week_end === latestWeek && allowedStrategies.has(row.strategy_id)
+  );
+  const prevRuns = prevWeek
+    ? runs.filter((row) => row.week_end === prevWeek && allowedStrategies.has(row.strategy_id))
+    : [];
 
   const latestIds = latestRuns.map((row) => row.strategy_id);
   const prevIds = prevRuns.map((row) => row.strategy_id);
@@ -384,7 +374,6 @@ const loadStrategies = async () => {
   });
 
   cards.value = latestRuns.map((run, index) => {
-    const { capital, risk } = parseStrategyId(run.strategy_id);
     const latestHoldings = (latestByStrategy.get(run.strategy_id) || [])
       .sort((a, b) => (b.score || 0) - (a.score || 0))
       .slice(0, 5)
@@ -405,9 +394,7 @@ const loadStrategies = async () => {
     return {
       strategy_id: run.strategy_id,
       code: `S-${String(index + 1).padStart(2, "0")}`,
-      name: `${capitalLabels[capital] || capital} · ${riskLabels[risk] || risk}`,
-      capital: capitalLabels[capital] || capital,
-      risk: riskLabels[risk] || risk,
+      name: run.strategy_id,
       prevDay: metrics.prev_day_return ?? null,
       today: metrics.today_return ?? null,
       cumulative: metrics.cumulative_return ?? null,
@@ -791,10 +778,21 @@ onUnmounted(() => {
   text-align: right;
 }
 
+.legal {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  width: min(600px, 100%);
+  padding: 0 16px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
 .empty {
   text-align: center;
   color: var(--muted);
   padding: 24px 0 32px;
 }
 </style>
-
