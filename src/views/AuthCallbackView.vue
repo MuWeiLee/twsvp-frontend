@@ -9,7 +9,6 @@ import { t } from "../services/i18n.js";
 import {
   clearAuthCache,
   ensureProfileSupabase,
-  exchangeGoogleCode,
   getCurrentUserSupabase,
   getProfileCompletionSupabase,
   setAuthToken,
@@ -46,13 +45,7 @@ onMounted(async () => {
       return;
     }
 
-    if (!code || Array.isArray(code)) {
-      router.replace("/login");
-      return;
-    }
-
-    await exchangeGoogleCode(code);
-    router.replace("/feed");
+    router.replace("/login");
   } catch (error) {
     console.error("登录失败:", error);
     setAuthToken(null);

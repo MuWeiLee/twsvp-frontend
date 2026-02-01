@@ -188,7 +188,6 @@ import { t } from "../services/i18n.js";
 import {
   ensureProfileSupabase,
   getCurrentUserSupabase,
-  getMe,
   getProfileCompletionSupabase,
   signInWithGoogleSupabase,
 } from "../services/auth.js";
@@ -211,15 +210,10 @@ let heroTimer;
 onMounted(async () => {
   // 优先检查 Supabase 会话，同时兼容旧 token
   const supabaseUser = await getCurrentUserSupabase();
-  const user = supabaseUser || (await getMe());
-  if (user) {
-    if (supabaseUser) {
-      await ensureProfileSupabase(supabaseUser);
-      const completed = await getProfileCompletionSupabase(supabaseUser.id);
-      router.replace(completed ? "/feed" : "/personal-setting");
-      return;
-    }
-    router.replace("/feed");
+  if (supabaseUser) {
+    await ensureProfileSupabase(supabaseUser);
+    const completed = await getProfileCompletionSupabase(supabaseUser.id);
+    router.replace(completed ? "/feed" : "/personal-setting");
   }
 });
 

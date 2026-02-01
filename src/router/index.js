@@ -16,7 +16,7 @@ import SectorFeedView from "../views/SectorFeedView.vue";
 import AuthCallbackView from "../views/AuthCallbackView.vue";
 import UserAgreementView from "../views/UserAgreementView.vue";
 import PrivacyPolicyView from "../views/PrivacyPolicyView.vue";
-import { getCurrentUserSupabase, getMe, getProfileCompletionSupabase } from "../services/auth.js";
+import { getCurrentUserSupabase, getProfileCompletionSupabase } from "../services/auth.js";
 import { getProfileSupabase } from "../services/profile.js";
 import { applyLanguagePreference, getLanguagePreference } from "../services/preferences.js";
 import { trackPageView } from "../services/analytics.js";
@@ -78,13 +78,12 @@ router.beforeEach(async (to) => {
   const isAgreementRoute =
     to.path === "/agreement/user" || to.path === "/agreement/privacy";
   const supabaseUser = await getCurrentUserSupabase();
-  const user = supabaseUser || (await getMe());
 
   if (supabaseUser) {
     await ensureProfileLanguage(supabaseUser);
   }
 
-  if (user && supabaseUser) {
+  if (supabaseUser) {
     const isPersonalSettingRoute = to.path === "/personal-setting";
     const completed = await getProfileCompletionSupabase(supabaseUser.id);
     if (!completed && !isLoginRoute && !isPersonalSettingRoute && !isAgreementRoute) {
@@ -96,21 +95,18 @@ router.beforeEach(async (to) => {
   }
 
   if (isLoginRoute) {
-    if (!user) {
+    if (!supabaseUser) {
       return true;
     }
-    if (supabaseUser) {
-      const completed = await getProfileCompletionSupabase(supabaseUser.id);
-      return completed ? "/feed" : "/personal-setting";
-    }
-    return "/feed";
+    const completed = await getProfileCompletionSupabase(supabaseUser.id);
+    return completed ? "/feed" : "/personal-setting";
   }
 
   if (isAgreementRoute) {
     return true;
   }
 
-  return user ? true : "/login";
+  return supabaseUser ? true : "/login";
 });
 
 router.afterEach((to) => {
