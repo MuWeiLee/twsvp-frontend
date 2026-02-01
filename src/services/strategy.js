@@ -46,3 +46,33 @@ export const fetchStockNames = async (stockIds = []) => {
   });
   return map;
 };
+
+export const fetchStockPriceSnapshots = async (stockIds = [], limitRows = 2000) => {
+  if (!stockIds.length) return {};
+  const { data, error } = await supabase
+    .from("stock_prices")
+    .select("stock_id,trade_date,open,close")
+    .in("stock_id", stockIds)
+    .order("trade_date", { ascending: false })
+    .limit(limitRows);
+  if (error) {
+    console.error("读取 stock_prices 失败:", error);
+    return {};
+  }
+  const map = {};
+  (data || []).forEach((row) => {
+    if (!map[row.stock_id]) map[row.stock_id] = [];
+    map[row.stock_id].push(row);
+  });
+  const snapshots = {};
+  Object.entries(map).forEach(([stockId, rows]) => {
+    const sorted = rows
+      .slice()
+      .sort((a, b) => String(b.trade_date).localeCompare(String(a.trade_date)));
+    snapshots[stockId] = {
+      latest: sorted[0] || null,
+      prev: sorted[1] || null,
+    };
+  });
+  return snapshots;
+};

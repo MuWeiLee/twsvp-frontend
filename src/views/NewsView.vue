@@ -125,13 +125,15 @@
                 >
                   <div class="mini-row">
                     <div class="mini-name">{{ holding.name }}</div>
-                    <div class="mini-value">{{ t("开") }}: —</div>
+                    <div class="mini-value">{{ t("开") }}: {{ formatPrice(holding.open) }}</div>
                     <div class="mini-value">{{ t("仓位") }}: {{ formatPercent(holding.weight) }}</div>
                   </div>
                   <div class="mini-row">
                     <div class="mini-code">{{ holding.stock_id }}</div>
-                    <div class="mini-value">{{ t("收") }}: —</div>
-                    <div class="mini-value">{{ t("绩效") }}: —</div>
+                    <div class="mini-value">{{ t("收") }}: {{ formatPrice(holding.close) }}</div>
+                    <div class="mini-value" :class="perfClass(holding.perf)">
+                      {{ t("绩效") }}: {{ formatPerf(holding.perf) }}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -143,13 +145,15 @@
                 >
                   <div class="mini-row">
                     <div class="mini-name">{{ holding.name }}</div>
-                    <div class="mini-value">{{ t("开") }}: —</div>
+                    <div class="mini-value">{{ t("开") }}: {{ formatPrice(holding.open) }}</div>
                     <div class="mini-value">{{ t("仓位") }}: {{ formatPercent(holding.weight) }}</div>
                   </div>
                   <div class="mini-row">
                     <div class="mini-code">{{ holding.stock_id }}</div>
-                    <div class="mini-value">{{ t("收") }}: —</div>
-                    <div class="mini-value">{{ t("绩效") }}: —</div>
+                    <div class="mini-value">{{ t("收") }}: {{ formatPrice(holding.close) }}</div>
+                    <div class="mini-value" :class="perfClass(holding.perf)">
+                      {{ t("绩效") }}: {{ formatPerf(holding.perf) }}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -175,7 +179,12 @@ import BottomTabbar from "../components/BottomTabbar.vue";
 import { fetchNewsSupabase } from "../services/news.js";
 import { formatFeedTimestamp } from "../services/feeds.js";
 import { t } from "../services/i18n.js";
-import { fetchLatestStrategyRuns, fetchStrategySignals, fetchStockNames } from "../services/strategy.js";
+import {
+  fetchLatestStrategyRuns,
+  fetchStrategySignals,
+  fetchStockNames,
+  fetchStockPriceSnapshots,
+} from "../services/strategy.js";
 
 const activeTab = ref("news");
 const showTabs = ref(true);
@@ -341,9 +350,29 @@ const handleScroll = () => {
 };
 
 const formatPercent = (value) => {
-  if (value === null || value === undefined) return "00%";
+  if (value === null || value === undefined) return "—";
   const percent = Number(value) * 100;
   return `${percent.toFixed(2)}%`;
+};
+
+const formatPrice = (value) => {
+  if (value === null || value === undefined) return "—";
+  const num = Number(value);
+  if (Number.isNaN(num)) return "—";
+  return num.toFixed(2);
+};
+
+const formatPerf = (value) => {
+  if (value === null || value === undefined) return "—";
+  const percent = Number(value) * 100;
+  return `${percent.toFixed(2)}%`;
+};
+
+const perfClass = (value) => {
+  if (value === null || value === undefined) return "price-neutral";
+  if (value > 0) return "price-up";
+  if (value < 0) return "price-down";
+  return "price-neutral";
 };
 
 const loadStrategies = async () => {
@@ -371,6 +400,7 @@ const loadStrategies = async () => {
 
   const stockIds = [...new Set([...latestSignals, ...prevSignals].map((s) => s.stock_id))];
   const stockNames = await fetchStockNames(stockIds);
+  const priceSnapshots = await fetchStockPriceSnapshots(stockIds);
 
   const latestByStrategy = new Map();
   latestSignals.forEach((signal) => {
@@ -392,19 +422,39 @@ const loadStrategies = async () => {
     const latestHoldings = (latestByStrategy.get(run.strategy_id) || [])
       .sort((a, b) => (b.score || 0) - (a.score || 0))
       .slice(0, 5)
-      .map((signal) => ({
-        stock_id: signal.stock_id,
-        name: stockNames[signal.stock_id] || t("股票名称"),
-        weight: signal.target_weight,
-      }));
+      .map((signal) => {
+        const snapshot = priceSnapshots[signal.stock_id] || {};
+        const latest = snapshot.latest;
+        const todayPerf =
+          latest?.open && latest?.close
+            ? (latest.close - latest.open) / latest.open
+            : null;
+        return {
+          stock_id: signal.stock_id,
+          name: stockNames[signal.stock_id] || t("股票名称"),
+          weight: signal.target_weight,
+          open: latest?.open ?? null,
+          close: latest?.close ?? null,
+          perf: todayPerf,
+        };
+      });
     const prevHoldings = (prevByStrategy.get(run.strategy_id) || [])
       .sort((a, b) => (b.score || 0) - (a.score || 0))
       .slice(0, 5)
-      .map((signal) => ({
-        stock_id: signal.stock_id,
-        name: stockNames[signal.stock_id] || t("股票名称"),
-        weight: signal.target_weight,
-      }));
+      .map((signal) => {
+        const snapshot = priceSnapshots[signal.stock_id] || {};
+        const prev = snapshot.prev;
+        const prevPerf =
+          prev?.open && prev?.close ? (prev.close - prev.open) / prev.open : null;
+        return {
+          stock_id: signal.stock_id,
+          name: stockNames[signal.stock_id] || t("股票名称"),
+          weight: signal.target_weight,
+          open: prev?.open ?? null,
+          close: prev?.close ?? null,
+          perf: prevPerf,
+        };
+      });
     const metrics = run.metrics || {};
     const label = metrics.label || strategyLabels[run.strategy_id] || run.strategy_id;
     return {
@@ -794,6 +844,18 @@ onUnmounted(() => {
   font-size: 11px;
   color: var(--muted);
   text-align: right;
+}
+
+.price-up {
+  color: var(--price-up);
+}
+
+.price-down {
+  color: var(--price-down);
+}
+
+.price-neutral {
+  color: var(--muted);
 }
 
 .legal {

@@ -98,6 +98,7 @@ export default async function handler(req, res) {
       let today = 0;
       let prevDay = 0;
       let cumulative = 0;
+      let todayCount = 0;
       sigs.forEach((sig) => {
         const prices = priceMap.get(sig.stock_id) || [];
         if (!prices.length) return;
@@ -106,6 +107,7 @@ export default async function handler(req, res) {
         const weekStart = prices.find((p) => p.trade_date >= run.week_end) || prices[prices.length - 1];
         if (latest?.open && latest?.close) {
           today += (sig.target_weight || 0) * ((latest.close - latest.open) / latest.open);
+          todayCount += 1;
         }
         if (prev?.open && prev?.close) {
           prevDay += (sig.target_weight || 0) * ((prev.close - prev.open) / prev.open);
@@ -120,7 +122,7 @@ export default async function handler(req, res) {
         metrics: {
           ...(run.metrics || {}),
           prev_day_return: Number(prevDay.toFixed(6)),
-          today_return: Number(today.toFixed(6)),
+          today_return: todayCount ? Number(today.toFixed(6)) : null,
           cumulative_return: Number(cumulative.toFixed(6)),
         },
       });
