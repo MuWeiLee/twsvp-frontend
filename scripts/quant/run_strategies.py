@@ -87,15 +87,15 @@ def zscore(values):
     return (values[-1] - mean) / sd
 
 
-def fetch_active_stocks():
-    return request_json(
-        "GET",
-        "stocks",
-        params={
-            "select": "stock_id,name,is_active",
-            "is_active": "eq.true",
-        },
-    )
+def fetch_active_stocks(limit=None):
+    params = {
+        "select": "stock_id,name,is_active",
+        "is_active": "eq.true",
+        "order": "stock_id.asc",
+    }
+    if limit:
+        params["limit"] = str(limit)
+    return request_json("GET", "stocks", params=params)
 
 
 def fetch_prices_range(stock_id, start_date, end_date):
@@ -145,8 +145,8 @@ def allocate_weights(scores):
     return [s / total for s in positive]
 
 
-def run(week_end, lookback_days, dry_run):
-    active_stocks = fetch_active_stocks()
+def run(week_end, lookback_days, dry_run, stock_limit=None):
+    active_stocks = fetch_active_stocks(limit=stock_limit)
     if not active_stocks:
         print("No active stocks")
         return
@@ -245,6 +245,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--week-end", required=False, help="YYYY-MM-DD, default latest Friday")
     parser.add_argument("--lookback", type=int, default=20)
+    parser.add_argument("--stock-limit", type=int, default=0, help="limit number of stocks for faster dry-run")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -254,7 +255,8 @@ def main():
         today = dt.date.today()
         delta = (today.weekday() - 4) % 7
         week_end = today - dt.timedelta(days=delta)
-    run(week_end, args.lookback, args.dry_run)
+    stock_limit = args.stock_limit if args.stock_limit and args.stock_limit > 0 else None
+    run(week_end, args.lookback, args.dry_run, stock_limit=stock_limit)
 
 
 if __name__ == "__main__":
