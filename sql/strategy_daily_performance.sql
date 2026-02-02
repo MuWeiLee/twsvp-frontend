@@ -3,6 +3,7 @@ create table if not exists public.strategy_daily_performance (
   trade_date date not null,
   daily_return numeric(12, 6),
   weighted_return numeric(12, 6),
+  cumulative_return numeric(12, 6),
   holdings_count integer,
   weight_sum numeric(12, 6),
   source text not null default 'cron',

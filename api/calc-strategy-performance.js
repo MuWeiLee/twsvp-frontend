@@ -147,14 +147,22 @@ export default async function handler(req, res) {
       return;
     }
 
-    for (const row of updates) {
-      const { error: updateError } = await supabase
-        .from("strategy_runs")
-        .update({ metrics: row.metrics })
-        .eq("strategy_id", row.strategy_id)
-        .eq("week_end", row.week_end);
-      if (updateError) throw new Error(`strategy_runs update failed: ${updateError.message}`);
+    const strategyIds = updates.map((row) => row.strategy_id);
+    const { data: priorDaily, error: priorDailyError } = await supabase
+      .from("strategy_daily_performance")
+      .select("strategy_id,trade_date,daily_return,cumulative_return")
+      .in("strategy_id", strategyIds)
+      .order("trade_date", { ascending: false });
+    if (priorDailyError) {
+      throw new Error(`strategy_daily_performance query failed: ${priorDailyError.message}`);
     }
+
+    const priorByStrategy = new Map();
+    (priorDaily || []).forEach((row) => {
+      if (!priorByStrategy.has(row.strategy_id)) {
+        priorByStrategy.set(row.strategy_id, row);
+      }
+    });
 
     const dailyRows = updates
       .filter((row) => row.latestTradeDate)
@@ -166,7 +174,38 @@ export default async function handler(req, res) {
         holdings_count: row.todayCount,
         weight_sum: Number(row.todayWeightSum.toFixed(6)),
         source: "cron",
+        cumulative_return: null,
       }));
+    const cumulativeByStrategy = new Map();
+    dailyRows.forEach((row) => {
+      const prior = priorByStrategy.get(row.strategy_id);
+      const priorCumulative = prior?.cumulative_return ?? 0;
+      const priorDailyReturn = prior?.daily_return ?? 0;
+      const sameDate = prior?.trade_date === row.trade_date;
+      const todayReturn = row.daily_return;
+      let nextCumulative = priorCumulative;
+      if (todayReturn !== null && todayReturn !== undefined) {
+        nextCumulative = sameDate
+          ? Number((priorCumulative - priorDailyReturn + todayReturn).toFixed(6))
+          : Number((priorCumulative + todayReturn).toFixed(6));
+      } else {
+        nextCumulative = Number(priorCumulative.toFixed(6));
+      }
+      row.cumulative_return = nextCumulative;
+      cumulativeByStrategy.set(row.strategy_id, nextCumulative);
+    });
+
+    for (const row of updates) {
+      if (cumulativeByStrategy.has(row.strategy_id)) {
+        row.metrics.cumulative_return = cumulativeByStrategy.get(row.strategy_id);
+      }
+      const { error: updateError } = await supabase
+        .from("strategy_runs")
+        .update({ metrics: row.metrics })
+        .eq("strategy_id", row.strategy_id)
+        .eq("week_end", row.week_end);
+      if (updateError) throw new Error(`strategy_runs update failed: ${updateError.message}`);
+    }
     if (dailyRows.length) {
       const { error: dailyError } = await supabase
         .from("strategy_daily_performance")
