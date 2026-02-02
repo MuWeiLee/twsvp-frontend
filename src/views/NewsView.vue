@@ -99,14 +99,10 @@
               <div class="card-code">{{ card.code }}</div>
             </div>
 
-          <div class="card-performance">
+            <div class="card-performance">
               <div class="perf-item">
-                <span class="perf-label">{{ t("前日") }}</span>
-                <span class="perf-value">{{ formatPercent(card.prevDay) }}</span>
-              </div>
-              <div class="perf-item">
-                <span class="perf-label">{{ t("今日") }}</span>
-                <span class="perf-value">{{ formatPercent(card.today) }}</span>
+                <span class="perf-label">{{ perfLabel }}</span>
+                <span class="perf-value">{{ formatPercent(displayPerfValue(card)) }}</span>
               </div>
               <div class="perf-item">
                 <span class="perf-label">{{ t("累计") }}</span>
@@ -115,8 +111,8 @@
             </div>
 
             <div class="dual-section">
-              <div class="dual-title">{{ t("前日仓位") }}</div>
-              <div class="dual-title">{{ t("今日仓位") }}</div>
+              <div class="dual-title">{{ pickLeftLabel }}</div>
+              <div class="dual-title">{{ pickLabel }}</div>
               <div class="dual-col">
                 <div
                   v-for="holding in card.prevHoldings"
@@ -374,6 +370,17 @@ const perfClass = (value) => {
   if (value < 0) return "price-down";
   return "price-neutral";
 };
+
+const isAfterSwitch = computed(() => {
+  const hour = new Date().getHours();
+  return hour >= 22;
+});
+
+const perfLabel = computed(() => (isAfterSwitch.value ? t("今日绩效") : t("昨日绩效")));
+const pickLabel = computed(() => (isAfterSwitch.value ? t("明日选股") : t("今日选股")));
+const pickLeftLabel = computed(() => (isAfterSwitch.value ? t("今日选股") : t("昨日选股")));
+
+const displayPerfValue = (card) => (isAfterSwitch.value ? card.today : card.prevDay);
 
 const loadStrategies = async () => {
   const runs = await fetchLatestStrategyRuns(60);
