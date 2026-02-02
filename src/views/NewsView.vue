@@ -462,16 +462,17 @@ const loadStrategies = async () => {
       .map((signal) => {
         const snapshot = priceSnapshots[signal.stock_id] || {};
         const latest = snapshot.latest;
+        const isLatestToday = latest?.trade_date === todayKey.value;
         const todayPerf =
-          latest?.open && latest?.close
+          isLatestToday && latest?.open && latest?.close
             ? (latest.close - latest.open) / latest.open
             : null;
         return {
           stock_id: signal.stock_id,
           name: stockNames[signal.stock_id] || t("股票名称"),
           weight: signal.target_weight,
-          open: latest?.open ?? null,
-          close: latest?.close ?? null,
+          open: isLatestToday ? latest?.open ?? null : null,
+          close: isLatestToday ? latest?.close ?? null : null,
           perf: todayPerf,
           latestTradeDate: latest?.trade_date || null,
         };
