@@ -32,6 +32,13 @@ export const BROKERS = [
     appScheme: "",
   },
   {
+    id: "kocket-tw-stock",
+    name: "口袋台股",
+    appStoreUrl:
+      "https://apps.apple.com/cn/app/%E5%8F%A3%E8%A2%8B%E5%8F%B0%E8%82%A1-%E5%8F%A3%E8%A2%8B%E8%AD%89%E5%88%B8/id1606477393?l=en-GB",
+    appScheme: "",
+  },
+  {
     id: "taishin-phoneez",
     name: "台新 PhoneEZ",
     appStoreUrl:
@@ -39,10 +46,24 @@ export const BROKERS = [
     appScheme: "",
   },
   {
+    id: "t-unified-e-start",
+    name: "統一e起發",
+    appStoreUrl:
+      "https://apps.apple.com/cn/app/%E7%B5%B1%E4%B8%80e%E8%B5%B7%E7%99%BC/id6752740886?l=en-GB",
+    appScheme: "",
+  },
+  {
     id: "yuanta-investment-mr",
     name: "元大投資先生",
     appStoreUrl:
       "https://apps.apple.com/tw/app/%E6%8A%95%E8%B3%87%E5%85%88%E7%94%9F/id1382114621?l=en-GB",
+    appScheme: "",
+  },
+  {
+    id: "y-esun-e-trader",
+    name: "玉山E-Trader",
+    appStoreUrl:
+      "https://apps.apple.com/cn/app/%E7%8E%89%E5%B1%B1e-trader/id1523430307?l=en-GB",
     appScheme: "",
   },
   {

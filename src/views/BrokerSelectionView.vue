@@ -86,8 +86,9 @@ const searchQuery = ref("");
 const GROUPS = [
   { key: "F", label: "F", brokerIds: ["fubon-ai-pro", "fugle"] },
   { key: "G", label: "G", brokerIds: ["cathay-securities", "cathay-tree-elf"] },
-  { key: "T", label: "T", brokerIds: ["taishin-phoneez"] },
-  { key: "Y", label: "Y", brokerIds: ["yuanta-investment-mr", "sinopac-da-hu-tou"] },
+  { key: "K", label: "K", brokerIds: ["kocket-tw-stock"] },
+  { key: "T", label: "T", brokerIds: ["taishin-phoneez", "t-unified-e-start"] },
+  { key: "Y", label: "Y", brokerIds: ["yuanta-investment-mr", "sinopac-da-hu-tou", "y-esun-e-trader"] },
   { key: "Z", label: "Z", brokerIds: ["ctbc-bright"] },
 ];
 
