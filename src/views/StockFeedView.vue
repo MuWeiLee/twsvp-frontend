@@ -896,11 +896,15 @@ const candleLayout = computed(() => {
   let gap = count > 1 ? slot * (1 - widthRatio) : 0;
   gap = Math.min(Math.max(gap, 1), 8);
   const candleWidth = Math.max(1, slot - gap);
+  const pad = gap / 2;
+  const contentWidth = count * candleWidth + Math.max(0, count - 1) * gap;
+  const offset = Math.max(0, width - pad * 2 - contentWidth);
   return {
     "--candle-gap": `${gap}px`,
     "--candle-width": `${candleWidth}px`,
-    "--candle-pad": `${gap / 2}px`,
+    "--candle-pad": `${pad}px`,
     "--candle-half": `${candleWidth / 2}px`,
+    "--candle-offset": `${offset}px`,
   };
 });
 
@@ -1494,7 +1498,7 @@ watch(isCreateOpen, (value) => {
 
 .candles {
   display: flex;
-  justify-content: flex-start;
+  justify-content: flex-end;
   align-items: stretch;
   gap: var(--candle-gap, 6px);
   height: 100%;
@@ -1604,6 +1608,7 @@ watch(isCreateOpen, (value) => {
   z-index: 2;
   display: block;
   padding: 0 var(--candle-pad, 0px);
+  padding-left: calc(var(--candle-pad, 0px) + var(--candle-offset, 0px));
   box-sizing: border-box;
   overflow: hidden;
 }
