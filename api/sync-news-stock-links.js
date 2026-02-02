@@ -82,7 +82,7 @@ export default async function handler(req, res) {
 
     const { data: articles, error: newsError } = await supabase
       .from("news_articles")
-      .select("article_id,title,description,content,pub_date")
+      .select("article_id,title,description,pub_date")
       .gte("pub_date", sinceIso)
       .order("pub_date", { ascending: false })
       .limit(newsLimit);
@@ -93,8 +93,9 @@ export default async function handler(req, res) {
     const stockMatches = [];
     for (const article of articles || []) {
       if (!article?.article_id) continue;
+      const rawTitle = `${article.title || ""}`;
       const rawDescription = `${article.description || ""}`;
-      const descriptionText = normalizeText(rawDescription);
+      const descriptionText = normalizeText(`${rawTitle} ${rawDescription}`);
       const nameMatches = new Set();
       if (!descriptionText) continue;
       for (const stock of activeStocks) {
@@ -110,7 +111,7 @@ export default async function handler(req, res) {
             article_id: article.article_id,
             stock_id: stockId,
             matched_text: stock.name,
-            match_method: "desc_name",
+            match_method: "title_desc_name",
           });
           nameMatches.add(stockId);
         }
