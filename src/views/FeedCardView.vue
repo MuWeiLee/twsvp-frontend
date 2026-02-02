@@ -503,13 +503,7 @@ const goProfile = (view) => {
 };
 
 const handleBack = () => {
-  if (route.query.from === "search") {
-    const q = typeof route.query.q === "string" ? route.query.q : "";
-    const tab = typeof route.query.tab === "string" ? route.query.tab : "all";
-    router.push({ path: "/search", query: q ? { q, tab } : { tab } });
-    return;
-  }
-  router.push("/feed");
+  router.back();
 };
 
 const submitReply = async () => {

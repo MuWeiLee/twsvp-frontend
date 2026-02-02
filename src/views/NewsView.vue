@@ -122,6 +122,10 @@
                   v-for="holding in card.prevHoldings"
                   :key="holding.stock_id"
                   class="holding-mini"
+                  role="button"
+                  tabindex="0"
+                  @click="goStock(holding.stock_id)"
+                  @keydown.enter="goStock(holding.stock_id)"
                 >
                   <div class="mini-row">
                     <div class="mini-name">{{ holding.name }}</div>
@@ -142,6 +146,10 @@
                   v-for="holding in card.todayHoldings"
                   :key="holding.stock_id"
                   class="holding-mini"
+                  role="button"
+                  tabindex="0"
+                  @click="goStock(holding.stock_id)"
+                  @keydown.enter="goStock(holding.stock_id)"
                 >
                   <div class="mini-row">
                     <div class="mini-name">{{ holding.name }}</div>
@@ -174,6 +182,7 @@
 
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
 import { fetchNewsSupabase } from "../services/news.js";
@@ -189,6 +198,7 @@ import {
 const activeTab = ref("news");
 const showTabs = ref(true);
 const lastScrollY = ref(0);
+const router = useRouter();
 
 const PAGE_SIZE = 20;
 const PULL_THRESHOLD = 60;
@@ -248,6 +258,11 @@ const formatCreator = (creator) => {
   if (!creator) return "—";
   if (Array.isArray(creator)) return creator.filter(Boolean).join(" ");
   return `${creator}`;
+};
+
+const goStock = (symbol) => {
+  if (!symbol) return;
+  router.push(`/stock/${symbol}`);
 };
 
 const formatTime = (value) => formatFeedTimestamp(value);
