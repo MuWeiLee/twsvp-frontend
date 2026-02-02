@@ -48,15 +48,26 @@ export default async function handler(req, res) {
     if (weekEnd) {
       runsQuery = runsQuery.eq("week_end", weekEnd);
     } else {
-      runsQuery = runsQuery.order("week_end", { ascending: false }).limit(30);
+      runsQuery = runsQuery.order("week_end", { ascending: false }).limit(60);
     }
-    const { data: runs, error: runError } = await runsQuery;
+    const { data: rawRuns, error: runError } = await runsQuery;
     if (runError) throw new Error(`strategy_runs query failed: ${runError.message}`);
 
-    if (!runs || !runs.length) {
+    if (!rawRuns || !rawRuns.length) {
       res.status(200).json({ status: "ok", updated: 0 });
       return;
     }
+
+    const runs = [];
+    const runByStrategy = new Map();
+    rawRuns.forEach((run) => {
+      const existing = runByStrategy.get(run.strategy_id);
+      if (!existing || run.week_end > existing.week_end) {
+        runByStrategy.set(run.strategy_id, run);
+      }
+    });
+    runByStrategy.forEach((run) => runs.push(run));
+    runs.sort((a, b) => (a.week_end < b.week_end ? 1 : -1));
 
     const latestWeek = runs[0].week_end;
     const { data: signals, error: sigError } = await supabase
@@ -115,8 +126,12 @@ export default async function handler(req, res) {
           today += weight * ((latest.close - prev.close) / prev.close);
           todayCount += 1;
           todayWeightSum += weight;
-          latestTradeDate = latest.trade_date || latestTradeDate;
-          prevTradeDate = prev.trade_date || prevTradeDate;
+          if (!latestTradeDate || latest.trade_date > latestTradeDate) {
+            latestTradeDate = latest.trade_date;
+          }
+          if (!prevTradeDate || prev.trade_date > prevTradeDate) {
+            prevTradeDate = prev.trade_date;
+          }
         }
         if (prev?.close && prevPrev?.close) {
           prevDay += (sig.target_weight || 0) * ((prev.close - prevPrev.close) / prevPrev.close);
