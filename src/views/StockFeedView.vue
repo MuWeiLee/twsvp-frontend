@@ -27,6 +27,12 @@
         <div class="chart-header">
           <div class="chart-title">{{ t("日K行情") }}</div>
           <div class="chart-range">
+            <div class="chart-latest">
+              <span class="chart-latest-label">{{ t("最新价") }}</span>
+              <span class="chart-latest-value">
+                {{ formatPrice(latestSnapshot.price) }}
+              </span>
+            </div>
             <div class="chart-range-buttons">
               <button
                 v-for="option in chartRangeOptions"
@@ -655,38 +661,32 @@ const feedCountByDate = computed(() => {
   return counts;
 });
 
-const seriesByDate = computed(() => {
-  if (!priceSeries.value.length) return new Map();
-  const sorted = [...priceSeries.value].sort((a, b) => {
+const sortedSeries = computed(() => {
+  if (!priceSeries.value.length) return [];
+  return [...priceSeries.value].sort((a, b) => {
     const timeA = new Date(a.trade_date).getTime();
     const timeB = new Date(b.trade_date).getTime();
     return timeA - timeB;
   });
-  const map = new Map();
-  sorted.forEach((item) => {
-    const key = formatDateKey(item.trade_date);
-    if (!key) return;
-    map.set(key, item);
-  });
-  return map;
 });
 
 const chartTimeline = computed(() => {
-  const dates = [...seriesByDate.value.keys()];
-  if (!dates.length) return [];
+  const list = sortedSeries.value;
+  if (!list.length) return [];
   const days = Math.max(1, Number(selectedRange.value) || 1);
-  return dates.slice(-days);
+  return list.slice(-days).map((item) => item.trade_date);
 });
 
 const displaySeries = computed(() => {
-  if (!chartTimeline.value.length) return [];
-  return chartTimeline.value.map((dateKey, index) => {
-    const item = seriesByDate.value.get(dateKey);
-    if (!item) {
-      return { trade_date: dateKey, seriesIndex: index, empty: true };
-    }
-    return { ...item, trade_date: dateKey, seriesIndex: index, empty: false };
-  });
+  const list = sortedSeries.value;
+  if (!list.length) return [];
+  const days = Math.max(1, Number(selectedRange.value) || 1);
+  return list.slice(-days).map((item, index) => ({
+    ...item,
+    trade_date: item.trade_date,
+    seriesIndex: index,
+    empty: false,
+  }));
 });
 
 const dataSeries = computed(() => displaySeries.value.filter((item) => !item.empty));
@@ -767,6 +767,22 @@ const chartRange = computed(() => {
   const latestItem = dataSeries.value[dataSeries.value.length - 1] || {};
   const latest = Number(latestItem.close ?? latestItem.open ?? 0);
   return { min, max, range, rawHigh, rawLow, latest, baseOpen, step };
+});
+
+const latestSnapshot = computed(() => {
+  const list = sortedSeries.value;
+  if (!list.length) {
+    return { price: null, changePct: null, date: null };
+  }
+  const latestItem = list[list.length - 1];
+  const open = Number(latestItem.open ?? latestItem.close ?? 0);
+  const close = Number(latestItem.close ?? latestItem.open ?? 0);
+  const changePct = open ? ((close - open) / open) * 100 : null;
+  return {
+    price: Number.isFinite(close) ? close : null,
+    changePct,
+    date: latestItem.trade_date || null,
+  };
 });
 
 
@@ -1401,6 +1417,26 @@ watch(isCreateOpen, (value) => {
   flex-direction: row;
   align-items: center;
   gap: 6px;
+}
+
+.chart-latest {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-latest-label {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.chart-latest-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .chart-range-buttons {
