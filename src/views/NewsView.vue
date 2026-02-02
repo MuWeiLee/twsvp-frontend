@@ -101,11 +101,15 @@
 
             <div class="card-performance">
               <div class="perf-item">
-                <span class="perf-label">{{ perfLabel }}</span>
-                <span class="perf-value">{{ formatPercent(displayPerfValue(card)) }}</span>
+                <span class="perf-label">{{ t("昨日绩效") }}</span>
+                <span class="perf-value">{{ formatPercent(card.prevDay) }}</span>
               </div>
               <div class="perf-item">
-                <span class="perf-label">{{ t("累计") }}</span>
+                <span class="perf-label">{{ t("今日绩效") }}</span>
+                <span class="perf-value">{{ formatPercent(displayTodayValue(card)) }}</span>
+              </div>
+              <div class="perf-item">
+                <span class="perf-label">{{ t("累计绩效") }}</span>
                 <span class="perf-value">{{ formatPercent(card.cumulative) }}</span>
               </div>
             </div>
@@ -376,11 +380,22 @@ const isAfterSwitch = computed(() => {
   return hour >= 22;
 });
 
-const perfLabel = computed(() => (isAfterSwitch.value ? t("今日绩效") : t("昨日绩效")));
 const pickLabel = computed(() => (isAfterSwitch.value ? t("明日选股") : t("今日选股")));
 const pickLeftLabel = computed(() => (isAfterSwitch.value ? t("今日选股") : t("昨日选股")));
 
-const displayPerfValue = (card) => (isAfterSwitch.value ? card.today : card.prevDay);
+const getLocalDateKey = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const todayKey = computed(() => getLocalDateKey());
+
+const displayTodayValue = (card) => {
+  if (!card?.latestTradeDate) return null;
+  return card.latestTradeDate === todayKey.value ? card.today : null;
+};
 
 const loadStrategies = async () => {
   const runs = await fetchLatestStrategyRuns(60);
@@ -443,8 +458,15 @@ const loadStrategies = async () => {
           open: latest?.open ?? null,
           close: latest?.close ?? null,
           perf: todayPerf,
+          latestTradeDate: latest?.trade_date || null,
         };
       });
+    const latestTradeDate =
+      latestHoldings
+        .map((holding) => holding.latestTradeDate)
+        .filter(Boolean)
+        .sort()
+        .reverse()[0] || null;
     const prevHoldings = (prevByStrategy.get(run.strategy_id) || [])
       .sort((a, b) => (b.score || 0) - (a.score || 0))
       .slice(0, 5)
@@ -471,6 +493,7 @@ const loadStrategies = async () => {
       prevDay: metrics.prev_day_return ?? null,
       today: metrics.today_return ?? null,
       cumulative: metrics.cumulative_return ?? null,
+      latestTradeDate,
       prevHoldings,
       todayHoldings: latestHoldings,
     };
