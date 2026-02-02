@@ -93,9 +93,15 @@
               </div>
             </div>
             <div class="x-axis" :style="candleLayout">
-              <span class="x-axis-label left">{{ axisLabels.timeStart }}</span>
-              <span class="x-axis-label mid">{{ axisLabels.timeMid }}</span>
-              <span class="x-axis-label right">{{ axisLabels.timeEnd }}</span>
+              <span class="x-axis-label" :style="{ left: `${axisLabels.timeStartPos}%` }">
+                {{ axisLabels.timeStart }}
+              </span>
+              <span class="x-axis-label" :style="{ left: `${axisLabels.timeMidPos}%` }">
+                {{ axisLabels.timeMid }}
+              </span>
+              <span class="x-axis-label" :style="{ left: `${axisLabels.timeEndPos}%` }">
+                {{ axisLabels.timeEnd }}
+              </span>
             </div>
             <div v-if="activePrice" class="hint-card chart-hint" :class="hintPlacement">
               <div class="hint-row">
@@ -770,7 +776,7 @@ const chartRange = computed(() => {
 });
 
 const latestSnapshot = computed(() => {
-  const list = sortedSeries.value;
+  const list = dataSeries.value;
   if (!list.length) {
     return { price: null, changePct: null, date: null };
   }
@@ -850,6 +856,9 @@ const axisLabels = computed(() => {
       timeStart: "—",
       timeMid: "—",
       timeEnd: "—",
+      timeStartPos: 0,
+      timeMidPos: 50,
+      timeEndPos: 100,
     };
   }
   const { min, max, range, baseOpen, step } = chartRange.value;
@@ -867,7 +876,6 @@ const axisLabels = computed(() => {
   }));
   const lastIndex = chartTimeline.value.length - 1;
   const midIndex = Math.floor(lastIndex / 2);
-  const count = chartPrices.value.length || chartTimeline.value.length;
   const formatAxisDate = (value) => {
     if (!value) return "—";
     const date = new Date(value);
@@ -879,12 +887,20 @@ const axisLabels = computed(() => {
   const timeStart = formatAxisDate(chartTimeline.value[0]);
   const timeMid = formatAxisDate(chartTimeline.value[midIndex]);
   const timeEnd = formatAxisDate(chartTimeline.value[lastIndex]);
+  const count = chartTimeline.value.length;
+  const calcPos = (index) => {
+    if (!count) return 0;
+    return ((index + 0.5) / count) * 100;
+  };
   return {
     price: priceLabels,
     pct: pctLabels,
     timeStart,
     timeMid,
     timeEnd,
+    timeStartPos: calcPos(0),
+    timeMidPos: calcPos(midIndex),
+    timeEndPos: calcPos(lastIndex),
   };
 });
 
@@ -899,12 +915,14 @@ const candleLayout = computed(() => {
     return {};
   }
   const slot = width / count;
-  const gap = count > 1 ? slot * 0.2 : 0;
-  const candleWidth = Math.max(0, slot - gap);
+  const gapRatio = count >= 100 ? 0.08 : count >= 50 ? 0.12 : 0.18;
+  const gap = count > 1 ? Math.min(slot * gapRatio, 6) : 0;
+  const candleWidth = Math.max(1, slot - gap);
   return {
     "--candle-gap": `${gap}px`,
     "--candle-width": `${candleWidth}px`,
     "--candle-pad": `${gap / 2}px`,
+    "--candle-half": `${candleWidth / 2}px`,
   };
 });
 
@@ -1636,26 +1654,8 @@ watch(isCreateOpen, (value) => {
   text-align: center;
   white-space: nowrap;
   position: absolute;
-  transform: translateY(0);
-}
-
-.x-axis-label.left {
-  left: var(--candle-pad, 0px);
-  transform: translateX(0);
-  text-align: left;
-}
-
-.x-axis-label.mid {
-  left: 50%;
   transform: translateX(-50%);
-  text-align: center;
-}
-
-.x-axis-label.right {
-  right: var(--candle-pad, 0px);
-  left: auto;
-  transform: translateX(0);
-  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 420px) {
