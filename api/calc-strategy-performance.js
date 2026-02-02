@@ -99,18 +99,28 @@ export default async function handler(req, res) {
       let prevDay = 0;
       let cumulative = 0;
       let todayCount = 0;
+      let todayWeightSum = 0;
+      let prevDayCount = 0;
+      let latestTradeDate = null;
+      let prevTradeDate = null;
       sigs.forEach((sig) => {
         const prices = priceMap.get(sig.stock_id) || [];
         if (!prices.length) return;
         const latest = prices[0];
         const prev = prices[1];
+        const prevPrev = prices[2];
         const weekStart = prices.find((p) => p.trade_date >= run.week_end) || prices[prices.length - 1];
-        if (latest?.open && latest?.close) {
-          today += (sig.target_weight || 0) * ((latest.close - latest.open) / latest.open);
+        if (latest?.close && prev?.close) {
+          const weight = sig.target_weight || 0;
+          today += weight * ((latest.close - prev.close) / prev.close);
           todayCount += 1;
+          todayWeightSum += weight;
+          latestTradeDate = latest.trade_date || latestTradeDate;
+          prevTradeDate = prev.trade_date || prevTradeDate;
         }
-        if (prev?.open && prev?.close) {
-          prevDay += (sig.target_weight || 0) * ((prev.close - prev.open) / prev.open);
+        if (prev?.close && prevPrev?.close) {
+          prevDay += (sig.target_weight || 0) * ((prev.close - prevPrev.close) / prevPrev.close);
+          prevDayCount += 1;
         }
         if (weekStart?.open && latest?.close) {
           cumulative += (sig.target_weight || 0) * ((latest.close - weekStart.open) / weekStart.open);
@@ -121,10 +131,14 @@ export default async function handler(req, res) {
         week_end: run.week_end,
         metrics: {
           ...(run.metrics || {}),
-          prev_day_return: Number(prevDay.toFixed(6)),
+          prev_day_return: prevDayCount ? Number(prevDay.toFixed(6)) : null,
           today_return: todayCount ? Number(today.toFixed(6)) : null,
           cumulative_return: Number(cumulative.toFixed(6)),
         },
+        latestTradeDate,
+        prevTradeDate,
+        todayCount,
+        todayWeightSum,
       });
     });
 
@@ -140,6 +154,24 @@ export default async function handler(req, res) {
         .eq("strategy_id", row.strategy_id)
         .eq("week_end", row.week_end);
       if (updateError) throw new Error(`strategy_runs update failed: ${updateError.message}`);
+    }
+
+    const dailyRows = updates
+      .filter((row) => row.latestTradeDate)
+      .map((row) => ({
+        strategy_id: row.strategy_id,
+        trade_date: row.latestTradeDate,
+        daily_return: row.metrics.today_return,
+        weighted_return: row.metrics.today_return,
+        holdings_count: row.todayCount,
+        weight_sum: Number(row.todayWeightSum.toFixed(6)),
+        source: "cron",
+      }));
+    if (dailyRows.length) {
+      const { error: dailyError } = await supabase
+        .from("strategy_daily_performance")
+        .upsert(dailyRows, { onConflict: "strategy_id,trade_date" });
+      if (dailyError) throw new Error(`strategy_daily_performance upsert failed: ${dailyError.message}`);
     }
 
     // update rebalance metrics snapshot (if exists)
