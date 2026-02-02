@@ -27,12 +27,6 @@
         <div class="chart-header">
           <div class="chart-title">{{ t("日K行情") }}</div>
           <div class="chart-range">
-            <div class="chart-latest">
-              <span class="chart-latest-label">{{ t("最新价") }}</span>
-              <span class="chart-latest-value">
-                {{ formatPrice(latestSnapshot.price) }}
-              </span>
-            </div>
             <div class="chart-range-buttons">
               <button
                 v-for="option in chartRangeOptions"
@@ -775,23 +769,6 @@ const chartRange = computed(() => {
   return { min, max, range, rawHigh, rawLow, latest, baseOpen, step };
 });
 
-const latestSnapshot = computed(() => {
-  const list = dataSeries.value;
-  if (!list.length) {
-    return { price: null, changePct: null, date: null };
-  }
-  const latestItem = list[list.length - 1];
-  const open = Number(latestItem.open ?? latestItem.close ?? 0);
-  const close = Number(latestItem.close ?? latestItem.open ?? 0);
-  const changePct = open ? ((close - open) / open) * 100 : null;
-  return {
-    price: Number.isFinite(close) ? close : null,
-    changePct,
-    date: latestItem.trade_date || null,
-  };
-});
-
-
 const chartPrices = computed(() => {
   const list = displaySeries.value;
   if (!list.length) return [];
@@ -915,8 +892,9 @@ const candleLayout = computed(() => {
     return {};
   }
   const slot = width / count;
-  const gapRatio = count >= 100 ? 0.08 : count >= 50 ? 0.12 : 0.18;
-  const gap = count > 1 ? Math.min(slot * gapRatio, 6) : 0;
+  const widthRatio = count >= 100 ? 0.72 : count >= 50 ? 0.68 : 0.6;
+  let gap = count > 1 ? slot * (1 - widthRatio) : 0;
+  gap = Math.min(Math.max(gap, 1), 8);
   const candleWidth = Math.max(1, slot - gap);
   return {
     "--candle-gap": `${gap}px`,
@@ -1435,26 +1413,6 @@ watch(isCreateOpen, (value) => {
   flex-direction: row;
   align-items: center;
   gap: 6px;
-}
-
-.chart-latest {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  text-align: right;
-  gap: 2px;
-  font-variant-numeric: tabular-nums;
-}
-
-.chart-latest-label {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.chart-latest-value {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
 }
 
 .chart-range-buttons {
