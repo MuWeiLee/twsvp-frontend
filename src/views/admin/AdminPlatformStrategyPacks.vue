@@ -155,6 +155,8 @@ const riskLabel = (value) => {
       return "中低风险";
     case "steady":
       return "中风险";
+    case "core":
+      return "核心";
     default:
       return "—";
   }

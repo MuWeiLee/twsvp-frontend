@@ -67,6 +67,7 @@ const STRATEGY_LABELS = {
   fixed_50w_low_vol: "F50-LV",
   fixed_50w_income: "F50-IN",
   fixed_50w_steady: "F50-ST",
+  tw_strength_core_v1: "TW强势核心",
 };
 
 const allocateWeights = (scores) => {
@@ -127,6 +128,40 @@ const buildProfileScores = (items) => {
     item.steady_return_score = targetScore(dailyRet, 0.015, 0.005);
     item.momentum_accel = (item.ret_3 || 0) - (item.ret_1 || 0);
   });
+};
+
+const mean = (values) => {
+  if (!values.length) return 0;
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
+};
+
+const computeStrengthMetrics = ({ closes, highs, volumes }) => {
+  const lastClose = closes[closes.length - 1];
+  const close5 = closes.length > 5 ? closes[closes.length - 6] : null;
+  const close20 = closes.length > 20 ? closes[closes.length - 21] : null;
+  const ret5 = close5 !== null ? percentChange(close5, lastClose) : null;
+  const ret20 = close20 !== null ? percentChange(close20, lastClose) : null;
+  const highs20 = highs.slice(-20);
+  const maxHigh20 = highs20.length === 20 ? Math.max(...highs20) : null;
+  const drawdown20 = maxHigh20 ? lastClose / maxHigh20 - 1 : null;
+  const volumes20 = volumes.slice(-20);
+  const smaVolume20 = volumes20.length === 20 ? mean(volumes20) : null;
+  const volumeRatio =
+    smaVolume20 && smaVolume20 > 0 ? volumes[volumes.length - 1] / smaVolume20 : null;
+  const strengthScore =
+    ret20 !== null && ret5 !== null && drawdown20 !== null && volumeRatio !== null
+      ? 0.45 * ret20 +
+        0.25 * ret5 -
+        0.2 * Math.abs(drawdown20) +
+        0.1 * Math.log(volumeRatio)
+      : null;
+  return {
+    ret5,
+    ret20,
+    drawdown20,
+    volumeRatio,
+    strengthScore,
+  };
 };
 
 const profileScore = (profileId, item) => {
@@ -233,10 +268,12 @@ const normalizeStrategyIds = (strategyIds) => {
     .filter(Boolean);
 };
 
-const listStrategyIds = () =>
-  STRATEGY_CAPITALS.flatMap((capital) =>
+const listStrategyIds = () => [
+  ...STRATEGY_CAPITALS.flatMap((capital) =>
     STRATEGY_RISKS.map((risk) => `${capital.id}_${risk.id}`)
-  );
+  ),
+  "tw_strength_core_v1",
+];
 
 export const runBacktest = async (options = {}) => {
   const SUPABASE_URL = options.supabaseUrl || requiredEnv("SUPABASE_URL");
@@ -347,6 +384,11 @@ export const runBacktest = async (options = {}) => {
       const avgVolume = volumes.reduce((sum, v) => sum + v, 0) / volumes.length;
       const avgTurnover = turnovers.reduce((sum, v) => sum + v, 0) / turnovers.length;
       const lastClose = closes[closes.length - 1];
+      const prevClose = closes.length > 1 ? closes[closes.length - 2] : lastClose;
+      const close3 = closes.length > 3 ? closes[closes.length - 4] : closes[0];
+      const close5 = closes.length > 5 ? closes[closes.length - 6] : closes[0];
+      const close10 = closes.length > 10 ? closes[closes.length - 11] : closes[0];
+      const ret1 = percentChange(prevClose, lastClose);
       const ret3 = percentChange(close3, lastClose);
       const ret5 = percentChange(close5, lastClose);
       const ret10 = percentChange(close10, lastClose);
@@ -362,6 +404,7 @@ export const runBacktest = async (options = {}) => {
       const volStd = stddev(volumes);
       const volStability = volStd / (avgVolume + 1e-6);
       const lastVolume = volumes[volumes.length - 1] || 0;
+      const strengthMetrics = computeStrengthMetrics({ closes, highs, volumes });
       stats.push({
         stock_id: stock.stock_id,
         name: stock.name || stock.stock_id,
@@ -373,11 +416,15 @@ export const runBacktest = async (options = {}) => {
         ret_3: ret3,
         ret_5: ret5,
         ret_10: ret10,
+        ret_20: strengthMetrics.ret20,
+        drawdown_20: strengthMetrics.drawdown20,
+        volume_ratio_20: strengthMetrics.volumeRatio,
+        strength_score: strengthMetrics.strengthScore,
         avg_range: avgRange,
         vol_stability: volStability,
         last_close: lastClose,
+      });
     });
-
     stats.sort((a, b) => (b.avg_turnover || 0) - (a.avg_turnover || 0));
     const universe = stats.slice(0, liquidityTop);
     buildProfileScores(universe);
@@ -474,6 +521,74 @@ export const runBacktest = async (options = {}) => {
       });
     });
 
+    const strengthStrategyId = "tw_strength_core_v1";
+    if (shouldInclude(strengthStrategyId)) {
+      const strengthCandidates = universe.filter(
+        (item) =>
+          item.ret_20 !== null &&
+          item.drawdown_20 !== null &&
+          item.volume_ratio_20 !== null &&
+          item.strength_score !== null &&
+          item.ret_20 >= 0.12 &&
+          item.drawdown_20 >= -0.08 &&
+          item.volume_ratio_20 >= 1.2
+      );
+      strengthCandidates.sort((a, b) => (b.strength_score || 0) - (a.strength_score || 0));
+      const strengthPicks = strengthCandidates.slice(0, 15);
+      const strengthWeights = allocateWeights(
+        strengthPicks.map((item) => item.strength_score || 0)
+      );
+      const strengthSignals = [];
+      let strengthReturn = 0;
+      let strengthHoldings = 0;
+      let strengthWeightSum = 0;
+      strengthPicks.forEach((pick, idx) => {
+        const weight = Number(strengthWeights[idx].toFixed(6));
+        const ret1 = pick.ret_1 ?? null;
+        if (ret1 !== null && ret1 !== undefined) {
+          strengthReturn += weight * ret1;
+          strengthHoldings += 1;
+          strengthWeightSum += weight;
+        }
+        strengthSignals.push({
+          strategy_id: strengthStrategyId,
+          risk_level: "core",
+          week_end: tradeDate,
+          stock_id: pick.stock_id,
+          target_weight: weight,
+          score: Number((pick.strength_score || 0).toFixed(6)),
+          reason: {
+            ret_5: pick.ret_5,
+            ret_20: pick.ret_20,
+            drawdown_20: pick.drawdown_20,
+            volume_ratio_20: pick.volume_ratio_20,
+          },
+        });
+      });
+
+      const strengthReturnValue = strengthHoldings ? Number(strengthReturn.toFixed(6)) : null;
+      latestDayReturns.set(strengthStrategyId, strengthReturnValue);
+
+      const priorCumulative = cumulativeMap.get(strengthStrategyId) || 0;
+      const nextCumulative = strengthHoldings
+        ? Number((priorCumulative + strengthReturnValue).toFixed(6))
+        : Number(priorCumulative.toFixed(6));
+      cumulativeMap.set(strengthStrategyId, nextCumulative);
+
+      dailyRows.push({
+        strategy_id: strengthStrategyId,
+        trade_date: tradeDate,
+        daily_return: strengthReturnValue,
+        weighted_return: strengthReturnValue,
+        cumulative_return: nextCumulative,
+        holdings_count: strengthHoldings,
+        weight_sum: Number(strengthWeightSum.toFixed(6)),
+        source: "backtest",
+      });
+
+      dailySignalsByStrategy.set(strengthStrategyId, strengthSignals);
+    }
+
     if (!dryRun && dailyRows.length) {
       const { error: dailyError } = await supabase
         .from("strategy_daily_performance")
@@ -512,6 +627,31 @@ export const runBacktest = async (options = {}) => {
           });
         });
       });
+      const strengthStrategyId = "tw_strength_core_v1";
+      if (shouldInclude(strengthStrategyId)) {
+        const signals = dailySignalsByStrategy.get(strengthStrategyId) || [];
+        latestSignalsPayload.push(...signals);
+        latestRunsPayload.push({
+          strategy_id: strengthStrategyId,
+          risk_level: "core",
+          week_end: tradeDate,
+          universe_count: liquidityTop,
+          selected_count: signals.length,
+          gross_exposure: 1.0,
+          risk_state: "normal",
+          metrics: {
+            label: STRATEGY_LABELS[strengthStrategyId] || strengthStrategyId,
+            drawdown: null,
+            volatility: null,
+            sharpe: null,
+            annualized_return: null,
+            win_rate: null,
+            prev_day_return: prevDayReturns.get(strengthStrategyId) ?? null,
+            today_return: latestDayReturns.get(strengthStrategyId) ?? null,
+            cumulative_return: cumulativeMap.get(strengthStrategyId) ?? null,
+          },
+        });
+      }
     }
   }
 
