@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { fileURLToPath } from "url";
 
 const requiredEnv = (key) => {
   const value = process.env[key];
@@ -221,16 +222,45 @@ const getLatestTradeDate = async (supabase) => {
   return data?.[0]?.trade_date || null;
 };
 
-const main = async () => {
-  const SUPABASE_URL = requiredEnv("SUPABASE_URL");
-  const SUPABASE_SERVICE_ROLE_KEY = requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
+const normalizeStrategyIds = (strategyIds) => {
+  if (!strategyIds) return null;
+  if (Array.isArray(strategyIds)) {
+    return strategyIds.map((id) => String(id).trim()).filter(Boolean);
+  }
+  return String(strategyIds)
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+};
 
-  const startDate = toDateString(process.env.START_DATE || "2026-01-10");
-  const lookback = Number(process.env.LOOKBACK || 20);
-  const liquidityTop = Number(process.env.LIQUIDITY_TOP || 500);
-  const maxPicks = Number(process.env.MAX_PICKS || 5);
-  const dryRun = `${process.env.DRY_RUN || ""}` === "1";
-  const cleanOld = `${process.env.CLEAN_OLD || ""}` !== "0";
+const listStrategyIds = () =>
+  STRATEGY_CAPITALS.flatMap((capital) =>
+    STRATEGY_RISKS.map((risk) => `${capital.id}_${risk.id}`)
+  );
+
+export const runBacktest = async (options = {}) => {
+  const SUPABASE_URL = options.supabaseUrl || requiredEnv("SUPABASE_URL");
+  const SUPABASE_SERVICE_ROLE_KEY =
+    options.supabaseServiceRoleKey || requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
+
+  const startDate = toDateString(options.startDate || process.env.START_DATE || "2026-01-10");
+  const lookback = Number(options.lookback ?? process.env.LOOKBACK ?? 20);
+  const liquidityTop = Number(options.liquidityTop ?? process.env.LIQUIDITY_TOP ?? 500);
+  const maxPicks = Number(options.maxPicks ?? process.env.MAX_PICKS ?? 5);
+  const dryRun = options.dryRun ?? `${process.env.DRY_RUN || ""}` === "1";
+  const cleanOld = options.cleanOld ?? `${process.env.CLEAN_OLD || ""}` !== "0";
+
+  const allStrategyIds = listStrategyIds();
+  const requestedIds = normalizeStrategyIds(options.strategyIds);
+  const validSet = new Set(allStrategyIds);
+  const activeStrategyIds = requestedIds
+    ? requestedIds.filter((id) => validSet.has(id))
+    : allStrategyIds;
+  if (!activeStrategyIds.length) {
+    throw new Error("No matching strategy ids for backtest");
+  }
+  const activeSet = new Set(activeStrategyIds);
+  const shouldInclude = (strategyId) => activeSet.has(strategyId);
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
@@ -367,6 +397,7 @@ const main = async () => {
       const capitalUniverse = universe;
       STRATEGY_RISKS.forEach((risk) => {
         const strategyId = `${capital.id}_${risk.id}`;
+        if (!shouldInclude(strategyId)) return;
         capitalUniverse.forEach((item) => {
           item.profile_score = profileScore(risk.id, item);
         });
@@ -462,6 +493,7 @@ const main = async () => {
       STRATEGY_CAPITALS.forEach((capital) => {
         STRATEGY_RISKS.forEach((risk) => {
           const strategyId = `${capital.id}_${risk.id}`;
+          if (!shouldInclude(strategyId)) return;
           const signals = dailySignalsByStrategy.get(strategyId) || [];
           latestSignalsPayload.push(...signals);
           latestRunsPayload.push({
@@ -571,17 +603,31 @@ const main = async () => {
       startDate,
       endDate,
       days: tradeDates.length,
+      strategies: activeStrategyIds,
     });
   } else {
     console.log("Backtest complete.", {
       startDate,
       endDate,
       days: tradeDates.length,
+      strategies: activeStrategyIds,
     });
   }
+
+  return {
+    status: "ok",
+    startDate,
+    endDate,
+    days: tradeDates.length,
+    strategyIds: activeStrategyIds,
+    dryRun,
+  };
 };
 
-main().catch((error) => {
-  console.error("Backtest failed:", error);
-  process.exit(1);
-});
+const isCli = process.argv[1] === fileURLToPath(import.meta.url);
+if (isCli) {
+  runBacktest().catch((error) => {
+    console.error("Backtest failed:", error);
+    process.exit(1);
+  });
+}
