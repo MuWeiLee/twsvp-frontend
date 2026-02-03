@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "sync:stocks": "node scripts/sync-stocks.js",
     "sync:stock-prices": "node scripts/sync-stock-prices.js",
+    "backtest:recent-10d": "node scripts/quant/backtest_recent_10days.js",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
