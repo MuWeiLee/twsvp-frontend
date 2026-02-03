@@ -390,9 +390,12 @@ const toggleFollow = async () => {
     if (authUserId !== userId) {
       const { error } = await supabase
         .from("user_follows")
-        .upsert(
+        .insert(
           { follower_id: authUserId, followee_id: userId },
-          { onConflict: "follower_id,followee_id" }
+          {
+            onConflict: "follower_id,followee_id",
+            ignoreDuplicates: true,
+          }
         );
       if (error) {
         console.error("关注失败:", error);

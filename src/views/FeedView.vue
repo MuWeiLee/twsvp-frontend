@@ -576,8 +576,9 @@ const handleQuickFollow = async () => {
     }
   });
   if (followRows.length) {
-    const { error } = await supabase.from("user_follows").upsert(followRows, {
+    const { error } = await supabase.from("user_follows").insert(followRows, {
       onConflict: "follower_id,followee_id",
+      ignoreDuplicates: true,
     });
     if (error) {
       console.error("一键关注用户失败:", error);
