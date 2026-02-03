@@ -6,7 +6,7 @@
           <img :src="logoUrl" alt="TWSVP" />
         </div>
         <div class="admin-title">后台管理</div>
-        <div class="admin-meta">{{ sectionLabel }}</div>
+        <router-link class="admin-exit" to="/feed">退出后台</router-link>
       </header>
 
       <nav v-if="sectionTabs.length" class="admin-tabs">
@@ -75,10 +75,6 @@ const tabsBySection = {
 const activeSection = computed(() => route.meta.section || "data");
 const sectionTabs = computed(() => tabsBySection[activeSection.value] || []);
 
-const sectionLabel = computed(() => {
-  const item = bottomTabs.find((tab) => tab.key === activeSection.value);
-  return item?.label || "数据";
-});
 </script>
 
 <style scoped>
@@ -126,10 +122,20 @@ const sectionLabel = computed(() => {
   font-weight: 600;
 }
 
-.admin-meta {
+.admin-exit {
   margin-left: auto;
   font-size: 12px;
   color: var(--muted);
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.admin-exit:hover {
+  color: var(--ink);
+  border-color: var(--accent);
 }
 
 .admin-tabs {
