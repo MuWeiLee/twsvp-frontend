@@ -283,7 +283,7 @@ export const runBacktest = async (options = {}) => {
   const startDate = toDateString(options.startDate || process.env.START_DATE || "2026-01-10");
   const lookback = Number(options.lookback ?? process.env.LOOKBACK ?? 20);
   const liquidityTop = Number(options.liquidityTop ?? process.env.LIQUIDITY_TOP ?? 500);
-  const maxPicks = Number(options.maxPicks ?? process.env.MAX_PICKS ?? 5);
+  const maxPicks = Math.min(Number(options.maxPicks ?? process.env.MAX_PICKS ?? 5), 5);
   const dryRun = options.dryRun ?? `${process.env.DRY_RUN || ""}` === "1";
   const cleanOld = options.cleanOld ?? `${process.env.CLEAN_OLD || ""}` !== "0";
 

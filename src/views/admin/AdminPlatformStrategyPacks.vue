@@ -660,19 +660,19 @@ onMounted(() => {
 .list-header {
   display: grid;
   grid-template-columns: 1.3fr 0.7fr 0.6fr 0.6fr;
-  gap: 8px;
-  font-size: 12px;
+  gap: 6px;
+  font-size: 11px;
   color: var(--muted);
-  padding: 8px 10px;
+  padding: 6px 8px;
 }
 
 .list-row {
   display: grid;
   grid-template-columns: 1.3fr 0.7fr 0.6fr 0.6fr;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  padding: 10px;
-  border-radius: 12px;
+  padding: 8px;
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface);
   cursor: pointer;
@@ -852,25 +852,25 @@ onMounted(() => {
 
 .performance-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
 }
 
 .metric-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px 12px;
+  border-radius: 10px;
+  padding: 8px 10px;
 }
 
 .metric-card .label {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
 }
 
 .metric-card .value {
   font-weight: 600;
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .table-scroll {

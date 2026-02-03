@@ -270,7 +270,7 @@ export default async function handler(req, res) {
     const lookback = Number(params.lookback || 20);
     const liquidityTop = Number(params.liquidity_top || 500);
     const dryRun = `${params.dry_run || ""}` === "1";
-    const maxPicks = Number(params.max_picks || 5);
+    const maxPicks = Math.min(Number(params.max_picks || 5), 5);
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
