@@ -228,6 +228,28 @@ const toDateKey = (date) => {
 const sumDailyReturns = (rows) =>
   rows.reduce((sum, row) => sum + (Number(row.daily_return) || 0), 0);
 
+const sumWeights = (signals = []) =>
+  signals.reduce((sum, signal) => sum + (Number(signal.target_weight) || 0), 0);
+
+const computeWeightedReturn = ({ signals = [], tradeDate, priceMap }) => {
+  if (!signals.length || !tradeDate) return null;
+  let total = 0;
+  let hasValue = false;
+  signals.forEach((signal) => {
+    const price = priceMap.get(`${signal.stock_id}|${tradeDate}`) || {};
+    const open = Number(price.open);
+    const close = Number(price.close);
+    const weight = Number(signal.target_weight);
+    if (Number.isNaN(open) || Number.isNaN(close) || open === 0 || Number.isNaN(weight)) {
+      return;
+    }
+    const change = (close - open) / open;
+    total += change * weight;
+    hasValue = true;
+  });
+  return hasValue ? total : null;
+};
+
 const computeRollingReturn = (rows, days) => {
   if (!rows.length) return null;
   const latestDate = rows[0]?.trade_date;
@@ -368,6 +390,12 @@ const loadStrategies = async ({ keepActiveId } = {}) => {
               weight: formatWeight(pick.target_weight) || "—",
             };
           });
+        const weightSum = picks.length ? sumWeights(picks) : null;
+        const computedDailyReturn = computeWeightedReturn({
+          signals: picks,
+          tradeDate: row.trade_date,
+          priceMap,
+        });
         return {
           date: row.trade_date,
           picks: pickData.length
@@ -383,10 +411,17 @@ const loadStrategies = async ({ keepActiveId } = {}) => {
                 },
               ],
           stockPerformance:
-            row.weight_sum !== null && row.weight_sum !== undefined
-              ? formatPercent(row.weight_sum)
-              : "—",
-          dailyReturn: row.daily_return !== null ? formatPercentSigned(row.daily_return) : "—",
+            weightSum !== null
+              ? formatPercent(weightSum)
+              : row.weight_sum !== null && row.weight_sum !== undefined
+                ? formatPercent(row.weight_sum)
+                : "—",
+          dailyReturn:
+            computedDailyReturn !== null
+              ? formatPercentSigned(computedDailyReturn)
+              : row.daily_return !== null
+                ? formatPercentSigned(row.daily_return)
+                : "—",
         };
       });
 
