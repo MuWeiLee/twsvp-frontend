@@ -74,6 +74,8 @@ const rankPercentile = (values) => {
   return ranks;
 };
 
+const clip = (value, min, max) => Math.max(min, Math.min(max, value));
+
 const computeAccelerationMetrics = (rows) => {
   if (!rows.length) return null;
   const closes = rows.map((r) => r.close);
@@ -110,6 +112,68 @@ const computeAccelerationMetrics = (rows) => {
   };
 };
 
+const computeAccelerationWeightedMetrics = (rows) => {
+  if (!rows.length) return null;
+  const closes = rows.map((r) => r.close);
+  const volumes = rows.map((r) => r.volume || 0);
+  const idx = rows.length - 1;
+  if (idx < 24) return null;
+  const close = closes[idx];
+  const close5 = closes[idx - 5];
+  const close20 = closes[idx - 20];
+  if (!close || !close5 || !close20) return null;
+  const v5 = (close - close5) / (5 * close5);
+  const v20 = (close - close20) / (20 * close20);
+
+  const v5Series = [];
+  const accSeries = [];
+  for (let i = idx - 19; i <= idx; i += 1) {
+    const base5 = closes[i - 5];
+    const base20 = closes[i - 20];
+    const current = closes[i];
+    if (!base5 || !base20 || !current) return null;
+    const v5Day = (current - base5) / (5 * base5);
+    const v20Day = (current - base20) / (20 * base20);
+    v5Series.push(v5Day);
+    accSeries.push(v5Day - v20Day);
+  }
+  const v5Sma20 = mean(v5Series);
+  if (!v5Sma20) return null;
+  const vZ = v5 / v5Sma20;
+
+  const volSlice = volumes.slice(idx - 19, idx + 1);
+  const volSma20 = mean(volSlice);
+  if (!volSma20) return null;
+  const volZ20 = volumes[idx] / volSma20;
+
+  const acc = v5 - v20;
+  let consec = 0;
+  for (let i = accSeries.length - 1; i >= 0; i -= 1) {
+    if (accSeries[i] > 0) {
+      consec += 1;
+    } else {
+      break;
+    }
+    if (consec >= 3) break;
+  }
+  const ps = Math.min(1, consec / 3);
+  const momentum =
+    0.35 * clip(v5 / 0.004, 0, 3) +
+    0.3 * clip(acc / 0.0015, 0, 3) +
+    0.2 * ps +
+    0.15 * clip(Math.log(volZ20), 0, 2);
+
+  return {
+    v_5: v5,
+    v_20: v20,
+    acc,
+    v_z: vZ,
+    vol_z20: volZ20,
+    ps,
+    momentum,
+  };
+};
+
 const STRATEGY_CAPITALS = [
   { id: "fixed_5w", name: "固定金额 5万", priceMin: 10, priceMax: 100 },
   { id: "fixed_20w", name: "固定金额 20万", priceMin: 100, priceMax: 500 },
@@ -138,6 +202,7 @@ const STRATEGY_LABELS = {
   fixed_50w_steady: "F50-ST",
   tw_strength_core_v1: "TW强势核心",
   tw_acceleration_monitor_v1: "动能加速",
+  tw_acceleration_weighted_v1: "连板策略",
 };
 
 const allocateWeights = (scores) => {
@@ -720,6 +785,68 @@ export default async function handler(req, res) {
       risk_state: "normal",
       metrics: {
         label: STRATEGY_LABELS[accelStrategyId] || accelStrategyId,
+        drawdown: null,
+        volatility: null,
+        sharpe: null,
+        annualized_return: null,
+        win_rate: null,
+      },
+    });
+
+    const weightedStrategyId = "tw_acceleration_weighted_v1";
+    const weightedRows = [];
+    if (latestTradeDate) {
+      universe.forEach((stock) => {
+        const rows = (priceMap.get(stock.stock_id) || []).slice();
+        rows.sort((a, b) => String(a.trade_date).localeCompare(String(b.trade_date)));
+        const lastRow = rows[rows.length - 1];
+        if (!lastRow || lastRow.trade_date !== latestTradeDate) return;
+        const metrics = computeAccelerationWeightedMetrics(rows);
+        if (!metrics) return;
+        weightedRows.push({
+          stock_id: stock.stock_id,
+          name: stock.name || stock.stock_id,
+          close: lastRow.close,
+          ...metrics,
+        });
+      });
+    }
+
+    const weightedCandidates = weightedRows.filter(
+      (row) => row.v_5 > 0.004 && row.acc > 0.0015 && row.v_z > 1.3 && row.vol_z20 > 1.5
+    );
+    weightedCandidates.sort((a, b) => (b.momentum || 0) - (a.momentum || 0));
+    const weightedPicks = weightedCandidates.slice(0, maxPicks);
+    const weightedWeights = allocateWeights(weightedPicks.map((row) => row.momentum || 0));
+    weightedPicks.forEach((pick, idx) => {
+      signalsPayload.push({
+        strategy_id: weightedStrategyId,
+        risk_level: "core",
+        week_end: weekEnd,
+        stock_id: pick.stock_id,
+        target_weight: Number(weightedWeights[idx].toFixed(6)),
+        score: Number((pick.momentum || 0).toFixed(6)),
+        reason: {
+          v_5: pick.v_5,
+          v_20: pick.v_20,
+          acc: pick.acc,
+          v_z: pick.v_z,
+          vol_z20: pick.vol_z20,
+          ps: pick.ps,
+          momentum: pick.momentum,
+        },
+      });
+    });
+    runsPayload.push({
+      strategy_id: weightedStrategyId,
+      risk_level: "core",
+      week_end: weekEnd,
+      universe_count: weightedRows.length,
+      selected_count: weightedPicks.length,
+      gross_exposure: 1.0,
+      risk_state: "normal",
+      metrics: {
+        label: STRATEGY_LABELS[weightedStrategyId] || weightedStrategyId,
         drawdown: null,
         volatility: null,
         sharpe: null,
