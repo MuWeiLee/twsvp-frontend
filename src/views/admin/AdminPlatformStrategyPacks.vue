@@ -583,9 +583,9 @@ onMounted(() => {
 }
 
 .strategy-layout {
-  display: grid;
-  grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr);
-  gap: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .strategy-list {
@@ -596,6 +596,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  width: 100%;
 }
 
 .list-header {
@@ -661,6 +662,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  width: 100%;
 }
 
 .detail-header {
