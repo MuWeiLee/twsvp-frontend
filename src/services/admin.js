@@ -165,7 +165,6 @@ export const fetchContentComments = async () => {
     .select(
       "reply_id, content, created_at, user_id, feed_id, users!feed_replies_user_id_fkey(nickname,email), feeds!feed_replies_feed_id_fkey(content)"
     )
-    .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(200);
 
@@ -342,11 +341,17 @@ export const hideRecord = async ({ table, idField, id }) => {
     .from(table)
     .update({ deleted_at: new Date().toISOString() })
     .eq(idField, id);
-  if (error) {
-    console.error(`隐藏 ${table} 失败:`, error);
-    return false;
+  if (!error) return true;
+  if (error.code === "42703") {
+    const { error: deleteError } = await supabase.from(table).delete().eq(idField, id);
+    if (deleteError) {
+      console.error(`删除 ${table} 失败:`, deleteError);
+      return false;
+    }
+    return true;
   }
-  return true;
+  console.error(`隐藏 ${table} 失败:`, error);
+  return false;
 };
 
 export const banUser = async (userId) => {
