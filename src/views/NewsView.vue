@@ -189,6 +189,8 @@ import { fetchNewsSupabase } from "../services/news.js";
 import { formatFeedTimestamp } from "../services/feeds.js";
 import { t } from "../services/i18n.js";
 import {
+  STRATEGY_IDS,
+  STRATEGY_LABELS,
   fetchLatestStrategyRuns,
   fetchStrategySignals,
   fetchStockNames,
@@ -218,35 +220,7 @@ let loadObserver = null;
 
 const cards = ref([]);
 
-const allowedStrategies = new Set([
-  "fixed_5w_aggressive",
-  "fixed_5w_low_vol",
-  "fixed_5w_income",
-  "fixed_5w_steady",
-  "fixed_20w_aggressive",
-  "fixed_20w_low_vol",
-  "fixed_20w_income",
-  "fixed_20w_steady",
-  "fixed_50w_aggressive",
-  "fixed_50w_low_vol",
-  "fixed_50w_income",
-  "fixed_50w_steady",
-]);
-
-const strategyLabels = {
-  fixed_5w_aggressive: "F5-AG",
-  fixed_5w_low_vol: "F5-LV",
-  fixed_5w_income: "F5-IN",
-  fixed_5w_steady: "F5-ST",
-  fixed_20w_aggressive: "F20-AG",
-  fixed_20w_low_vol: "F20-LV",
-  fixed_20w_income: "F20-IN",
-  fixed_20w_steady: "F20-ST",
-  fixed_50w_aggressive: "F50-AG",
-  fixed_50w_low_vol: "F50-LV",
-  fixed_50w_income: "F50-IN",
-  fixed_50w_steady: "F50-ST",
-};
+const allowedStrategies = new Set(STRATEGY_IDS);
 
 const refreshLabel = computed(() => {
   if (isRefreshing.value) return t("刷新中...");
@@ -501,7 +475,7 @@ const loadStrategies = async () => {
         };
       });
     const metrics = run.metrics || {};
-    const label = metrics.label || strategyLabels[run.strategy_id] || run.strategy_id;
+    const label = metrics.label || STRATEGY_LABELS[run.strategy_id] || run.strategy_id;
     return {
       strategy_id: run.strategy_id,
       code: label,

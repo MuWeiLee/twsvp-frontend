@@ -4,6 +4,7 @@
       <h2>策略包</h2>
       <p class="muted">集中管理策略表现、累积绩效与每日选股记录</p>
     </div>
+    <p v-if="statusMessage" class="muted status-message">{{ statusMessage }}</p>
 
     <div class="strategy-layout">
       <div class="strategy-list">
@@ -67,11 +68,11 @@
             <h4>每日选股与绩效</h4>
             <span class="hint">策略选股历史可在此表查看</span>
           </div>
-          <div class="table">
+          <div v-if="activeStrategy.daily.length" class="table">
             <div class="table-row table-head">
               <span>日期</span>
               <span>当日选股</span>
-              <span>个股绩效</span>
+              <span>权重合计</span>
               <span>当日绩效</span>
             </div>
             <div
@@ -91,729 +92,300 @@
               </span>
             </div>
           </div>
+          <div v-else class="empty-table">暂无每日选股历史，请先执行策略回测。</div>
         </div>
       </div>
+    </div>
+    <div v-if="!isLoading && !strategies.length" class="empty-state">
+      暂无策略数据，请先执行策略回测或同步策略数据。
     </div>
   </section>
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { computed, onMounted, ref } from "vue";
+import {
+  STRATEGY_IDS,
+  STRATEGY_LABELS,
+  fetchLatestStrategyRuns,
+  fetchStrategyDailyPerformance,
+  fetchStrategySignalsByWeekEnds,
+  fetchStockNames,
+} from "../../services/strategy.js";
+import { t } from "../../services/i18n.js";
 
-const strategies = [
-  {
-    id: "alpha-growth",
-    name: "Alpha 成长策略",
-    risk: "中高风险",
-    category: "动能",
-    quarterReturn: "+8.2%",
-    summary: [
-      { label: "年初至今", value: "+18.4%" },
-      { label: "胜率", value: "62%" },
-      { label: "最大回撤", value: "-6.1%" },
-    ],
-    cumulative: [
-      { label: "累计报酬", value: "+42.6%" },
-      { label: "年化报酬", value: "+15.2%" },
-      { label: "夏普比率", value: "1.45" },
-      { label: "波动率", value: "12.8%" },
-    ],
-    daily: [
-      {
-        date: "2024-03-18",
-        picks: ["台积电", "联发科", "广达"],
-        stockPerformance: "台积电 +1.8%、联发科 -0.6%、广达 +0.4%",
-        dailyReturn: "+0.9%",
-      },
-      {
-        date: "2024-03-19",
-        picks: ["世芯", "纬颖", "创意"],
-        stockPerformance: "世芯 +2.3%、纬颖 +1.1%、创意 -0.2%",
-        dailyReturn: "+1.0%",
-      },
-      {
-        date: "2024-03-20",
-        picks: ["台达电", "日月光", "瑞昱"],
-        stockPerformance: "台达电 +0.6%、日月光 -0.4%、瑞昱 +0.9%",
-        dailyReturn: "+0.4%",
-      },
-      {
-        date: "2024-03-21",
-        picks: ["联电", "群光", "奇鋐"],
-        stockPerformance: "联电 +0.3%、群光 -0.8%、奇鋐 +1.6%",
-        dailyReturn: "+0.5%",
-      },
-      {
-        date: "2024-03-22",
-        picks: ["华硕", "研华", "智邦"],
-        stockPerformance: "华硕 +0.7%、研华 +0.2%、智邦 +1.0%",
-        dailyReturn: "+0.6%",
-      },
-    ],
-  },
-  {
-    id: "defense-value",
-    name: "防御价值策略",
-    risk: "中低风险",
-    category: "价值",
-    quarterReturn: "+4.6%",
-    summary: [
-      { label: "年初至今", value: "+9.3%" },
-      { label: "胜率", value: "58%" },
-      { label: "最大回撤", value: "-3.8%" },
-    ],
-    cumulative: [
-      { label: "累计报酬", value: "+28.5%" },
-      { label: "年化报酬", value: "+10.4%" },
-      { label: "夏普比率", value: "1.32" },
-      { label: "波动率", value: "8.5%" },
-    ],
-    daily: [
-      {
-        date: "2024-03-18",
-        picks: ["统一", "台泥", "远传"],
-        stockPerformance: "统一 +0.4%、台泥 +0.1%、远传 -0.2%",
-        dailyReturn: "+0.1%",
-      },
-      {
-        date: "2024-03-19",
-        picks: ["中钢", "台塑", "鸿海"],
-        stockPerformance: "中钢 +0.2%、台塑 -0.3%、鸿海 +0.5%",
-        dailyReturn: "+0.1%",
-      },
-      {
-        date: "2024-03-20",
-        picks: ["兆丰金", "第一金", "玉山金"],
-        stockPerformance: "兆丰金 +0.3%、第一金 +0.2%、玉山金 +0.4%",
-        dailyReturn: "+0.3%",
-      },
-      {
-        date: "2024-03-21",
-        picks: ["中信金", "富邦金", "国泰金"],
-        stockPerformance: "中信金 +0.1%、富邦金 -0.2%、国泰金 +0.3%",
-        dailyReturn: "+0.1%",
-      },
-      {
-        date: "2024-03-22",
-        picks: ["台新金", "合库金", "永丰金"],
-        stockPerformance: "台新金 +0.2%、合库金 +0.1%、永丰金 +0.2%",
-        dailyReturn: "+0.2%",
-      },
-    ],
-  },
-  {
-    id: "ai-leaders",
-    name: "AI 领航策略",
-    risk: "高风险",
-    category: "科技",
-    quarterReturn: "+12.1%",
-    summary: [
-      { label: "年初至今", value: "+24.7%" },
-      { label: "胜率", value: "65%" },
-      { label: "最大回撤", value: "-7.4%" },
-    ],
-    cumulative: [
-      { label: "累计报酬", value: "+55.8%" },
-      { label: "年化报酬", value: "+19.5%" },
-      { label: "夏普比率", value: "1.51" },
-      { label: "波动率", value: "15.6%" },
-    ],
-    daily: [
-      {
-        date: "2024-03-18",
-        picks: ["纬创", "纬颖", "英业达"],
-        stockPerformance: "纬创 +1.4%、纬颖 +2.0%、英业达 +0.6%",
-        dailyReturn: "+1.3%",
-      },
-      {
-        date: "2024-03-19",
-        picks: ["广达", "鸿海", "奇鋐"],
-        stockPerformance: "广达 +0.8%、鸿海 +0.3%、奇鋐 +1.2%",
-        dailyReturn: "+0.7%",
-      },
-      {
-        date: "2024-03-20",
-        picks: ["神达", "技嘉", "华擎"],
-        stockPerformance: "神达 +0.5%、技嘉 -0.2%、华擎 +1.1%",
-        dailyReturn: "+0.4%",
-      },
-      {
-        date: "2024-03-21",
-        picks: ["创意", "世芯", "智原"],
-        stockPerformance: "创意 +1.9%、世芯 +2.4%、智原 -0.5%",
-        dailyReturn: "+1.3%",
-      },
-      {
-        date: "2024-03-22",
-        picks: ["联发科", "联咏", "瑞昱"],
-        stockPerformance: "联发科 +0.7%、联咏 +0.9%、瑞昱 +0.3%",
-        dailyReturn: "+0.6%",
-      },
-    ],
-  },
-  {
-    id: "dividend-core",
-    name: "高股息核心策略",
-    risk: "低风险",
-    category: "股息",
-    quarterReturn: "+3.2%",
-    summary: [
-      { label: "年初至今", value: "+6.8%" },
-      { label: "胜率", value: "55%" },
-      { label: "最大回撤", value: "-2.4%" },
-    ],
-    cumulative: [
-      { label: "累计报酬", value: "+21.7%" },
-      { label: "年化报酬", value: "+8.7%" },
-      { label: "夏普比率", value: "1.18" },
-      { label: "波动率", value: "6.2%" },
-    ],
-    daily: [
-      {
-        date: "2024-03-18",
-        picks: ["中华电", "远传", "台湾大"],
-        stockPerformance: "中华电 +0.2%、远传 +0.1%、台湾大 +0.0%",
-        dailyReturn: "+0.1%",
-      },
-      {
-        date: "2024-03-19",
-        picks: ["中钢", "台肥", "台橡"],
-        stockPerformance: "中钢 +0.1%、台肥 +0.2%、台橡 -0.1%",
-        dailyReturn: "+0.1%",
-      },
-      {
-        date: "2024-03-20",
-        picks: ["统一超", "全家", "统一"],
-        stockPerformance: "统一超 +0.3%、全家 +0.2%、统一 +0.1%",
-        dailyReturn: "+0.2%",
-      },
-      {
-        date: "2024-03-21",
-        picks: ["兆丰金", "第一金", "华南金"],
-        stockPerformance: "兆丰金 +0.1%、第一金 +0.0%、华南金 +0.2%",
-        dailyReturn: "+0.1%",
-      },
-      {
-        date: "2024-03-22",
-        picks: ["合库金", "玉山金", "永丰金"],
-        stockPerformance: "合库金 +0.0%、玉山金 +0.2%、永丰金 +0.1%",
-        dailyReturn: "+0.1%",
-      },
-    ],
-  },
-  {
-    id: "macro-rotation",
-    name: "景气轮动策略",
-    risk: "中风险",
-    category: "轮动",
-    quarterReturn: "+6.4%",
-    summary: [
-      { label: "年初至今", value: "+12.9%" },
-      { label: "胜率", value: "57%" },
-      { label: "最大回撤", value: "-4.6%" },
-    ],
-    cumulative: [
-      { label: "累计报酬", value: "+33.1%" },
-      { label: "年化报酬", value: "+11.8%" },
-      { label: "夏普比率", value: "1.26" },
-      { label: "波动率", value: "10.2%" },
-    ],
-    daily: [
-      {
-        date: "2024-03-18",
-        picks: ["中钢", "台泥", "台塑"],
-        stockPerformance: "中钢 +0.3%、台泥 +0.1%、台塑 +0.2%",
-        dailyReturn: "+0.2%",
-      },
-      {
-        date: "2024-03-19",
-        picks: ["长荣", "阳明", "万海"],
-        stockPerformance: "长荣 +0.5%、阳明 +0.7%、万海 +0.4%",
-        dailyReturn: "+0.5%",
-      },
-      {
-        date: "2024-03-20",
-        picks: ["台玻", "台化", "南亚"],
-        stockPerformance: "台玻 -0.1%、台化 +0.3%、南亚 +0.2%",
-        dailyReturn: "+0.1%",
-      },
-      {
-        date: "2024-03-21",
-        picks: ["南电", "臻鼎", "欣兴"],
-        stockPerformance: "南电 +0.6%、臻鼎 +0.4%、欣兴 +0.2%",
-        dailyReturn: "+0.4%",
-      },
-      {
-        date: "2024-03-22",
-        picks: ["台达电", "光宝科", "群光"],
-        stockPerformance: "台达电 +0.3%、光宝科 +0.2%、群光 +0.1%",
-        dailyReturn: "+0.2%",
-      },
-    ],
-  },
-  {
-    id: "small-cap-focus",
-    name: "中小型精选策略",
-    risk: "高风险",
-    category: "成长",
-    quarterReturn: "+9.7%",
-    summary: [
-      { label: "年初至今", value: "+20.1%" },
-      { label: "胜率", value: "60%" },
-      { label: "最大回撤", value: "-8.0%" },
-    ],
-    cumulative: [
-      { label: "累计报酬", value: "+47.9%" },
-      { label: "年化报酬", value: "+16.3%" },
-      { label: "夏普比率", value: "1.38" },
-      { label: "波动率", value: "17.1%" },
-    ],
-    daily: [
-      {
-        date: "2024-03-18",
-        picks: ["健鼎", "联茂", "佳邦"],
-        stockPerformance: "健鼎 +1.2%、联茂 +0.8%、佳邦 +0.6%",
-        dailyReturn: "+0.9%",
-      },
-      {
-        date: "2024-03-19",
-        picks: ["宏捷科", "IET-KY", "同欣电"],
-        stockPerformance: "宏捷科 +1.5%、IET-KY +0.9%、同欣电 +0.4%",
-        dailyReturn: "+0.9%",
-      },
-      {
-        date: "2024-03-20",
-        picks: ["世界", "矽力-KY", "贸联"],
-        stockPerformance: "世界 +0.7%、矽力-KY +1.0%、贸联 +0.3%",
-        dailyReturn: "+0.7%",
-      },
-      {
-        date: "2024-03-21",
-        picks: ["信骅", "祥硕", "譜瑞-KY"],
-        stockPerformance: "信骅 +1.8%、祥硕 +0.5%、譜瑞-KY +0.4%",
-        dailyReturn: "+0.9%",
-      },
-      {
-        date: "2024-03-22",
-        picks: ["钰创", "安国", "创惟"],
-        stockPerformance: "钰创 +0.6%、安国 +0.7%、创惟 +0.8%",
-        dailyReturn: "+0.7%",
-      },
-    ],
-  },
-  {
-    id: "income-stability",
-    name: "收益稳定策略",
-    risk: "低风险",
-    category: "防御",
-    quarterReturn: "+2.8%",
-    summary: [
-      { label: "年初至今", value: "+5.9%" },
-      { label: "胜率", value: "53%" },
-      { label: "最大回撤", value: "-1.9%" },
-    ],
-    cumulative: [
-      { label: "累计报酬", value: "+18.6%" },
-      { label: "年化报酬", value: "+7.5%" },
-      { label: "夏普比率", value: "1.10" },
-      { label: "波动率", value: "5.7%" },
-    ],
-    daily: [
-      {
-        date: "2024-03-18",
-        picks: ["中华电", "统一超", "国泰金"],
-        stockPerformance: "中华电 +0.1%、统一超 +0.2%、国泰金 +0.1%",
-        dailyReturn: "+0.1%",
-      },
-      {
-        date: "2024-03-19",
-        picks: ["富邦金", "中信金", "兆丰金"],
-        stockPerformance: "富邦金 +0.0%、中信金 +0.1%、兆丰金 +0.2%",
-        dailyReturn: "+0.1%",
-      },
-      {
-        date: "2024-03-20",
-        picks: ["台湾大", "远传", "台哥大"],
-        stockPerformance: "台湾大 +0.1%、远传 +0.0%、台哥大 +0.1%",
-        dailyReturn: "+0.1%",
-      },
-      {
-        date: "2024-03-21",
-        picks: ["合库金", "第一金", "华南金"],
-        stockPerformance: "合库金 +0.1%、第一金 +0.1%、华南金 +0.1%",
-        dailyReturn: "+0.1%",
-      },
-      {
-        date: "2024-03-22",
-        picks: ["统一", "台泥", "中钢"],
-        stockPerformance: "统一 +0.1%、台泥 +0.1%、中钢 +0.1%",
-        dailyReturn: "+0.1%",
-      },
-    ],
-  },
-  {
-    id: "growth-momentum",
-    name: "成长动能策略",
-    risk: "中高风险",
-    category: "动能",
-    quarterReturn: "+7.9%",
-    summary: [
-      { label: "年初至今", value: "+16.5%" },
-      { label: "胜率", value: "61%" },
-      { label: "最大回撤", value: "-5.7%" },
-    ],
-    cumulative: [
-      { label: "累计报酬", value: "+39.4%" },
-      { label: "年化报酬", value: "+14.2%" },
-      { label: "夏普比率", value: "1.37" },
-      { label: "波动率", value: "13.9%" },
-    ],
-    daily: [
-      {
-        date: "2024-03-18",
-        picks: ["广达", "神达", "技嘉"],
-        stockPerformance: "广达 +0.6%、神达 +0.5%、技嘉 +0.3%",
-        dailyReturn: "+0.5%",
-      },
-      {
-        date: "2024-03-19",
-        picks: ["瑞昱", "联咏", "群联"],
-        stockPerformance: "瑞昱 +0.4%、联咏 +0.5%、群联 +0.2%",
-        dailyReturn: "+0.4%",
-      },
-      {
-        date: "2024-03-20",
-        picks: ["台达电", "光宝科", "联电"],
-        stockPerformance: "台达电 +0.3%、光宝科 +0.2%、联电 +0.1%",
-        dailyReturn: "+0.2%",
-      },
-      {
-        date: "2024-03-21",
-        picks: ["奇鋐", "建準", "双鸿"],
-        stockPerformance: "奇鋐 +1.1%、建準 +0.8%、双鸿 +0.6%",
-        dailyReturn: "+0.8%",
-      },
-      {
-        date: "2024-03-22",
-        picks: ["创意", "世芯", "华擎"],
-        stockPerformance: "创意 +0.9%、世芯 +1.2%、华擎 +0.5%",
-        dailyReturn: "+0.9%",
-      },
-    ],
-  },
-  {
-    id: "global-theme",
-    name: "全球主题策略",
-    risk: "中风险",
-    category: "主题",
-    quarterReturn: "+5.5%",
-    summary: [
-      { label: "年初至今", value: "+11.1%" },
-      { label: "胜率", value: "56%" },
-      { label: "最大回撤", value: "-4.2%" },
-    ],
-    cumulative: [
-      { label: "累计报酬", value: "+30.8%" },
-      { label: "年化报酬", value: "+11.0%" },
-      { label: "夏普比率", value: "1.29" },
-      { label: "波动率", value: "9.6%" },
-    ],
-    daily: [
-      {
-        date: "2024-03-18",
-        picks: ["台积电", "联发科", "鸿海"],
-        stockPerformance: "台积电 +0.8%、联发科 +0.4%、鸿海 +0.2%",
-        dailyReturn: "+0.5%",
-      },
-      {
-        date: "2024-03-19",
-        picks: ["日月光", "华硕", "瑞昱"],
-        stockPerformance: "日月光 +0.5%、华硕 +0.3%、瑞昱 +0.2%",
-        dailyReturn: "+0.3%",
-      },
-      {
-        date: "2024-03-20",
-        picks: ["广达", "纬创", "技嘉"],
-        stockPerformance: "广达 +0.6%、纬创 +0.5%、技嘉 +0.2%",
-        dailyReturn: "+0.4%",
-      },
-      {
-        date: "2024-03-21",
-        picks: ["奇鋐", "台达电", "光宝科"],
-        stockPerformance: "奇鋐 +0.7%、台达电 +0.3%、光宝科 +0.2%",
-        dailyReturn: "+0.4%",
-      },
-      {
-        date: "2024-03-22",
-        picks: ["联电", "群联", "创意"],
-        stockPerformance: "联电 +0.2%、群联 +0.4%、创意 +0.6%",
-        dailyReturn: "+0.4%",
-      },
-    ],
-  },
-  {
-    id: "green-energy",
-    name: "绿色能源策略",
-    risk: "中高风险",
-    category: "ESG",
-    quarterReturn: "+6.9%",
-    summary: [
-      { label: "年初至今", value: "+13.7%" },
-      { label: "胜率", value: "59%" },
-      { label: "最大回撤", value: "-6.3%" },
-    ],
-    cumulative: [
-      { label: "累计报酬", value: "+35.2%" },
-      { label: "年化报酬", value: "+12.7%" },
-      { label: "夏普比率", value: "1.22" },
-      { label: "波动率", value: "14.4%" },
-    ],
-    daily: [
-      {
-        date: "2024-03-18",
-        picks: ["中钢", "台达电", "台泥"],
-        stockPerformance: "中钢 +0.3%、台达电 +0.5%、台泥 +0.2%",
-        dailyReturn: "+0.3%",
-      },
-      {
-        date: "2024-03-19",
-        picks: ["茂迪", "元晶", "硕禾"],
-        stockPerformance: "茂迪 +0.9%、元晶 +0.6%、硕禾 +0.4%",
-        dailyReturn: "+0.6%",
-      },
-      {
-        date: "2024-03-20",
-        picks: ["台塑化", "台化", "南亚"],
-        stockPerformance: "台塑化 +0.2%、台化 +0.4%、南亚 +0.3%",
-        dailyReturn: "+0.3%",
-      },
-      {
-        date: "2024-03-21",
-        picks: ["中美晶", "台达电", "联合再生"],
-        stockPerformance: "中美晶 +0.7%、台达电 +0.3%、联合再生 +0.5%",
-        dailyReturn: "+0.5%",
-      },
-      {
-        date: "2024-03-22",
-        picks: ["东元", "上银", "汉翔"],
-        stockPerformance: "东元 +0.4%、上银 +0.5%、汉翔 +0.2%",
-        dailyReturn: "+0.4%",
-      },
-    ],
-  },
-  {
-    id: "quality-earnings",
-    name: "优质获利策略",
-    risk: "中风险",
-    category: "质量",
-    quarterReturn: "+5.9%",
-    summary: [
-      { label: "年初至今", value: "+12.0%" },
-      { label: "胜率", value: "58%" },
-      { label: "最大回撤", value: "-4.4%" },
-    ],
-    cumulative: [
-      { label: "累计报酬", value: "+31.6%" },
-      { label: "年化报酬", value: "+11.5%" },
-      { label: "夏普比率", value: "1.30" },
-      { label: "波动率", value: "9.8%" },
-    ],
-    daily: [
-      {
-        date: "2024-03-18",
-        picks: ["台积电", "联发科", "日月光"],
-        stockPerformance: "台积电 +0.7%、联发科 +0.3%、日月光 +0.2%",
-        dailyReturn: "+0.4%",
-      },
-      {
-        date: "2024-03-19",
-        picks: ["联咏", "瑞昱", "群联"],
-        stockPerformance: "联咏 +0.4%、瑞昱 +0.5%、群联 +0.3%",
-        dailyReturn: "+0.4%",
-      },
-      {
-        date: "2024-03-20",
-        picks: ["广达", "台达电", "光宝科"],
-        stockPerformance: "广达 +0.5%、台达电 +0.3%、光宝科 +0.2%",
-        dailyReturn: "+0.3%",
-      },
-      {
-        date: "2024-03-21",
-        picks: ["华硕", "研华", "智邦"],
-        stockPerformance: "华硕 +0.4%、研华 +0.2%、智邦 +0.5%",
-        dailyReturn: "+0.4%",
-      },
-      {
-        date: "2024-03-22",
-        picks: ["台积电", "联电", "联发科"],
-        stockPerformance: "台积电 +0.3%、联电 +0.2%、联发科 +0.4%",
-        dailyReturn: "+0.3%",
-      },
-    ],
-  },
-  {
-    id: "smart-beta",
-    name: "Smart Beta 策略",
-    risk: "中风险",
-    category: "Smart Beta",
-    quarterReturn: "+5.1%",
-    summary: [
-      { label: "年初至今", value: "+10.4%" },
-      { label: "胜率", value: "57%" },
-      { label: "最大回撤", value: "-4.9%" },
-    ],
-    cumulative: [
-      { label: "累计报酬", value: "+29.3%" },
-      { label: "年化报酬", value: "+10.8%" },
-      { label: "夏普比率", value: "1.24" },
-      { label: "波动率", value: "10.5%" },
-    ],
-    daily: [
-      {
-        date: "2024-03-18",
-        picks: ["台积电", "鸿海", "联发科"],
-        stockPerformance: "台积电 +0.5%、鸿海 +0.3%、联发科 +0.4%",
-        dailyReturn: "+0.4%",
-      },
-      {
-        date: "2024-03-19",
-        picks: ["中华电", "兆丰金", "富邦金"],
-        stockPerformance: "中华电 +0.2%、兆丰金 +0.3%、富邦金 +0.1%",
-        dailyReturn: "+0.2%",
-      },
-      {
-        date: "2024-03-20",
-        picks: ["台塑", "南亚", "台化"],
-        stockPerformance: "台塑 +0.2%、南亚 +0.3%、台化 +0.1%",
-        dailyReturn: "+0.2%",
-      },
-      {
-        date: "2024-03-21",
-        picks: ["广达", "纬创", "英业达"],
-        stockPerformance: "广达 +0.4%、纬创 +0.5%、英业达 +0.2%",
-        dailyReturn: "+0.4%",
-      },
-      {
-        date: "2024-03-22",
-        picks: ["台泥", "中钢", "台达电"],
-        stockPerformance: "台泥 +0.1%、中钢 +0.2%、台达电 +0.3%",
-        dailyReturn: "+0.2%",
-      },
-    ],
-  },
-  {
-    id: "supply-chain",
-    name: "供应链关键策略",
-    risk: "中高风险",
-    category: "产业链",
-    quarterReturn: "+7.2%",
-    summary: [
-      { label: "年初至今", value: "+15.1%" },
-      { label: "胜率", value: "60%" },
-      { label: "最大回撤", value: "-6.0%" },
-    ],
-    cumulative: [
-      { label: "累计报酬", value: "+37.4%" },
-      { label: "年化报酬", value: "+13.5%" },
-      { label: "夏普比率", value: "1.35" },
-      { label: "波动率", value: "13.1%" },
-    ],
-    daily: [
-      {
-        date: "2024-03-18",
-        picks: ["台积电", "日月光", "力成"],
-        stockPerformance: "台积电 +0.6%、日月光 +0.3%、力成 +0.2%",
-        dailyReturn: "+0.4%",
-      },
-      {
-        date: "2024-03-19",
-        picks: ["欣兴", "南电", "景硕"],
-        stockPerformance: "欣兴 +0.5%、南电 +0.4%、景硕 +0.2%",
-        dailyReturn: "+0.4%",
-      },
-      {
-        date: "2024-03-20",
-        picks: ["奇鋐", "建準", "双鸿"],
-        stockPerformance: "奇鋐 +0.7%、建準 +0.6%、双鸿 +0.4%",
-        dailyReturn: "+0.6%",
-      },
-      {
-        date: "2024-03-21",
-        picks: ["纬创", "广达", "英业达"],
-        stockPerformance: "纬创 +0.5%、广达 +0.4%、英业达 +0.3%",
-        dailyReturn: "+0.4%",
-      },
-      {
-        date: "2024-03-22",
-        picks: ["联发科", "联咏", "瑞昱"],
-        stockPerformance: "联发科 +0.5%、联咏 +0.4%、瑞昱 +0.2%",
-        dailyReturn: "+0.4%",
-      },
-    ],
-  },
-  {
-    id: "balanced-advantage",
-    name: "平衡优势策略",
-    risk: "中风险",
-    category: "平衡",
-    quarterReturn: "+4.9%",
-    summary: [
-      { label: "年初至今", value: "+10.0%" },
-      { label: "胜率", value: "56%" },
-      { label: "最大回撤", value: "-4.1%" },
-    ],
-    cumulative: [
-      { label: "累计报酬", value: "+27.6%" },
-      { label: "年化报酬", value: "+10.1%" },
-      { label: "夏普比率", value: "1.20" },
-      { label: "波动率", value: "9.2%" },
-    ],
-    daily: [
-      {
-        date: "2024-03-18",
-        picks: ["台积电", "鸿海", "中华电"],
-        stockPerformance: "台积电 +0.4%、鸿海 +0.2%、中华电 +0.1%",
-        dailyReturn: "+0.3%",
-      },
-      {
-        date: "2024-03-19",
-        picks: ["富邦金", "兆丰金", "中信金"],
-        stockPerformance: "富邦金 +0.1%、兆丰金 +0.2%、中信金 +0.1%",
-        dailyReturn: "+0.1%",
-      },
-      {
-        date: "2024-03-20",
-        picks: ["台塑", "南亚", "台化"],
-        stockPerformance: "台塑 +0.2%、南亚 +0.1%、台化 +0.2%",
-        dailyReturn: "+0.2%",
-      },
-      {
-        date: "2024-03-21",
-        picks: ["广达", "纬创", "英业达"],
-        stockPerformance: "广达 +0.3%、纬创 +0.4%、英业达 +0.2%",
-        dailyReturn: "+0.3%",
-      },
-      {
-        date: "2024-03-22",
-        picks: ["台达电", "光宝科", "群光"],
-        stockPerformance: "台达电 +0.2%、光宝科 +0.2%、群光 +0.1%",
-        dailyReturn: "+0.2%",
-      },
-    ],
-  },
-];
-
-const activeStrategy = ref(strategies[0]);
+const strategies = ref([]);
+const activeStrategy = ref(null);
+const isLoading = ref(false);
+const loadError = ref("");
 
 const selectStrategy = (strategy) => {
   activeStrategy.value = strategy;
 };
 
+const riskLabel = (value) => {
+  switch (value) {
+    case "aggressive":
+      return "高风险";
+    case "low_vol":
+      return "低风险";
+    case "income":
+      return "中低风险";
+    case "steady":
+      return "中风险";
+    default:
+      return "—";
+  }
+};
+
+const categoryLabel = (strategyId) => {
+  if (strategyId.startsWith("fixed_5w")) return "短线";
+  if (strategyId.startsWith("fixed_20w")) return "中线";
+  if (strategyId.startsWith("fixed_50w")) return "长线";
+  return "—";
+};
+
+const formatNumber = (value, digits = 2) => {
+  const num = Number(value);
+  if (Number.isNaN(num)) return "—";
+  return num.toFixed(digits);
+};
+
+const formatPercentSigned = (value) => {
+  const num = Number(value);
+  if (Number.isNaN(num)) return "—";
+  const sign = num > 0 ? "+" : "";
+  return `${sign}${(num * 100).toFixed(2)}%`;
+};
+
+const formatPercent = (value) => {
+  const num = Number(value);
+  if (Number.isNaN(num)) return "—";
+  return `${(num * 100).toFixed(2)}%`;
+};
+
+const formatRate = (value) => {
+  const num = Number(value);
+  if (Number.isNaN(num)) return "—";
+  if (num <= 1) return `${(num * 100).toFixed(1)}%`;
+  return `${num.toFixed(1)}%`;
+};
+
+const formatWeight = (value) => {
+  const num = Number(value);
+  if (Number.isNaN(num)) return "";
+  return `${(num * 100).toFixed(1)}%`;
+};
+
 const returnClass = (value) => {
-  if (value.startsWith("-")) return "down";
-  if (value.startsWith("+")) return "up";
+  const raw = String(value || "");
+  const numeric = Number(raw.replace("%", ""));
+  if (Number.isNaN(numeric)) return "";
+  if (numeric > 0) return "up";
+  if (numeric < 0) return "down";
   return "";
 };
+
+const toDateKey = (date) => {
+  if (!date) return "";
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toISOString().slice(0, 10);
+};
+
+const sumDailyReturns = (rows) =>
+  rows.reduce((sum, row) => sum + (Number(row.daily_return) || 0), 0);
+
+const computeRollingReturn = (rows, days) => {
+  if (!rows.length) return null;
+  const latestDate = rows[0]?.trade_date;
+  if (!latestDate) return null;
+  const cutoff = new Date(latestDate);
+  cutoff.setDate(cutoff.getDate() - days + 1);
+  const cutoffKey = toDateKey(cutoff);
+  const filtered = rows.filter((row) => row.trade_date >= cutoffKey);
+  return sumDailyReturns(filtered);
+};
+
+const computeYtdReturn = (rows) => {
+  if (!rows.length) return null;
+  const latestDate = rows[0]?.trade_date;
+  if (!latestDate) return null;
+  const year = String(latestDate).slice(0, 4);
+  const cutoffKey = `${year}-01-01`;
+  const filtered = rows.filter((row) => row.trade_date >= cutoffKey);
+  return sumDailyReturns(filtered);
+};
+
+const loadStrategies = async () => {
+  isLoading.value = true;
+  loadError.value = "";
+  try {
+    const runs = await fetchLatestStrategyRuns(120);
+    const allowed = new Set(STRATEGY_IDS);
+    const filteredRuns = runs.filter((row) => allowed.has(row.strategy_id));
+    if (!filteredRuns.length) {
+      strategies.value = [];
+      activeStrategy.value = null;
+      return;
+    }
+
+    const latestByStrategy = new Map();
+    filteredRuns.forEach((run) => {
+      const existing = latestByStrategy.get(run.strategy_id);
+      if (!existing || run.week_end > existing.week_end) {
+        latestByStrategy.set(run.strategy_id, run);
+      }
+    });
+
+    const strategyIds = Array.from(latestByStrategy.keys());
+    const weekEnds = [...new Set(filteredRuns.map((row) => row.week_end))];
+
+    const [dailyRows, signals] = await Promise.all([
+      fetchStrategyDailyPerformance(strategyIds, 200),
+      fetchStrategySignalsByWeekEnds(weekEnds, strategyIds),
+    ]);
+
+    const stockIds = [...new Set(signals.map((row) => row.stock_id))];
+    const stockNames = await fetchStockNames(stockIds);
+
+    const signalsByKey = new Map();
+    signals.forEach((row) => {
+      const key = `${row.strategy_id}|${row.week_end}`;
+      if (!signalsByKey.has(key)) {
+        signalsByKey.set(key, []);
+      }
+      signalsByKey.get(key).push(row);
+    });
+
+    const weekEndsByStrategy = new Map();
+    filteredRuns.forEach((run) => {
+      if (!weekEndsByStrategy.has(run.strategy_id)) {
+        weekEndsByStrategy.set(run.strategy_id, new Set());
+      }
+      weekEndsByStrategy.get(run.strategy_id).add(run.week_end);
+    });
+
+    const weekEndLists = new Map();
+    weekEndsByStrategy.forEach((set, strategyId) => {
+      const list = Array.from(set).sort();
+      weekEndLists.set(strategyId, list);
+    });
+
+    const dailyByStrategy = new Map();
+    dailyRows.forEach((row) => {
+      if (!dailyByStrategy.has(row.strategy_id)) {
+        dailyByStrategy.set(row.strategy_id, []);
+      }
+      dailyByStrategy.get(row.strategy_id).push(row);
+    });
+
+    dailyByStrategy.forEach((rows) => {
+      rows.sort((a, b) => String(b.trade_date).localeCompare(String(a.trade_date)));
+    });
+
+    const resolveWeekEnd = (strategyId, tradeDate) => {
+      const list = weekEndLists.get(strategyId) || [];
+      for (let i = list.length - 1; i >= 0; i -= 1) {
+        if (list[i] <= tradeDate) return list[i];
+      }
+      return list[list.length - 1] || null;
+    };
+
+    const packs = STRATEGY_IDS.map((strategyId) => {
+      const run = latestByStrategy.get(strategyId);
+      if (!run) return null;
+      const metrics = run.metrics || {};
+      const dailyRowsForStrategy = dailyByStrategy.get(strategyId) || [];
+      const quarterReturn = computeRollingReturn(dailyRowsForStrategy, 90);
+      const ytdReturn = computeYtdReturn(dailyRowsForStrategy);
+      const daily = dailyRowsForStrategy.slice(0, 10).map((row) => {
+        const weekEnd = resolveWeekEnd(strategyId, row.trade_date);
+        const key = weekEnd ? `${strategyId}|${weekEnd}` : null;
+        const picks = key ? signalsByKey.get(key) || [] : [];
+        const pickLabels = picks
+          .slice()
+          .sort((a, b) => (b.score || 0) - (a.score || 0))
+          .slice(0, 5)
+          .map((pick) => {
+            const name = stockNames[pick.stock_id] || pick.stock_id;
+            const weight = formatWeight(pick.target_weight);
+            return weight ? `${name} ${weight}` : name;
+          });
+        return {
+          date: row.trade_date,
+          picks: pickLabels.length ? pickLabels : [t("暂无选股")],
+          stockPerformance:
+            row.weight_sum !== null && row.weight_sum !== undefined
+              ? formatPercent(row.weight_sum)
+              : "—",
+          dailyReturn: row.daily_return !== null ? formatPercentSigned(row.daily_return) : "—",
+        };
+      });
+
+      return {
+        id: strategyId,
+        name: metrics.label || STRATEGY_LABELS[strategyId] || strategyId,
+        risk: riskLabel(run.risk_level),
+        category: categoryLabel(strategyId),
+        quarterReturn: quarterReturn !== null ? formatPercentSigned(quarterReturn) : "—",
+        summary: [
+          { label: "年初至今", value: ytdReturn !== null ? formatPercentSigned(ytdReturn) : "—" },
+          { label: "胜率", value: metrics.win_rate !== null ? formatRate(metrics.win_rate) : "—" },
+          {
+            label: "最大回撤",
+            value: metrics.drawdown !== null ? formatPercentSigned(metrics.drawdown) : "—",
+          },
+        ],
+        cumulative: [
+          {
+            label: "累计报酬",
+            value:
+              metrics.cumulative_return !== null
+                ? formatPercentSigned(metrics.cumulative_return)
+                : "—",
+          },
+          {
+            label: "年化报酬",
+            value:
+              metrics.annualized_return !== null
+                ? formatPercentSigned(metrics.annualized_return)
+                : "—",
+          },
+          {
+            label: "夏普比率",
+            value: metrics.sharpe !== null ? formatNumber(metrics.sharpe, 2) : "—",
+          },
+          {
+            label: "波动率",
+            value: metrics.volatility !== null ? formatPercentSigned(metrics.volatility) : "—",
+          },
+        ],
+        daily,
+      };
+    }).filter(Boolean);
+
+    strategies.value = packs;
+    activeStrategy.value = packs[0] || null;
+  } catch (error) {
+    console.error("加载策略数据失败:", error);
+    loadError.value = "策略数据加载失败";
+    strategies.value = [];
+    activeStrategy.value = null;
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const statusMessage = computed(() => {
+  if (isLoading.value) return "策略数据加载中...";
+  if (loadError.value) return loadError.value;
+  return "";
+});
+
+onMounted(() => {
+  loadStrategies();
+});
 </script>
 
 <style scoped>
@@ -830,6 +402,10 @@ const returnClass = (value) => {
 
 .muted {
   color: var(--muted);
+}
+
+.status-message {
+  margin: -8px 0 0;
 }
 
 .strategy-layout {
@@ -1026,6 +602,22 @@ const returnClass = (value) => {
 .return.down {
   color: #dc2626;
   font-weight: 600;
+}
+
+.empty-state,
+.empty-table {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.empty-state {
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px dashed rgba(148, 163, 184, 0.4);
+}
+
+.empty-table {
+  padding: 12px 0;
 }
 
 @media (max-width: 1024px) {
