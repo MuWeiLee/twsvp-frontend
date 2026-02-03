@@ -192,6 +192,7 @@ import {
   STRATEGY_IDS,
   STRATEGY_LABELS,
   fetchLatestStrategyRuns,
+  fetchStrategyMeta,
   fetchStrategySignals,
   fetchStrategyVisibility,
   fetchStockNames,
@@ -390,7 +391,10 @@ const loadStrategies = async () => {
     cards.value = [];
     return;
   }
-  const visibility = await fetchStrategyVisibility(STRATEGY_IDS);
+  const [visibility, meta] = await Promise.all([
+    fetchStrategyVisibility(STRATEGY_IDS),
+    fetchStrategyMeta(STRATEGY_IDS),
+  ]);
   const visibleSet = new Set(
     STRATEGY_IDS.filter((id) => visibility.get(id) === true)
   );
@@ -481,7 +485,11 @@ const loadStrategies = async () => {
         };
       });
     const metrics = run.metrics || {};
-    const label = metrics.label || STRATEGY_LABELS[run.strategy_id] || run.strategy_id;
+    const label =
+      meta.get(run.strategy_id) ||
+      metrics.label ||
+      STRATEGY_LABELS[run.strategy_id] ||
+      run.strategy_id;
     return {
       strategy_id: run.strategy_id,
       code: label,

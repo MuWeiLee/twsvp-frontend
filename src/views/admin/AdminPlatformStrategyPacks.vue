@@ -8,45 +8,56 @@
 
     <div class="strategy-layout">
       <div class="strategy-list">
-        <div class="table-scroll">
-          <div class="table strategy-table">
-            <div class="table-row table-head">
-              <span>策略名称</span>
-              <span>近10天绩效</span>
-              <span>风险等级</span>
-              <span>展示</span>
-            </div>
-            <button
-              v-for="strategy in strategies"
-              :key="strategy.id"
-              type="button"
-              class="table-row list-row"
-              :class="{ active: activeStrategy?.id === strategy.id }"
-              @click="selectStrategy(strategy)"
-            >
-              <span class="name">{{ strategy.name }}</span>
-              <span class="return" :class="returnClass(strategy.tenDayReturn)">
-                {{ strategy.tenDayReturn }}
-              </span>
-              <span class="risk">{{ strategy.risk }}</span>
-              <label class="visibility-toggle" @click.stop>
-                <input
-                  type="checkbox"
-                  :checked="strategy.visible"
-                  @change="toggleVisibility(strategy)"
-                />
-                <span>{{ strategy.visible ? "开启" : "关闭" }}</span>
-              </label>
-            </button>
-          </div>
+        <div class="list-header">
+          <span>策略名称</span>
+          <span>近10天绩效</span>
+          <span>风险等级</span>
+          <span>展示</span>
         </div>
+        <button
+          v-for="strategy in strategies"
+          :key="strategy.id"
+          type="button"
+          class="list-row"
+          :class="{ active: activeStrategy?.id === strategy.id }"
+          @click="selectStrategy(strategy)"
+        >
+          <span class="name">{{ strategy.name }}</span>
+          <span class="return" :class="returnClass(strategy.tenDayReturn)">
+            {{ strategy.tenDayReturn }}
+          </span>
+          <span class="risk">{{ strategy.risk }}</span>
+          <label class="visibility-toggle" @click.stop>
+            <input
+              type="checkbox"
+              :checked="strategy.visible"
+              @change="toggleVisibility(strategy)"
+            />
+            <span>{{ strategy.visible ? "开启" : "关闭" }}</span>
+          </label>
+        </button>
       </div>
 
       <div v-if="activeStrategy" class="strategy-detail">
         <div class="detail-header">
           <div>
             <div class="title-row">
-              <h3>{{ activeStrategy.name }}</h3>
+              <div class="title-stack">
+                <h3 v-if="!isEditingName">{{ activeStrategy.name }}</h3>
+                <div v-else class="name-edit">
+                  <input v-model="draftName" class="name-input" type="text" />
+                  <button type="button" class="name-save" @click="saveName">保存</button>
+                  <button type="button" class="name-cancel" @click="cancelNameEdit">取消</button>
+                </div>
+                <button
+                  v-if="!isEditingName"
+                  type="button"
+                  class="name-edit-btn"
+                  @click="startNameEdit"
+                >
+                  修改名称
+                </button>
+              </div>
               <button type="button" class="refresh-button" :disabled="isRefreshing" @click="refreshPicks">
                 {{ isRefreshing ? "刷新中..." : "刷新选股" }}
               </button>
@@ -75,16 +86,14 @@
 
         <div class="detail-section">
           <h4>策略绩效</h4>
-          <div class="table-scroll">
-            <div class="table metric-table">
-              <div class="table-row table-head">
-                <span>指标</span>
-                <span>数值</span>
-              </div>
-              <div v-for="metric in activeStrategy.cumulative" :key="metric.label" class="table-row">
-                <span>{{ metric.label }}</span>
-                <span class="return" :class="returnClass(metric.value)">{{ metric.value }}</span>
-              </div>
+          <div class="performance-grid">
+            <div
+              v-for="metric in activeStrategy.cumulative"
+              :key="metric.label"
+              class="metric-card"
+            >
+              <span class="label">{{ metric.label }}</span>
+              <span class="value" :class="returnClass(metric.value)">{{ metric.value }}</span>
             </div>
           </div>
         </div>
@@ -151,10 +160,12 @@ import {
   STRATEGY_LABELS,
   fetchLatestStrategyRuns,
   fetchStrategyDailyPerformance,
+  fetchStrategyMeta,
   fetchStrategySignalsByWeekEnds,
   fetchStrategyVisibility,
   fetchStockPricesByRange,
   fetchStockNames,
+  upsertStrategyMeta,
   upsertStrategyVisibility,
 } from "../../services/strategy.js";
 import { t } from "../../services/i18n.js";
@@ -166,9 +177,14 @@ const isRefreshing = ref(false);
 const loadError = ref("");
 const noticeMessage = ref("");
 const visibilityMap = ref(new Map());
+const metaMap = ref(new Map());
+const isEditingName = ref(false);
+const draftName = ref("");
 
 const selectStrategy = (strategy) => {
   activeStrategy.value = strategy;
+  isEditingName.value = false;
+  draftName.value = strategy?.name || "";
 };
 
 const riskLabel = (value) => {
@@ -196,6 +212,35 @@ const categoryLabel = (strategyId) => {
 };
 
 const strategyLabel = (strategyId) => STRATEGY_LABELS[strategyId] || strategyId;
+
+const startNameEdit = () => {
+  if (!activeStrategy.value) return;
+  isEditingName.value = true;
+  draftName.value = activeStrategy.value.name || "";
+};
+
+const cancelNameEdit = () => {
+  isEditingName.value = false;
+  draftName.value = activeStrategy.value?.name || "";
+};
+
+const saveName = async () => {
+  if (!activeStrategy.value) return;
+  const nextName = String(draftName.value || "").trim();
+  if (!nextName) return;
+  const ok = await upsertStrategyMeta(activeStrategy.value.id, nextName);
+  if (!ok) {
+    noticeMessage.value = "更新策略名称失败。";
+    return;
+  }
+  metaMap.value.set(activeStrategy.value.id, nextName);
+  strategies.value = strategies.value.map((item) =>
+    item.id === activeStrategy.value.id ? { ...item, name: nextName } : item
+  );
+  activeStrategy.value = { ...activeStrategy.value, name: nextName };
+  isEditingName.value = false;
+  noticeMessage.value = "策略名称已更新。";
+};
 
 const formatNumber = (value, digits = 2) => {
   const num = Number(value);
@@ -353,12 +398,14 @@ const loadStrategies = async ({ keepActiveId } = {}) => {
     const strategyIds = Array.from(latestByStrategy.keys());
     const weekEnds = [...new Set(filteredRuns.map((row) => row.week_end))];
 
-    const [dailyRows, signals, visibility] = await Promise.all([
+    const [dailyRows, signals, visibility, meta] = await Promise.all([
       fetchStrategyDailyPerformance(strategyIds, 200),
       fetchStrategySignalsByWeekEnds(weekEnds, strategyIds),
       fetchStrategyVisibility(STRATEGY_IDS),
+      fetchStrategyMeta(STRATEGY_IDS),
     ]);
     visibilityMap.value = visibility;
+    metaMap.value = meta;
 
     const stockIds = [...new Set(signals.map((row) => row.stock_id))];
     const tradeDates = [...new Set(dailyRows.map((row) => row.trade_date))];
@@ -497,9 +544,12 @@ const loadStrategies = async ({ keepActiveId } = {}) => {
         };
       });
 
+      const displayName =
+        meta.get(strategyId) || metrics.label || STRATEGY_LABELS[strategyId] || strategyId;
+
       return {
         id: strategyId,
-        name: metrics.label || STRATEGY_LABELS[strategyId] || strategyId,
+        name: displayName,
         risk: riskLabel(run.risk_level),
         category: categoryLabel(strategyId),
         tenDayReturn: tenDayReturn !== null ? formatPercentSigned(tenDayReturn) : "—",
@@ -530,6 +580,8 @@ const loadStrategies = async ({ keepActiveId } = {}) => {
     strategies.value = packs;
     const nextId = keepActiveId || activeStrategy.value?.id;
     activeStrategy.value = packs.find((pack) => pack.id === nextId) || packs[0] || null;
+    isEditingName.value = false;
+    draftName.value = activeStrategy.value?.name || "";
   } catch (error) {
     console.error("加载策略数据失败:", error);
     loadError.value = "策略数据加载失败";
@@ -605,18 +657,31 @@ onMounted(() => {
   width: 100%;
 }
 
-.table-scroll {
-  overflow-x: auto;
-}
-
-.strategy-table,
-.metric-table,
-.daily-table {
-  min-width: 720px;
+.list-header {
+  display: grid;
+  grid-template-columns: 1.3fr 0.7fr 0.6fr 0.6fr;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 8px 10px;
 }
 
 .list-row {
+  display: grid;
+  grid-template-columns: 1.3fr 0.7fr 0.6fr 0.6fr;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
   cursor: pointer;
+  text-align: left;
+  color: inherit;
+}
+
+.list-row:hover {
+  background: rgba(99, 102, 241, 0.08);
 }
 
 .list-row.active {
@@ -674,6 +739,44 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.title-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.name-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.name-input {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 14px;
+}
+
+.name-edit-btn,
+.name-save,
+.name-cancel {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.name-save {
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #4f46e5;
+  background: rgba(99, 102, 241, 0.08);
 }
 
 .refresh-button {
@@ -753,6 +856,30 @@ onMounted(() => {
   gap: 12px;
 }
 
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.metric-card .label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.metric-card .value {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.daily-table {
+  min-width: 720px;
+}
 .table {
   border-radius: 12px;
   border: 1px solid var(--border);
@@ -763,7 +890,7 @@ onMounted(() => {
 
 .table-row {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 0.8fr 1.6fr 0.8fr 0.6fr;
   gap: 12px;
   padding: 10px 12px;
   font-size: 13px;
@@ -771,18 +898,6 @@ onMounted(() => {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-}
-
-.strategy-table .table-row {
-  grid-template-columns: 1.3fr 0.7fr 0.6fr 0.6fr;
-}
-
-.metric-table .table-row {
-  grid-template-columns: 1fr 1fr;
-}
-
-.daily-table .table-row {
-  grid-template-columns: 0.8fr 1.6fr 0.8fr 0.6fr;
 }
 
 .table-row:nth-child(odd) {

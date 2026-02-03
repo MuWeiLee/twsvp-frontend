@@ -64,6 +64,46 @@ export const fetchStrategyVisibility = async (strategyIds = []) => {
   return map;
 };
 
+export const fetchStrategyMeta = async (strategyIds = []) => {
+  let query = supabase
+    .from("strategy_meta")
+    .select("strategy_id,display_name");
+  if (strategyIds.length) {
+    query = query.in("strategy_id", strategyIds);
+  }
+  const { data, error } = await query;
+  if (error) {
+    console.error("读取 strategy_meta 失败:", error);
+    return new Map();
+  }
+  const map = new Map();
+  (data || []).forEach((row) => {
+    if (row.display_name) {
+      map.set(row.strategy_id, row.display_name);
+    }
+  });
+  return map;
+};
+
+export const upsertStrategyMeta = async (strategyId, displayName) => {
+  if (!strategyId) return false;
+  const { error } = await supabase
+    .from("strategy_meta")
+    .upsert(
+      {
+        strategy_id: strategyId,
+        display_name: displayName,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "strategy_id" }
+    );
+  if (error) {
+    console.error("更新 strategy_meta 失败:", error);
+    return false;
+  }
+  return true;
+};
+
 export const upsertStrategyVisibility = async (strategyId, isVisible) => {
   if (!strategyId) return false;
   const { error } = await supabase
