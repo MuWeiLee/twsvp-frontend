@@ -138,3 +138,39 @@ export const fetchStockPriceSnapshots = async (stockIds = [], limitRows = 2000) 
   });
   return snapshots;
 };
+
+export const runStrategyBacktest = async ({
+  strategyIds = [],
+  startDate,
+  lookback,
+  liquidityTop,
+  maxPicks,
+  dryRun,
+  cleanOld,
+} = {}) => {
+  const payload = {
+    strategy_ids: strategyIds,
+    start_date: startDate,
+    lookback,
+    liquidity_top: liquidityTop,
+    max_picks: maxPicks,
+    dry_run: dryRun ? 1 : 0,
+    clean_old: cleanOld === false ? 0 : 1,
+  };
+  const response = await fetch("/api/backtest-strategies", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    let message = "回测请求失败";
+    try {
+      const errorBody = await response.json();
+      message = errorBody?.error || message;
+    } catch (error) {
+      message = response.statusText || message;
+    }
+    throw new Error(message);
+  }
+  return response.json();
+};
