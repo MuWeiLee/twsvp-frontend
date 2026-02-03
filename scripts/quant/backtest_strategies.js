@@ -347,11 +347,6 @@ export const runBacktest = async (options = {}) => {
       const avgVolume = volumes.reduce((sum, v) => sum + v, 0) / volumes.length;
       const avgTurnover = turnovers.reduce((sum, v) => sum + v, 0) / turnovers.length;
       const lastClose = closes[closes.length - 1];
-      const prevClose = closes.length > 1 ? closes[closes.length - 2] : lastClose;
-      const close3 = closes.length > 3 ? closes[closes.length - 4] : closes[0];
-      const close5 = closes.length > 5 ? closes[closes.length - 6] : closes[0];
-      const close10 = closes.length > 10 ? closes[closes.length - 11] : closes[0];
-      const ret1 = percentChange(prevClose, lastClose);
       const ret3 = percentChange(close3, lastClose);
       const ret5 = percentChange(close5, lastClose);
       const ret10 = percentChange(close10, lastClose);
@@ -381,7 +376,6 @@ export const runBacktest = async (options = {}) => {
         avg_range: avgRange,
         vol_stability: volStability,
         last_close: lastClose,
-      });
     });
 
     stats.sort((a, b) => (b.avg_turnover || 0) - (a.avg_turnover || 0));

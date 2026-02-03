@@ -89,8 +89,8 @@
               <div class="picks-table">
                 <div class="picks-row picks-head">
                   <span>个股名称 代码</span>
-                  <span>开盘</span>
-                  <span>收盘</span>
+                  <span>昨收</span>
+                  <span>今收</span>
                   <span>涨跌幅</span>
                   <span>占比</span>
                 </div>
@@ -99,8 +99,8 @@
                     <span>{{ stock.name }}</span>
                     <span class="code">{{ stock.code }}</span>
                   </div>
-                  <span>{{ stock.open }}</span>
-                  <span>{{ stock.close }}</span>
+                  <span>{{ stock.prevClose }}</span>
+                  <span>{{ stock.todayClose }}</span>
                   <span class="return" :class="returnClass(stock.change)">{{ stock.change }}</span>
                   <span>{{ stock.weight }}</span>
                 </div>
@@ -129,7 +129,7 @@ import {
   fetchLatestStrategyRuns,
   fetchStrategyDailyPerformance,
   fetchStrategySignalsByWeekEnds,
-  fetchStockPricesByDates,
+  fetchStockPricesByRange,
   fetchStockNames,
 } from "../../services/strategy.js";
 import { t } from "../../services/i18n.js";
@@ -225,6 +225,14 @@ const toDateKey = (date) => {
   return parsed.toISOString().slice(0, 10);
 };
 
+const shiftDateKey = (dateKey, days) => {
+  if (!dateKey) return "";
+  const parsed = new Date(dateKey);
+  if (Number.isNaN(parsed.getTime())) return "";
+  parsed.setDate(parsed.getDate() + days);
+  return toDateKey(parsed);
+};
+
 const sumDailyReturns = (rows) =>
   rows.reduce((sum, row) => sum + (Number(row.daily_return) || 0), 0);
 
@@ -236,14 +244,19 @@ const computeWeightedReturn = ({ signals = [], tradeDate, priceMap }) => {
   let total = 0;
   let hasValue = false;
   signals.forEach((signal) => {
-    const price = priceMap.get(`${signal.stock_id}|${tradeDate}`) || {};
-    const open = Number(price.open);
-    const close = Number(price.close);
+    const priceInfo = priceMap.get(`${signal.stock_id}|${tradeDate}`) || {};
+    const prevClose = Number(priceInfo.prev?.close);
+    const todayClose = Number(priceInfo.current?.close);
     const weight = Number(signal.target_weight);
-    if (Number.isNaN(open) || Number.isNaN(close) || open === 0 || Number.isNaN(weight)) {
+    if (
+      Number.isNaN(prevClose) ||
+      Number.isNaN(todayClose) ||
+      prevClose === 0 ||
+      Number.isNaN(weight)
+    ) {
       return;
     }
-    const change = (close - open) / open;
+    const change = (todayClose - prevClose) / prevClose;
     total += change * weight;
     hasValue = true;
   });
@@ -302,18 +315,32 @@ const loadStrategies = async ({ keepActiveId } = {}) => {
     ]);
 
     const stockIds = [...new Set(signals.map((row) => row.stock_id))];
+    const tradeDates = [...new Set(dailyRows.map((row) => row.trade_date))];
+    const sortedTradeDates = tradeDates.slice().sort();
+    const earliestTradeDate = sortedTradeDates[0] || null;
+    const latestTradeDate = sortedTradeDates[sortedTradeDates.length - 1] || null;
+    const rangeStart = shiftDateKey(earliestTradeDate, -7);
+    const rangeEnd = latestTradeDate || earliestTradeDate;
+
     const [stockNames, priceRows] = await Promise.all([
       fetchStockNames(stockIds),
-      fetchStockPricesByDates(
-        stockIds,
-        [...new Set(dailyRows.map((row) => row.trade_date))],
-      ),
+      fetchStockPricesByRange(stockIds, rangeStart, rangeEnd),
     ]);
 
     const priceMap = new Map();
+    const priceByStock = new Map();
     priceRows.forEach((row) => {
-      const key = `${row.stock_id}|${row.trade_date}`;
-      priceMap.set(key, row);
+      if (!priceByStock.has(row.stock_id)) priceByStock.set(row.stock_id, []);
+      priceByStock.get(row.stock_id).push(row);
+    });
+    priceByStock.forEach((rows, stockId) => {
+      const sorted = rows
+        .slice()
+        .sort((a, b) => String(b.trade_date).localeCompare(String(a.trade_date)));
+      sorted.forEach((row, index) => {
+        const key = `${stockId}|${row.trade_date}`;
+        priceMap.set(key, { current: row, prev: sorted[index + 1] || null });
+      });
     });
 
     const signalsByKey = new Map();
@@ -376,17 +403,17 @@ const loadStrategies = async ({ keepActiveId } = {}) => {
           .slice(0, 5)
           .map((pick) => {
             const name = stockNames[pick.stock_id] || pick.stock_id;
-            const price = priceMap.get(`${pick.stock_id}|${row.trade_date}`) || {};
+            const priceInfo = priceMap.get(`${pick.stock_id}|${row.trade_date}`) || {};
+            const prevClose = priceInfo.prev?.close;
+            const todayClose = priceInfo.current?.close;
             return {
               name,
               code: pick.stock_id,
-              open:
-                price.open !== null && price.open !== undefined ? Number(price.open).toFixed(2) : "—",
-              close:
-                price.close !== null && price.close !== undefined
-                  ? Number(price.close).toFixed(2)
-                  : "—",
-              change: formatChangeFromPrices(price.open, price.close),
+              prevClose:
+                prevClose !== null && prevClose !== undefined ? Number(prevClose).toFixed(2) : "—",
+              todayClose:
+                todayClose !== null && todayClose !== undefined ? Number(todayClose).toFixed(2) : "—",
+              change: formatChangeFromPrices(prevClose, todayClose),
               weight: formatWeight(pick.target_weight) || "—",
             };
           });
@@ -404,8 +431,8 @@ const loadStrategies = async ({ keepActiveId } = {}) => {
                 {
                   name: t("暂无选股"),
                   code: "—",
-                  open: "—",
-                  close: "—",
+                  prevClose: "—",
+                  todayClose: "—",
                   change: "—",
                   weight: "—",
                 },
