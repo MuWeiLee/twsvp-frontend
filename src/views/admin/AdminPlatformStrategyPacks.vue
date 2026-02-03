@@ -8,34 +8,38 @@
 
     <div class="strategy-layout">
       <div class="strategy-list">
-        <div class="list-header">
-          <span>策略名称</span>
-          <span>近10天绩效</span>
-          <span>风险等级</span>
-          <span>展示</span>
+        <div class="table-scroll">
+          <div class="table strategy-table">
+            <div class="table-row table-head">
+              <span>策略名称</span>
+              <span>近10天绩效</span>
+              <span>风险等级</span>
+              <span>展示</span>
+            </div>
+            <button
+              v-for="strategy in strategies"
+              :key="strategy.id"
+              type="button"
+              class="table-row list-row"
+              :class="{ active: activeStrategy?.id === strategy.id }"
+              @click="selectStrategy(strategy)"
+            >
+              <span class="name">{{ strategy.name }}</span>
+              <span class="return" :class="returnClass(strategy.tenDayReturn)">
+                {{ strategy.tenDayReturn }}
+              </span>
+              <span class="risk">{{ strategy.risk }}</span>
+              <label class="visibility-toggle" @click.stop>
+                <input
+                  type="checkbox"
+                  :checked="strategy.visible"
+                  @change="toggleVisibility(strategy)"
+                />
+                <span>{{ strategy.visible ? "开启" : "关闭" }}</span>
+              </label>
+            </button>
+          </div>
         </div>
-        <button
-          v-for="strategy in strategies"
-          :key="strategy.id"
-          type="button"
-          class="list-row"
-          :class="{ active: activeStrategy?.id === strategy.id }"
-          @click="selectStrategy(strategy)"
-        >
-          <span class="name">{{ strategy.name }}</span>
-          <span class="return" :class="returnClass(strategy.tenDayReturn)">
-            {{ strategy.tenDayReturn }}
-          </span>
-          <span class="risk">{{ strategy.risk }}</span>
-          <label class="visibility-toggle" @click.stop>
-            <input
-              type="checkbox"
-              :checked="strategy.visible"
-              @change="toggleVisibility(strategy)"
-            />
-            <span>{{ strategy.visible ? "开启" : "关闭" }}</span>
-          </label>
-        </button>
       </div>
 
       <div v-if="activeStrategy" class="strategy-detail">
@@ -71,16 +75,16 @@
 
         <div class="detail-section">
           <h4>策略绩效</h4>
-          <div class="performance-grid">
-            <div
-              v-for="metric in activeStrategy.cumulative"
-              :key="metric.label"
-              class="metric-card"
-            >
-              <span class="label">{{ metric.label }}</span>
-              <span class="value" :class="returnClass(metric.value)">
-                {{ metric.value }}
-              </span>
+          <div class="table-scroll">
+            <div class="table metric-table">
+              <div class="table-row table-head">
+                <span>指标</span>
+                <span>数值</span>
+              </div>
+              <div v-for="metric in activeStrategy.cumulative" :key="metric.label" class="table-row">
+                <span>{{ metric.label }}</span>
+                <span class="return" :class="returnClass(metric.value)">{{ metric.value }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -90,42 +94,44 @@
             <h4>每日选股与绩效</h4>
             <span class="hint">策略选股历史可在此表查看</span>
           </div>
-          <div v-if="activeStrategy.daily.length" class="table">
-            <div class="table-row table-head">
-              <span>日期</span>
-              <span>当日选股</span>
-              <span>权重合计</span>
-              <span>当日绩效</span>
-            </div>
-            <div
-              v-for="row in activeStrategy.daily"
-              :key="row.date"
-              class="table-row"
-            >
-              <span>{{ row.date }}</span>
-              <div class="picks-table">
-                <div class="picks-row picks-head">
-                  <span>个股名称 代码</span>
-                  <span>昨收</span>
-                  <span>今收</span>
-                  <span>涨跌幅</span>
-                  <span>占比</span>
-                </div>
-                <div v-for="stock in row.picks" :key="stock.code" class="picks-row">
-                  <div class="pick-name">
-                    <span>{{ stock.name }}</span>
-                    <span class="code">{{ stock.code }}</span>
-                  </div>
-                  <span>{{ stock.prevClose }}</span>
-                  <span>{{ stock.todayClose }}</span>
-                  <span class="return" :class="returnClass(stock.change)">{{ stock.change }}</span>
-                  <span>{{ stock.weight }}</span>
-                </div>
+          <div v-if="activeStrategy.daily.length" class="table-scroll">
+            <div class="table daily-table">
+              <div class="table-row table-head">
+                <span>日期</span>
+                <span>当日选股</span>
+                <span>权重合计</span>
+                <span>当日绩效</span>
               </div>
-              <span class="cell-content">{{ row.stockPerformance }}</span>
-              <span class="return" :class="returnClass(row.dailyReturn)">
-                {{ row.dailyReturn }}
-              </span>
+              <div
+                v-for="row in activeStrategy.daily"
+                :key="row.date"
+                class="table-row"
+              >
+                <span>{{ row.date }}</span>
+                <div class="picks-table">
+                  <div class="picks-row picks-head">
+                    <span>个股名称 代码</span>
+                    <span>昨收</span>
+                    <span>今收</span>
+                    <span>涨跌幅</span>
+                    <span>占比</span>
+                  </div>
+                  <div v-for="stock in row.picks" :key="stock.code" class="picks-row">
+                    <div class="pick-name">
+                      <span>{{ stock.name }}</span>
+                      <span class="code">{{ stock.code }}</span>
+                    </div>
+                    <span>{{ stock.prevClose }}</span>
+                    <span>{{ stock.todayClose }}</span>
+                    <span class="return" :class="returnClass(stock.change)">{{ stock.change }}</span>
+                    <span>{{ stock.weight }}</span>
+                  </div>
+                </div>
+                <span class="cell-content">{{ row.stockPerformance }}</span>
+                <span class="return" :class="returnClass(row.dailyReturn)">
+                  {{ row.dailyReturn }}
+                </span>
+              </div>
             </div>
           </div>
           <div v-else class="empty-table">暂无每日选股历史。</div>
@@ -599,31 +605,18 @@ onMounted(() => {
   width: 100%;
 }
 
-.list-header {
-  display: grid;
-  grid-template-columns: 1.3fr 0.7fr 0.6fr 0.6fr;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--muted);
-  padding: 8px 10px;
+.table-scroll {
+  overflow-x: auto;
+}
+
+.strategy-table,
+.metric-table,
+.daily-table {
+  min-width: 720px;
 }
 
 .list-row {
-  display: grid;
-  grid-template-columns: 1.3fr 0.7fr 0.6fr 0.6fr;
-  gap: 8px;
-  align-items: center;
-  padding: 10px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--surface);
   cursor: pointer;
-  text-align: left;
-  color: inherit;
-}
-
-.list-row:hover {
-  background: rgba(99, 102, 241, 0.08);
 }
 
 .list-row.active {
@@ -760,36 +753,36 @@ onMounted(() => {
   gap: 12px;
 }
 
-.metric-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px 12px;
-}
-
-.metric-card .label {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.metric-card .value {
-  font-weight: 600;
-  font-size: 15px;
-}
-
 .table {
   border-radius: 12px;
   border: 1px solid var(--border);
   overflow: hidden;
+  display: grid;
+  gap: 6px;
 }
 
 .table-row {
   display: grid;
-  grid-template-columns: 0.8fr 1.4fr 1.6fr 0.6fr;
+  grid-template-columns: 1fr;
   gap: 12px;
   padding: 10px 12px;
   font-size: 13px;
   align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.strategy-table .table-row {
+  grid-template-columns: 1.3fr 0.7fr 0.6fr 0.6fr;
+}
+
+.metric-table .table-row {
+  grid-template-columns: 1fr 1fr;
+}
+
+.daily-table .table-row {
+  grid-template-columns: 0.8fr 1.6fr 0.8fr 0.6fr;
 }
 
 .table-row:nth-child(odd) {
@@ -875,19 +868,6 @@ onMounted(() => {
 }
 
 @media (max-width: 640px) {
-  .list-header,
-  .list-row {
-    grid-template-columns: 1fr 0.9fr;
-  }
-
-  .list-header span:nth-child(3),
-  .list-header span:nth-child(4),
-  .list-row span:nth-child(3),
-  .list-row span:nth-child(4),
-  .list-row .visibility-toggle {
-    display: none;
-  }
-
   .strategy-detail {
     padding: 14px;
   }

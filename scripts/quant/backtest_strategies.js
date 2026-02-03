@@ -546,10 +546,10 @@ export const runBacktest = async (options = {}) => {
       const overallStrength = [...universe].sort(
         (a, b) => (b.strength_score || 0) - (a.strength_score || 0)
       );
-      const strengthPicks = strengthCandidates.slice(0, 15);
-      if (strengthPicks.length < 15) {
+      const strengthPicks = strengthCandidates.slice(0, 5);
+      if (strengthPicks.length < 5) {
         overallStrength.forEach((item) => {
-          if (strengthPicks.length >= 15) return;
+          if (strengthPicks.length >= 5) return;
           if (!strengthPicks.includes(item)) strengthPicks.push(item);
         });
       }
