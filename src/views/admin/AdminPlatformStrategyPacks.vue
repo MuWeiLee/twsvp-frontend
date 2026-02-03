@@ -6,40 +6,6 @@
     </div>
     <p v-if="statusMessage" class="muted status-message">{{ statusMessage }}</p>
 
-    <div class="backtest-panel">
-      <div>
-        <h3>历史回测</h3>
-        <p class="muted">选择需要回测的策略后执行，完成后会刷新策略选股结果。</p>
-      </div>
-      <div class="backtest-controls">
-        <div class="checkbox-grid">
-          <label v-for="strategyId in STRATEGY_IDS" :key="strategyId" class="checkbox-item">
-            <input
-              v-model="selectedStrategyIds"
-              type="checkbox"
-              :value="strategyId"
-              :disabled="isRunningBacktest"
-            />
-            <span>{{ strategyLabel(strategyId) }}</span>
-          </label>
-        </div>
-        <div class="action-row">
-          <button type="button" class="ghost" @click="selectAllStrategies" :disabled="isRunningBacktest">
-            全选
-          </button>
-          <button
-            type="button"
-            class="primary"
-            @click="runBacktest"
-            :disabled="isRunningBacktest"
-          >
-            {{ isRunningBacktest ? "回测执行中..." : "执行回测" }}
-          </button>
-        </div>
-        <p v-if="backtestMessage" class="muted status-message">{{ backtestMessage }}</p>
-      </div>
-    </div>
-
     <div class="strategy-layout">
       <div class="strategy-list">
         <div class="list-header">
@@ -66,7 +32,12 @@
       <div v-if="activeStrategy" class="strategy-detail">
         <div class="detail-header">
           <div>
-            <h3>{{ activeStrategy.name }}</h3>
+            <div class="title-row">
+              <h3>{{ activeStrategy.name }}</h3>
+              <button type="button" class="refresh-button" :disabled="isRefreshing" @click="refreshPicks">
+                {{ isRefreshing ? "刷新中..." : "刷新选股" }}
+              </button>
+            </div>
             <p class="muted">策略编号：{{ activeStrategy.id }}</p>
             <div class="tag-row">
               <span class="tag">{{ activeStrategy.risk }}</span>
@@ -115,23 +86,37 @@
               class="table-row"
             >
               <span>{{ row.date }}</span>
-              <span class="cell-tags">
-                <span v-for="stock in row.picks" :key="stock" class="tag">
-                  {{ stock }}
-                </span>
-              </span>
+              <div class="picks-table">
+                <div class="picks-row picks-head">
+                  <span>个股名称 代码</span>
+                  <span>开盘</span>
+                  <span>收盘</span>
+                  <span>涨跌幅</span>
+                  <span>占比</span>
+                </div>
+                <div v-for="stock in row.picks" :key="stock.code" class="picks-row">
+                  <div class="pick-name">
+                    <span>{{ stock.name }}</span>
+                    <span class="code">{{ stock.code }}</span>
+                  </div>
+                  <span>{{ stock.open }}</span>
+                  <span>{{ stock.close }}</span>
+                  <span class="return" :class="returnClass(stock.change)">{{ stock.change }}</span>
+                  <span>{{ stock.weight }}</span>
+                </div>
+              </div>
               <span class="cell-content">{{ row.stockPerformance }}</span>
               <span class="return" :class="returnClass(row.dailyReturn)">
                 {{ row.dailyReturn }}
               </span>
             </div>
           </div>
-          <div v-else class="empty-table">暂无每日选股历史，请先执行策略回测。</div>
+          <div v-else class="empty-table">暂无每日选股历史。</div>
         </div>
       </div>
     </div>
     <div v-if="!isLoading && !strategies.length" class="empty-state">
-      暂无策略数据，请先执行策略回测或同步策略数据。
+      暂无策略数据，请先同步策略数据。
     </div>
   </section>
 </template>
@@ -144,18 +129,17 @@ import {
   fetchLatestStrategyRuns,
   fetchStrategyDailyPerformance,
   fetchStrategySignalsByWeekEnds,
+  fetchStockPricesByDates,
   fetchStockNames,
-  runStrategyBacktest,
 } from "../../services/strategy.js";
 import { t } from "../../services/i18n.js";
 
 const strategies = ref([]);
 const activeStrategy = ref(null);
 const isLoading = ref(false);
+const isRefreshing = ref(false);
 const loadError = ref("");
-const isRunningBacktest = ref(false);
-const backtestMessage = ref("");
-const selectedStrategyIds = ref([...STRATEGY_IDS]);
+const noticeMessage = ref("");
 
 const selectStrategy = (strategy) => {
   activeStrategy.value = strategy;
@@ -217,6 +201,14 @@ const formatWeight = (value) => {
   return `${(num * 100).toFixed(1)}%`;
 };
 
+const formatChangeFromPrices = (open, close) => {
+  const openNum = Number(open);
+  const closeNum = Number(close);
+  if (Number.isNaN(openNum) || Number.isNaN(closeNum) || openNum === 0) return "—";
+  const change = (closeNum - openNum) / openNum;
+  return formatPercentSigned(change);
+};
+
 const returnClass = (value) => {
   const raw = String(value || "");
   const numeric = Number(raw.replace("%", ""));
@@ -257,9 +249,10 @@ const computeYtdReturn = (rows) => {
   return sumDailyReturns(filtered);
 };
 
-const loadStrategies = async () => {
+const loadStrategies = async ({ keepActiveId } = {}) => {
   isLoading.value = true;
   loadError.value = "";
+  noticeMessage.value = "";
   try {
     const runs = await fetchLatestStrategyRuns(120);
     const allowed = new Set(STRATEGY_IDS);
@@ -287,7 +280,19 @@ const loadStrategies = async () => {
     ]);
 
     const stockIds = [...new Set(signals.map((row) => row.stock_id))];
-    const stockNames = await fetchStockNames(stockIds);
+    const [stockNames, priceRows] = await Promise.all([
+      fetchStockNames(stockIds),
+      fetchStockPricesByDates(
+        stockIds,
+        [...new Set(dailyRows.map((row) => row.trade_date))],
+      ),
+    ]);
+
+    const priceMap = new Map();
+    priceRows.forEach((row) => {
+      const key = `${row.stock_id}|${row.trade_date}`;
+      priceMap.set(key, row);
+    });
 
     const signalsByKey = new Map();
     signals.forEach((row) => {
@@ -343,18 +348,40 @@ const loadStrategies = async () => {
         const weekEnd = resolveWeekEnd(strategyId, row.trade_date);
         const key = weekEnd ? `${strategyId}|${weekEnd}` : null;
         const picks = key ? signalsByKey.get(key) || [] : [];
-        const pickLabels = picks
+        const pickData = picks
           .slice()
           .sort((a, b) => (b.score || 0) - (a.score || 0))
           .slice(0, 5)
           .map((pick) => {
             const name = stockNames[pick.stock_id] || pick.stock_id;
-            const weight = formatWeight(pick.target_weight);
-            return weight ? `${name} ${weight}` : name;
+            const price = priceMap.get(`${pick.stock_id}|${row.trade_date}`) || {};
+            return {
+              name,
+              code: pick.stock_id,
+              open:
+                price.open !== null && price.open !== undefined ? Number(price.open).toFixed(2) : "—",
+              close:
+                price.close !== null && price.close !== undefined
+                  ? Number(price.close).toFixed(2)
+                  : "—",
+              change: formatChangeFromPrices(price.open, price.close),
+              weight: formatWeight(pick.target_weight) || "—",
+            };
           });
         return {
           date: row.trade_date,
-          picks: pickLabels.length ? pickLabels : [t("暂无选股")],
+          picks: pickData.length
+            ? pickData
+            : [
+                {
+                  name: t("暂无选股"),
+                  code: "—",
+                  open: "—",
+                  close: "—",
+                  change: "—",
+                  weight: "—",
+                },
+              ],
           stockPerformance:
             row.weight_sum !== null && row.weight_sum !== undefined
               ? formatPercent(row.weight_sum)
@@ -406,7 +433,8 @@ const loadStrategies = async () => {
     }).filter(Boolean);
 
     strategies.value = packs;
-    activeStrategy.value = packs[0] || null;
+    const nextId = keepActiveId || activeStrategy.value?.id;
+    activeStrategy.value = packs.find((pack) => pack.id === nextId) || packs[0] || null;
   } catch (error) {
     console.error("加载策略数据失败:", error);
     loadError.value = "策略数据加载失败";
@@ -417,32 +445,24 @@ const loadStrategies = async () => {
   }
 };
 
-const selectAllStrategies = () => {
-  selectedStrategyIds.value = [...STRATEGY_IDS];
-};
-
-const runBacktest = async () => {
-  if (!selectedStrategyIds.value.length) {
-    backtestMessage.value = "请先选择要回测的策略。";
-    return;
-  }
-  isRunningBacktest.value = true;
-  backtestMessage.value = "回测执行中...";
+const refreshPicks = async () => {
+  if (isRefreshing.value) return;
+  isRefreshing.value = true;
   try {
-    await runStrategyBacktest({ strategyIds: selectedStrategyIds.value });
-    backtestMessage.value = "回测完成，策略结果已更新。";
-    await loadStrategies();
+    await loadStrategies({ keepActiveId: activeStrategy.value?.id });
+    noticeMessage.value = "选股结果已刷新。";
   } catch (error) {
-    console.error("回测失败:", error);
-    backtestMessage.value = error?.message || "回测失败";
+    console.error("刷新选股失败:", error);
+    loadError.value = "刷新选股失败";
   } finally {
-    isRunningBacktest.value = false;
+    isRefreshing.value = false;
   }
 };
 
 const statusMessage = computed(() => {
   if (isLoading.value) return "策略数据加载中...";
   if (loadError.value) return loadError.value;
+  if (noticeMessage.value) return noticeMessage.value;
   return "";
 });
 
@@ -469,72 +489,6 @@ onMounted(() => {
 
 .status-message {
   margin: -8px 0 0;
-}
-
-.backtest-panel {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px;
-  background: var(--surface);
-  border-radius: 16px;
-  box-shadow: var(--shadow);
-  flex-wrap: wrap;
-}
-
-.backtest-panel h3 {
-  margin: 0 0 6px;
-  font-size: 16px;
-}
-
-.backtest-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  flex: 1;
-  min-width: 240px;
-}
-
-.checkbox-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 8px 12px;
-}
-
-.checkbox-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--text);
-}
-
-.action-row {
-  display: flex;
-  gap: 12px;
-}
-
-.action-row button {
-  border-radius: 10px;
-  border: 1px solid transparent;
-  padding: 8px 14px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.action-row .primary {
-  background: #4f46e5;
-  color: #fff;
-}
-
-.action-row .ghost {
-  background: rgba(148, 163, 184, 0.16);
-  color: var(--text);
-}
-
-.action-row button:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
 }
 
 .strategy-layout {
@@ -609,6 +563,27 @@ onMounted(() => {
 .detail-header h3 {
   margin: 0 0 4px;
   font-size: 18px;
+}
+
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.refresh-button {
+  border-radius: 999px;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  padding: 4px 12px;
+  font-size: 12px;
+  color: #4f46e5;
+  background: rgba(99, 102, 241, 0.08);
+  cursor: pointer;
+}
+
+.refresh-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .tag-row {
@@ -720,6 +695,36 @@ onMounted(() => {
 }
 
 .cell-content {
+  color: var(--muted);
+}
+
+.picks-table {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.picks-row {
+  display: grid;
+  grid-template-columns: 1.6fr repeat(4, 0.7fr);
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.picks-row.picks-head {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.pick-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pick-name .code {
+  font-size: 11px;
   color: var(--muted);
 }
 

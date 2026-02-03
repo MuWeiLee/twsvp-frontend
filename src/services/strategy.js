@@ -109,6 +109,20 @@ export const fetchStockNames = async (stockIds = []) => {
   return map;
 };
 
+export const fetchStockPricesByDates = async (stockIds = [], tradeDates = []) => {
+  if (!stockIds.length || !tradeDates.length) return [];
+  const { data, error } = await supabase
+    .from("stock_prices")
+    .select("stock_id,trade_date,open,close")
+    .in("stock_id", stockIds)
+    .in("trade_date", tradeDates);
+  if (error) {
+    console.error("读取 stock_prices 失败:", error);
+    return [];
+  }
+  return data || [];
+};
+
 export const fetchStockPriceSnapshots = async (stockIds = [], limitRows = 2000) => {
   if (!stockIds.length) return {};
   const { data, error } = await supabase
