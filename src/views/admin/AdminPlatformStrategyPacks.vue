@@ -10,8 +10,9 @@
       <div class="strategy-list">
         <div class="list-header">
           <span>策略名称</span>
-          <span>近三月绩效</span>
+          <span>近10天绩效</span>
           <span>风险等级</span>
+          <span>展示</span>
         </div>
         <button
           v-for="strategy in strategies"
@@ -22,10 +23,18 @@
           @click="selectStrategy(strategy)"
         >
           <span class="name">{{ strategy.name }}</span>
-          <span class="return" :class="returnClass(strategy.quarterReturn)">
-            {{ strategy.quarterReturn }}
+          <span class="return" :class="returnClass(strategy.tenDayReturn)">
+            {{ strategy.tenDayReturn }}
           </span>
           <span class="risk">{{ strategy.risk }}</span>
+          <label class="visibility-toggle" @click.stop>
+            <input
+              type="checkbox"
+              :checked="strategy.visible"
+              @change="toggleVisibility(strategy)"
+            />
+            <span>{{ strategy.visible ? "开启" : "关闭" }}</span>
+          </label>
         </button>
       </div>
 
@@ -42,9 +51,17 @@
             <div class="tag-row">
               <span class="tag">{{ activeStrategy.risk }}</span>
               <span class="tag">{{ activeStrategy.category }}</span>
+              <label class="tag toggle-tag">
+                <input
+                  type="checkbox"
+                  :checked="activeStrategy.visible"
+                  @change="toggleVisibility(activeStrategy)"
+                />
+                <span>前端展示</span>
+              </label>
             </div>
           </div>
-          <div class="summary">
+          <div v-if="activeStrategy.summary?.length" class="summary">
             <div v-for="item in activeStrategy.summary" :key="item.label" class="summary-item">
               <span class="label">{{ item.label }}</span>
               <span class="value" :class="returnClass(item.value)">{{ item.value }}</span>
@@ -53,7 +70,7 @@
         </div>
 
         <div class="detail-section">
-          <h4>策略累计绩效</h4>
+          <h4>策略绩效</h4>
           <div class="performance-grid">
             <div
               v-for="metric in activeStrategy.cumulative"
@@ -129,8 +146,10 @@ import {
   fetchLatestStrategyRuns,
   fetchStrategyDailyPerformance,
   fetchStrategySignalsByWeekEnds,
+  fetchStrategyVisibility,
   fetchStockPricesByRange,
   fetchStockNames,
+  upsertStrategyVisibility,
 } from "../../services/strategy.js";
 import { t } from "../../services/i18n.js";
 
@@ -140,6 +159,7 @@ const isLoading = ref(false);
 const isRefreshing = ref(false);
 const loadError = ref("");
 const noticeMessage = ref("");
+const visibilityMap = ref(new Map());
 
 const selectStrategy = (strategy) => {
   activeStrategy.value = strategy;
@@ -276,6 +296,24 @@ const computeRollingReturn = (rows, days) => {
   return sumDailyReturns(filtered);
 };
 
+const toggleVisibility = async (strategy) => {
+  if (!strategy?.id) return;
+  const next = !strategy.visible;
+  const ok = await upsertStrategyVisibility(strategy.id, next);
+  if (!ok) {
+    noticeMessage.value = "更新展示状态失败。";
+    return;
+  }
+  visibilityMap.value.set(strategy.id, next);
+  strategies.value = strategies.value.map((item) =>
+    item.id === strategy.id ? { ...item, visible: next } : item
+  );
+  if (activeStrategy.value?.id === strategy.id) {
+    activeStrategy.value = { ...activeStrategy.value, visible: next };
+  }
+  noticeMessage.value = "展示状态已更新。";
+};
+
 const computeYtdReturn = (rows) => {
   if (!rows.length) return null;
   const latestDate = rows[0]?.trade_date;
@@ -311,10 +349,12 @@ const loadStrategies = async ({ keepActiveId } = {}) => {
     const strategyIds = Array.from(latestByStrategy.keys());
     const weekEnds = [...new Set(filteredRuns.map((row) => row.week_end))];
 
-    const [dailyRows, signals] = await Promise.all([
+    const [dailyRows, signals, visibility] = await Promise.all([
       fetchStrategyDailyPerformance(strategyIds, 200),
       fetchStrategySignalsByWeekEnds(weekEnds, strategyIds),
+      fetchStrategyVisibility(STRATEGY_IDS),
     ]);
+    visibilityMap.value = visibility;
 
     const stockIds = [...new Set(signals.map((row) => row.stock_id))];
     const tradeDates = [...new Set(dailyRows.map((row) => row.trade_date))];
@@ -393,8 +433,7 @@ const loadStrategies = async ({ keepActiveId } = {}) => {
       if (!run) return null;
       const metrics = run.metrics || {};
       const dailyRowsForStrategy = dailyByStrategy.get(strategyId) || [];
-      const quarterReturn = computeRollingReturn(dailyRowsForStrategy, 90);
-      const ytdReturn = computeYtdReturn(dailyRowsForStrategy);
+      const tenDayReturn = computeRollingReturn(dailyRowsForStrategy, 10);
       const daily = dailyRowsForStrategy.slice(0, 10).map((row) => {
         const weekEnd = resolveWeekEnd(strategyId, row.trade_date);
         const key = weekEnd ? `${strategyId}|${weekEnd}` : null;
@@ -459,39 +498,27 @@ const loadStrategies = async ({ keepActiveId } = {}) => {
         name: metrics.label || STRATEGY_LABELS[strategyId] || strategyId,
         risk: riskLabel(run.risk_level),
         category: categoryLabel(strategyId),
-        quarterReturn: quarterReturn !== null ? formatPercentSigned(quarterReturn) : "—",
-        summary: [
-          { label: "年初至今", value: ytdReturn !== null ? formatPercentSigned(ytdReturn) : "—" },
-          { label: "胜率", value: metrics.win_rate !== null ? formatRate(metrics.win_rate) : "—" },
-          {
-            label: "最大回撤",
-            value: metrics.drawdown !== null ? formatPercentSigned(metrics.drawdown) : "—",
-          },
-        ],
+        tenDayReturn: tenDayReturn !== null ? formatPercentSigned(tenDayReturn) : "—",
+        summary: [],
         cumulative: [
           {
-            label: "累计报酬",
-            value:
-              metrics.cumulative_return !== null
-                ? formatPercentSigned(metrics.cumulative_return)
-                : "—",
+            label: "近10天绩效",
+            value: tenDayReturn !== null ? formatPercentSigned(tenDayReturn) : "—",
           },
           {
-            label: "年化报酬",
-            value:
-              metrics.annualized_return !== null
-                ? formatPercentSigned(metrics.annualized_return)
-                : "—",
-          },
-          {
-            label: "夏普比率",
-            value: metrics.sharpe !== null ? formatNumber(metrics.sharpe, 2) : "—",
+            label: "回撤",
+            value: metrics.drawdown !== null ? formatPercentSigned(metrics.drawdown) : "—",
           },
           {
             label: "波动率",
             value: metrics.volatility !== null ? formatPercentSigned(metrics.volatility) : "—",
           },
+          {
+            label: "夏普率",
+            value: metrics.sharpe !== null ? formatNumber(metrics.sharpe, 2) : "—",
+          },
         ],
+        visible: visibility.get(strategyId) === true,
         daily,
       };
     }).filter(Boolean);
@@ -573,7 +600,7 @@ onMounted(() => {
 
 .list-header {
   display: grid;
-  grid-template-columns: 1.3fr 0.7fr 0.6fr;
+  grid-template-columns: 1.3fr 0.7fr 0.6fr 0.6fr;
   gap: 8px;
   font-size: 12px;
   color: var(--muted);
@@ -582,7 +609,7 @@ onMounted(() => {
 
 .list-row {
   display: grid;
-  grid-template-columns: 1.3fr 0.7fr 0.6fr;
+  grid-template-columns: 1.3fr 0.7fr 0.6fr 0.6fr;
   gap: 8px;
   align-items: center;
   padding: 10px;
@@ -605,6 +632,25 @@ onMounted(() => {
 
 .list-row .name {
   font-weight: 600;
+}
+
+.visibility-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.visibility-toggle input {
+  accent-color: var(--accent);
+}
+
+.toggle-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
 }
 
 .strategy-detail {

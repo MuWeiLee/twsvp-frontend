@@ -45,6 +45,44 @@ export const fetchLatestStrategyRuns = async (limit = 30) => {
   return data || [];
 };
 
+export const fetchStrategyVisibility = async (strategyIds = []) => {
+  let query = supabase
+    .from("strategy_visibility")
+    .select("strategy_id,is_visible");
+  if (strategyIds.length) {
+    query = query.in("strategy_id", strategyIds);
+  }
+  const { data, error } = await query;
+  if (error) {
+    console.error("读取 strategy_visibility 失败:", error);
+    return new Map();
+  }
+  const map = new Map();
+  (data || []).forEach((row) => {
+    map.set(row.strategy_id, Boolean(row.is_visible));
+  });
+  return map;
+};
+
+export const upsertStrategyVisibility = async (strategyId, isVisible) => {
+  if (!strategyId) return false;
+  const { error } = await supabase
+    .from("strategy_visibility")
+    .upsert(
+      {
+        strategy_id: strategyId,
+        is_visible: Boolean(isVisible),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "strategy_id" }
+    );
+  if (error) {
+    console.error("更新 strategy_visibility 失败:", error);
+    return false;
+  }
+  return true;
+};
+
 export const fetchStrategySignalsByWeekEnds = async (weekEnds = [], strategyIds = []) => {
   if (!weekEnds.length) return [];
   let query = supabase

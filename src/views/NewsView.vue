@@ -193,6 +193,7 @@ import {
   STRATEGY_LABELS,
   fetchLatestStrategyRuns,
   fetchStrategySignals,
+  fetchStrategyVisibility,
   fetchStockNames,
   fetchStockPriceSnapshots,
 } from "../services/strategy.js";
@@ -392,15 +393,23 @@ const loadStrategies = async () => {
     cards.value = [];
     return;
   }
+  const visibility = await fetchStrategyVisibility(STRATEGY_IDS);
+  const visibleSet = new Set(
+    STRATEGY_IDS.filter((id) => visibility.get(id) === true)
+  );
+  const hasVisibility = visibility.size > 0;
+  const allowedSet = new Set(
+    [...allowedStrategies].filter((id) => (hasVisibility ? visibleSet.has(id) : true))
+  );
   const weekEnds = [...new Set(runs.map((row) => row.week_end))].sort().reverse();
   const latestWeek = weekEnds[0];
   const prevWeek = weekEnds[1];
 
   const latestRuns = runs.filter(
-    (row) => row.week_end === latestWeek && allowedStrategies.has(row.strategy_id)
+    (row) => row.week_end === latestWeek && allowedSet.has(row.strategy_id)
   );
   const prevRuns = prevWeek
-    ? runs.filter((row) => row.week_end === prevWeek && allowedStrategies.has(row.strategy_id))
+    ? runs.filter((row) => row.week_end === prevWeek && allowedSet.has(row.strategy_id))
     : [];
 
   const latestIds = latestRuns.map((row) => row.strategy_id);
