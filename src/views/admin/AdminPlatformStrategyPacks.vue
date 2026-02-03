@@ -791,12 +791,12 @@ onMounted(() => {
 }
 
 .return.up {
-  color: #16a34a;
+  color: var(--price-up);
   font-weight: 600;
 }
 
 .return.down {
-  color: #dc2626;
+  color: var(--price-down);
   font-weight: 600;
 }
 

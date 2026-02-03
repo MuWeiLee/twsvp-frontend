@@ -2,11 +2,11 @@
   "crons": [
     {
       "path": "/api/sync-stock-prices",
-      "schedule": "0 7-13 * * *"
+      "schedule": "*/20 * * * *"
     },
     {
       "path": "/api/sync-stock-prices-backfill",
-      "schedule": "0 14-23,0-6 * * *"
+      "schedule": "*/20 * * * *"
     },
     {
       "path": "/api/sync-feed-expiry-notifications",
