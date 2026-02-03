@@ -380,8 +380,8 @@ const loadStrategies = async ({ keepActiveId } = {}) => {
 
     const resolveWeekEnd = (strategyId, tradeDate) => {
       const list = weekEndLists.get(strategyId) || [];
-      for (let i = list.length - 1; i >= 0; i -= 1) {
-        if (list[i] <= tradeDate) return list[i];
+      for (let i = 0; i < list.length; i += 1) {
+        if (list[i] >= tradeDate) return list[i];
       }
       return list[list.length - 1] || null;
     };
