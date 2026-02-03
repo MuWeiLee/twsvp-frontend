@@ -44,5 +44,6 @@ values
   ('fixed_50w_steady', false),
   ('tw_strength_core_v1', false),
   ('tw_acceleration_monitor_v1', true),
-  ('tw_acceleration_weighted_v1', true)
+  ('tw_acceleration_weighted_v1', true),
+  ('tw_stock_only_acceleration_v1', true)
 on conflict (strategy_id) do nothing;

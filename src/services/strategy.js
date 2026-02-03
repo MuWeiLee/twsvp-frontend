@@ -16,6 +16,7 @@ export const STRATEGY_IDS = [
   "tw_strength_core_v1",
   "tw_acceleration_monitor_v1",
   "tw_acceleration_weighted_v1",
+  "tw_stock_only_acceleration_v1",
 ];
 
 export const STRATEGY_LABELS = {
@@ -34,6 +35,7 @@ export const STRATEGY_LABELS = {
   tw_strength_core_v1: "TW强势核心",
   tw_acceleration_monitor_v1: "动能加速",
   tw_acceleration_weighted_v1: "连板策略",
+  tw_stock_only_acceleration_v1: "涨速监控",
 };
 
 export const fetchLatestStrategyRuns = async (limit = 30) => {
