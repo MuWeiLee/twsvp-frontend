@@ -326,7 +326,8 @@ export const runBacktest = async (options = {}) => {
     .order("trade_date", { ascending: true });
   if (refError) throw new Error(`stock_prices reference query failed: ${refError.message}`);
 
-  const tradeDates = uniqueSortedDates(refPrices);
+  const tradeDatesAll = uniqueSortedDates(refPrices);
+  const tradeDates = tradeDatesAll.slice(-10);
   if (!tradeDates.length) throw new Error("No trade dates found in range");
 
   const startWithLookback = toDateString(addDays(new Date(startDate), -lookback - 1));
@@ -350,7 +351,7 @@ export const runBacktest = async (options = {}) => {
     });
   }
 
-  const cumulativeMap = new Map();
+  const rollingMap = new Map();
   let prevDayReturns = new Map();
   let latestDayReturns = new Map();
   let latestSignalsPayload = [];
@@ -466,14 +467,14 @@ export const runBacktest = async (options = {}) => {
 
         const weights = allocateWeights(picks.map((r) => r.profile_score || 0));
         const signals = [];
-        let dailyReturn = 0;
+        let dailyReturnSum = 0;
         let holdingsCount = 0;
         let weightSum = 0;
         picks.forEach((pick, idx) => {
           const weight = Number(weights[idx].toFixed(6));
           const ret1 = pick.ret_1 ?? null;
           if (ret1 !== null && ret1 !== undefined) {
-            dailyReturn += weight * ret1;
+            dailyReturnSum += ret1;
             holdingsCount += 1;
             weightSum += weight;
           }
@@ -497,21 +498,29 @@ export const runBacktest = async (options = {}) => {
           });
         });
 
-        const dailyReturnValue = holdingsCount ? Number(dailyReturn.toFixed(6)) : null;
+        const dailyReturnValue = holdingsCount
+          ? Number((dailyReturnSum / holdingsCount).toFixed(6))
+          : null;
         latestDayReturns.set(strategyId, dailyReturnValue);
 
-        const priorCumulative = cumulativeMap.get(strategyId) || 0;
-        const nextCumulative = holdingsCount
-          ? Number((priorCumulative + dailyReturnValue).toFixed(6))
-          : Number(priorCumulative.toFixed(6));
-        cumulativeMap.set(strategyId, nextCumulative);
+        const history = rollingMap.get(strategyId) || [];
+        if (dailyReturnValue !== null && dailyReturnValue !== undefined) {
+          history.unshift(dailyReturnValue);
+        }
+        const nextHistory = history.slice(0, 10);
+        rollingMap.set(strategyId, nextHistory);
+        const avgRolling = nextHistory.length
+          ? Number(
+              (nextHistory.reduce((sum, v) => sum + v, 0) / nextHistory.length).toFixed(6)
+            )
+          : null;
 
         dailyRows.push({
           strategy_id: strategyId,
           trade_date: tradeDate,
           daily_return: dailyReturnValue,
           weighted_return: dailyReturnValue,
-          cumulative_return: nextCumulative,
+          cumulative_return: avgRolling,
           holdings_count: holdingsCount,
           weight_sum: Number(weightSum.toFixed(6)),
           source: "backtest",
@@ -534,19 +543,28 @@ export const runBacktest = async (options = {}) => {
           item.volume_ratio_20 >= 1.2
       );
       strengthCandidates.sort((a, b) => (b.strength_score || 0) - (a.strength_score || 0));
+      const overallStrength = [...universe].sort(
+        (a, b) => (b.strength_score || 0) - (a.strength_score || 0)
+      );
       const strengthPicks = strengthCandidates.slice(0, 15);
+      if (strengthPicks.length < 15) {
+        overallStrength.forEach((item) => {
+          if (strengthPicks.length >= 15) return;
+          if (!strengthPicks.includes(item)) strengthPicks.push(item);
+        });
+      }
       const strengthWeights = allocateWeights(
         strengthPicks.map((item) => item.strength_score || 0)
       );
       const strengthSignals = [];
-      let strengthReturn = 0;
+      let strengthReturnSum = 0;
       let strengthHoldings = 0;
       let strengthWeightSum = 0;
       strengthPicks.forEach((pick, idx) => {
         const weight = Number(strengthWeights[idx].toFixed(6));
         const ret1 = pick.ret_1 ?? null;
         if (ret1 !== null && ret1 !== undefined) {
-          strengthReturn += weight * ret1;
+          strengthReturnSum += ret1;
           strengthHoldings += 1;
           strengthWeightSum += weight;
         }
@@ -566,21 +584,29 @@ export const runBacktest = async (options = {}) => {
         });
       });
 
-      const strengthReturnValue = strengthHoldings ? Number(strengthReturn.toFixed(6)) : null;
+      const strengthReturnValue = strengthHoldings
+        ? Number((strengthReturnSum / strengthHoldings).toFixed(6))
+        : null;
       latestDayReturns.set(strengthStrategyId, strengthReturnValue);
 
-      const priorCumulative = cumulativeMap.get(strengthStrategyId) || 0;
-      const nextCumulative = strengthHoldings
-        ? Number((priorCumulative + strengthReturnValue).toFixed(6))
-        : Number(priorCumulative.toFixed(6));
-      cumulativeMap.set(strengthStrategyId, nextCumulative);
+      const history = rollingMap.get(strengthStrategyId) || [];
+      if (strengthReturnValue !== null && strengthReturnValue !== undefined) {
+        history.unshift(strengthReturnValue);
+      }
+      const nextHistory = history.slice(0, 10);
+      rollingMap.set(strengthStrategyId, nextHistory);
+      const avgRolling = nextHistory.length
+        ? Number(
+            (nextHistory.reduce((sum, v) => sum + v, 0) / nextHistory.length).toFixed(6)
+          )
+        : null;
 
       dailyRows.push({
         strategy_id: strengthStrategyId,
         trade_date: tradeDate,
         daily_return: strengthReturnValue,
         weighted_return: strengthReturnValue,
-        cumulative_return: nextCumulative,
+        cumulative_return: avgRolling,
         holdings_count: strengthHoldings,
         weight_sum: Number(strengthWeightSum.toFixed(6)),
         source: "backtest",
@@ -622,7 +648,7 @@ export const runBacktest = async (options = {}) => {
               win_rate: null,
               prev_day_return: prevDayReturns.get(strategyId) ?? null,
               today_return: latestDayReturns.get(strategyId) ?? null,
-              cumulative_return: cumulativeMap.get(strategyId) ?? null,
+              cumulative_return: (rollingMap.get(strategyId) || [])[0] ?? null,
             },
           });
         });
@@ -648,7 +674,7 @@ export const runBacktest = async (options = {}) => {
             win_rate: null,
             prev_day_return: prevDayReturns.get(strengthStrategyId) ?? null,
             today_return: latestDayReturns.get(strengthStrategyId) ?? null,
-            cumulative_return: cumulativeMap.get(strengthStrategyId) ?? null,
+            cumulative_return: (rollingMap.get(strengthStrategyId) || [])[0] ?? null,
           },
         });
       }

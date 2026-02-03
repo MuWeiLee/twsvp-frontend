@@ -264,25 +264,19 @@ const sumWeights = (signals = []) =>
 const computeWeightedReturn = ({ signals = [], tradeDate, priceMap }) => {
   if (!signals.length || !tradeDate) return null;
   let total = 0;
-  let hasValue = false;
+  let count = 0;
   signals.forEach((signal) => {
     const priceInfo = priceMap.get(`${signal.stock_id}|${tradeDate}`) || {};
     const prevClose = Number(priceInfo.prev?.close);
     const todayClose = Number(priceInfo.current?.close);
-    const weight = Number(signal.target_weight);
-    if (
-      Number.isNaN(prevClose) ||
-      Number.isNaN(todayClose) ||
-      prevClose === 0 ||
-      Number.isNaN(weight)
-    ) {
+    if (Number.isNaN(prevClose) || Number.isNaN(todayClose) || prevClose === 0) {
       return;
     }
     const change = (todayClose - prevClose) / prevClose;
-    total += change * weight;
-    hasValue = true;
+    total += change;
+    count += 1;
   });
-  return hasValue ? total : null;
+  return count ? total / count : null;
 };
 
 const computeRollingReturn = (rows, days) => {
@@ -292,8 +286,12 @@ const computeRollingReturn = (rows, days) => {
   const cutoff = new Date(latestDate);
   cutoff.setDate(cutoff.getDate() - days + 1);
   const cutoffKey = toDateKey(cutoff);
-  const filtered = rows.filter((row) => row.trade_date >= cutoffKey);
-  return sumDailyReturns(filtered);
+  const filtered = rows
+    .filter((row) => row.trade_date >= cutoffKey)
+    .map((row) => row.daily_return)
+    .filter((value) => value !== null && value !== undefined);
+  if (!filtered.length) return null;
+  return filtered.reduce((sum, v) => sum + v, 0) / filtered.length;
 };
 
 const toggleVisibility = async (strategy) => {

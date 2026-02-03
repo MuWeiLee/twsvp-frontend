@@ -272,17 +272,29 @@ export default async function handler(req, res) {
     const dryRun = `${params.dry_run || ""}` === "1";
     const maxPicks = Number(params.max_picks || 5);
 
-    const weekEnd = params.week_end
-      ? toDateString(params.week_end)
-      : toDateString(new Date());
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false },
+    });
+
+    let weekEnd = params.week_end ? toDateString(params.week_end) : null;
+    const latestTradeDate = weekEnd
+      ? weekEnd
+      : toDateString(
+          await (async () => {
+            const { data, error } = await supabase
+              .from("stock_prices")
+              .select("trade_date")
+              .order("trade_date", { ascending: false })
+              .limit(1);
+            if (error) throw new Error(`Supabase latest trade_date failed: ${error.message}`);
+            return data?.[0]?.trade_date || null;
+          })()
+        );
+    weekEnd = latestTradeDate || toDateString(new Date());
 
     const weekEndDate = new Date(weekEnd);
     const startDate = new Date(weekEndDate);
     startDate.setDate(startDate.getDate() - lookback);
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      auth: { persistSession: false },
-    });
 
     const { data: stocks, error: stockError } = await supabase
       .from("stocks")
@@ -379,76 +391,90 @@ export default async function handler(req, res) {
     const runsPayload = [];
     const signalsPayload = [];
 
-    STRATEGY_CAPITALS.forEach((capital) => {
+    const buildStrategy = ({
+      strategyId,
+      profileId,
+      riskLevel,
+      priceMin = null,
+      priceMax = null,
+    }) => {
       const capitalUniverse = universe;
-      STRATEGY_RISKS.forEach((risk) => {
-        const strategyId = `${capital.id}_${risk.id}`;
-        capitalUniverse.forEach((item) => {
-          item.profile_score = profileScore(risk.id, item);
-        });
+      capitalUniverse.forEach((item) => {
+        item.profile_score = profileScore(profileId, item);
+      });
 
-        const bucketCandidates = capitalUniverse
-          .filter((item) =>
-            inPriceBucket(item.last_close, capital.priceMin, capital.priceMax)
-          )
-          .sort((a, b) => (b.profile_score || 0) - (a.profile_score || 0));
-        const overallCandidates = [...capitalUniverse].sort(
-          (a, b) => (b.profile_score || 0) - (a.profile_score || 0)
-        );
+      const bucketCandidates = capitalUniverse
+        .filter((item) => inPriceBucket(item.last_close, priceMin, priceMax))
+        .sort((a, b) => (b.profile_score || 0) - (a.profile_score || 0));
+      const overallCandidates = [...capitalUniverse].sort(
+        (a, b) => (b.profile_score || 0) - (a.profile_score || 0)
+      );
 
-        const picks = bucketCandidates.slice(0, 3);
-        if (picks.length < 3) {
-          overallCandidates.forEach((item) => {
-            if (picks.length >= 3) return;
-            if (!picks.includes(item)) picks.push(item);
-          });
-        }
+      const picks = bucketCandidates.slice(0, 3);
+      if (picks.length < 3) {
         overallCandidates.forEach((item) => {
-          if (picks.length >= maxPicks) return;
+          if (picks.length >= 3) return;
           if (!picks.includes(item)) picks.push(item);
         });
+      }
+      overallCandidates.forEach((item) => {
+        if (picks.length >= maxPicks) return;
+        if (!picks.includes(item)) picks.push(item);
+      });
 
-        const weights = allocateWeights(picks.map((r) => r.profile_score || 0));
-        picks.forEach((pick, idx) => {
-          signalsPayload.push({
-            strategy_id: strategyId,
-            risk_level: risk.riskLevel,
-            week_end: weekEnd,
-            stock_id: pick.stock_id,
-            target_weight: Number(weights[idx].toFixed(6)),
-            score: Number((pick.profile_score || 0).toFixed(6)),
-            reason: {
-              ret_1: pick.ret_1,
-              ret_3: pick.ret_3,
-              ret_5: pick.ret_5,
-              ret_10: pick.ret_10,
-              avg_volume: pick.avg_volume,
-              avg_turnover: pick.avg_turnover,
-              avg_range: pick.avg_range,
-              volatility: pick.volatility,
-            },
-          });
-        });
-
-        runsPayload.push({
+      const weights = allocateWeights(picks.map((r) => r.profile_score || 0));
+      picks.forEach((pick, idx) => {
+        signalsPayload.push({
           strategy_id: strategyId,
-          risk_level: risk.riskLevel,
+          risk_level: riskLevel,
           week_end: weekEnd,
-          universe_count: capitalUniverse.length,
-          selected_count: picks.length,
-          gross_exposure: 1.0,
-          risk_state: "normal",
-          metrics: {
-            label: STRATEGY_LABELS[strategyId] || strategyId,
-            drawdown: null,
-            volatility: null,
-            sharpe: null,
-            annualized_return: null,
-            win_rate: null,
+          stock_id: pick.stock_id,
+          target_weight: Number(weights[idx].toFixed(6)),
+          score: Number((pick.profile_score || 0).toFixed(6)),
+          reason: {
+            ret_1: pick.ret_1,
+            ret_3: pick.ret_3,
+            ret_5: pick.ret_5,
+            ret_10: pick.ret_10,
+            avg_volume: pick.avg_volume,
+            avg_turnover: pick.avg_turnover,
+            avg_range: pick.avg_range,
+            volatility: pick.volatility,
           },
         });
       });
+
+      runsPayload.push({
+        strategy_id: strategyId,
+        risk_level: riskLevel,
+        week_end: weekEnd,
+        universe_count: capitalUniverse.length,
+        selected_count: picks.length,
+        gross_exposure: 1.0,
+        risk_state: "normal",
+        metrics: {
+          label: STRATEGY_LABELS[strategyId] || strategyId,
+          drawdown: null,
+          volatility: null,
+          sharpe: null,
+          annualized_return: null,
+          win_rate: null,
+        },
+      });
+    };
+
+    STRATEGY_CAPITALS.forEach((capital) => {
+      STRATEGY_RISKS.forEach((risk) => {
+        buildStrategy({
+          strategyId: `${capital.id}_${risk.id}`,
+          profileId: risk.id,
+          riskLevel: risk.riskLevel,
+          priceMin: capital.priceMin,
+          priceMax: capital.priceMax,
+        });
+      });
     });
+
 
     const strengthStrategyId = "tw_strength_core_v1";
     const strengthCandidates = universe.filter(
@@ -462,7 +488,16 @@ export default async function handler(req, res) {
         item.volume_ratio_20 >= 1.2
     );
     strengthCandidates.sort((a, b) => (b.strength_score || 0) - (a.strength_score || 0));
+    const overallStrength = [...universe].sort(
+      (a, b) => (b.strength_score || 0) - (a.strength_score || 0)
+    );
     const strengthPicks = strengthCandidates.slice(0, 15);
+    if (strengthPicks.length < 15) {
+      overallStrength.forEach((item) => {
+        if (strengthPicks.length >= 15) return;
+        if (!strengthPicks.includes(item)) strengthPicks.push(item);
+      });
+    }
     const strengthWeights = allocateWeights(
       strengthPicks.map((item) => item.strength_score || 0)
     );

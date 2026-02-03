@@ -106,12 +106,11 @@ export default async function handler(req, res) {
     runs.forEach((run) => {
       const sigs = signalsByStrategy.get(run.strategy_id) || [];
       if (!sigs.length) return;
-      let today = 0;
-      let prevDay = 0;
-      let cumulative = 0;
+      let todaySum = 0;
+      let prevDaySum = 0;
       let todayCount = 0;
-      let todayWeightSum = 0;
       let prevDayCount = 0;
+      let todayWeightSum = 0;
       let latestTradeDate = null;
       let prevTradeDate = null;
       sigs.forEach((sig) => {
@@ -120,12 +119,11 @@ export default async function handler(req, res) {
         const latest = prices[0];
         const prev = prices[1];
         const prevPrev = prices[2];
-        const weekStart = prices.find((p) => p.trade_date >= run.week_end) || prices[prices.length - 1];
         if (latest?.close && prev?.close) {
-          const weight = sig.target_weight || 0;
-          today += weight * ((latest.close - prev.close) / prev.close);
+          const ret = (latest.close - prev.close) / prev.close;
+          todaySum += ret;
           todayCount += 1;
-          todayWeightSum += weight;
+          todayWeightSum += sig.target_weight || 0;
           if (!latestTradeDate || latest.trade_date > latestTradeDate) {
             latestTradeDate = latest.trade_date;
           }
@@ -134,21 +132,20 @@ export default async function handler(req, res) {
           }
         }
         if (prev?.close && prevPrev?.close) {
-          prevDay += (sig.target_weight || 0) * ((prev.close - prevPrev.close) / prevPrev.close);
+          prevDaySum += (prev.close - prevPrev.close) / prevPrev.close;
           prevDayCount += 1;
         }
-        if (weekStart?.open && latest?.close) {
-          cumulative += (sig.target_weight || 0) * ((latest.close - weekStart.open) / weekStart.open);
-        }
       });
+      const today = todayCount ? Number((todaySum / todayCount).toFixed(6)) : null;
+      const prevDay = prevDayCount ? Number((prevDaySum / prevDayCount).toFixed(6)) : null;
       updates.push({
         strategy_id: run.strategy_id,
         week_end: run.week_end,
         metrics: {
           ...(run.metrics || {}),
-          prev_day_return: prevDayCount ? Number(prevDay.toFixed(6)) : null,
-          today_return: todayCount ? Number(today.toFixed(6)) : null,
-          cumulative_return: Number(cumulative.toFixed(6)),
+          prev_day_return: prevDay,
+          today_return: today,
+          cumulative_return: null,
         },
         latestTradeDate,
         prevTradeDate,
@@ -175,8 +172,9 @@ export default async function handler(req, res) {
     const priorByStrategy = new Map();
     (priorDaily || []).forEach((row) => {
       if (!priorByStrategy.has(row.strategy_id)) {
-        priorByStrategy.set(row.strategy_id, row);
+        priorByStrategy.set(row.strategy_id, []);
       }
+      priorByStrategy.get(row.strategy_id).push(row);
     });
 
     const dailyRows = updates
@@ -193,21 +191,22 @@ export default async function handler(req, res) {
       }));
     const cumulativeByStrategy = new Map();
     dailyRows.forEach((row) => {
-      const prior = priorByStrategy.get(row.strategy_id);
-      const priorCumulative = prior?.cumulative_return ?? 0;
-      const priorDailyReturn = prior?.daily_return ?? 0;
-      const sameDate = prior?.trade_date === row.trade_date;
-      const todayReturn = row.daily_return;
-      let nextCumulative = priorCumulative;
-      if (todayReturn !== null && todayReturn !== undefined) {
-        nextCumulative = sameDate
-          ? Number((priorCumulative - priorDailyReturn + todayReturn).toFixed(6))
-          : Number((priorCumulative + todayReturn).toFixed(6));
-      } else {
-        nextCumulative = Number(priorCumulative.toFixed(6));
+      const priorList = priorByStrategy.get(row.strategy_id) || [];
+      const filtered = priorList
+        .filter((item) => item.trade_date !== row.trade_date)
+        .map((item) => item.daily_return)
+        .filter((value) => value !== null && value !== undefined);
+      const window = [];
+      if (row.daily_return !== null && row.daily_return !== undefined) {
+        window.push(row.daily_return);
       }
-      row.cumulative_return = nextCumulative;
-      cumulativeByStrategy.set(row.strategy_id, nextCumulative);
+      window.push(...filtered.slice(0, 9));
+      const avg =
+        window.length > 0
+          ? Number((window.reduce((sum, v) => sum + v, 0) / window.length).toFixed(6))
+          : null;
+      row.cumulative_return = avg;
+      cumulativeByStrategy.set(row.strategy_id, avg);
     });
 
     for (const row of updates) {
