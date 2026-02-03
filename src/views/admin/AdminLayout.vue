@@ -87,7 +87,7 @@ const sectionTabs = computed(() => tabsBySection[activeSection.value] || []);
 }
 
 .phone-frame {
-  width: min(480px, 100%);
+  width: min(600px, 100%);
   min-height: 100vh;
   background: var(--bg);
   display: flex;

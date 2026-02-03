@@ -565,6 +565,8 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  max-width: 600px;
+  margin: 0 auto;
 }
 
 .section-header h2 {
@@ -588,9 +590,9 @@ onMounted(() => {
 
 .strategy-list {
   background: var(--surface);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
   padding: 12px;
-  box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -613,8 +615,8 @@ onMounted(() => {
   align-items: center;
   padding: 10px;
   border-radius: 12px;
-  border: 1px solid transparent;
-  background: transparent;
+  border: 1px solid var(--border);
+  background: var(--surface);
   cursor: pointer;
   text-align: left;
   color: inherit;
@@ -654,9 +656,9 @@ onMounted(() => {
 
 .strategy-detail {
   background: var(--surface);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
   padding: 16px;
-  box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -759,7 +761,8 @@ onMounted(() => {
 }
 
 .metric-card {
-  background: rgba(148, 163, 184, 0.12);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px 12px;
 }
@@ -776,7 +779,7 @@ onMounted(() => {
 
 .table {
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  border: 1px solid var(--border);
   overflow: hidden;
 }
 
@@ -790,7 +793,7 @@ onMounted(() => {
 }
 
 .table-row:nth-child(odd) {
-  background: rgba(148, 163, 184, 0.08);
+  background: rgba(148, 163, 184, 0.06);
 }
 
 .table-row.table-head {
@@ -865,13 +868,32 @@ onMounted(() => {
 }
 
 @media (max-width: 1024px) {
-  .strategy-layout {
-    grid-template-columns: 1fr;
-  }
-
   .table-row {
     grid-template-columns: 1fr;
     gap: 4px;
+  }
+}
+
+@media (max-width: 640px) {
+  .list-header,
+  .list-row {
+    grid-template-columns: 1fr 0.9fr;
+  }
+
+  .list-header span:nth-child(3),
+  .list-header span:nth-child(4),
+  .list-row span:nth-child(3),
+  .list-row span:nth-child(4),
+  .list-row .visibility-toggle {
+    display: none;
+  }
+
+  .strategy-detail {
+    padding: 14px;
+  }
+
+  .performance-grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   }
 }
 </style>

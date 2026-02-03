@@ -58,19 +58,21 @@ const handleAction = (action) => {
 .sheet-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 20, 25, 0.35);
+  background: rgba(10, 12, 18, 0.6);
   display: flex;
   justify-content: center;
   align-items: flex-end;
   z-index: 40;
-  padding: 24px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
 }
 
 .sheet-panel {
-  width: min(440px, 100%);
-  background: var(--surface);
-  border-radius: 20px;
-  box-shadow: var(--shadow);
+  width: 100%;
+  max-width: 600px;
+  background: var(--bg);
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  box-shadow: 0 18px 30px rgba(15, 20, 25, 0.18);
   padding: 12px 16px 16px;
   display: flex;
   flex-direction: column;
@@ -123,7 +125,8 @@ const handleAction = (action) => {
 .sheet-cancel {
   margin-top: 4px;
   border: 0;
-  background: var(--panel);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px 12px;
   font-size: 14px;
