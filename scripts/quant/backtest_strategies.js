@@ -489,6 +489,8 @@ export const runBacktest = async (options = {}) => {
   const maxPicks = Math.min(Number(options.maxPicks ?? process.env.MAX_PICKS ?? 5), 5);
   const dryRun = options.dryRun ?? `${process.env.DRY_RUN || ""}` === "1";
   const cleanOld = options.cleanOld ?? `${process.env.CLEAN_OLD || ""}` !== "0";
+  const collectRows = options.collectRows ?? false;
+  const collectedRows = [];
 
   const allStrategyIds = listStrategyIds();
   const requestedIds = normalizeStrategyIds(options.strategyIds);
@@ -1147,6 +1149,9 @@ export const runBacktest = async (options = {}) => {
       dailySignalsByStrategy.set(stockOnlyStrategyId, stockOnlySignals);
     }
 
+    if (collectRows && dailyRows.length) {
+      collectedRows.push(...dailyRows);
+    }
     if (!dryRun && dailyRows.length) {
       const { error: dailyError } = await supabase
         .from("strategy_daily_performance")
@@ -1388,6 +1393,7 @@ export const runBacktest = async (options = {}) => {
     days: tradeDates.length,
     strategyIds: activeStrategyIds,
     dryRun,
+    dailyRows: collectRows ? collectedRows : undefined,
   };
 };
 
