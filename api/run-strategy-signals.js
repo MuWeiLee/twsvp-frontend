@@ -73,6 +73,7 @@ const STRATEGY_LABELS = {
   fixed_50w_low_vol: "F50-LV",
   fixed_50w_income: "F50-IN",
   fixed_50w_steady: "F50-ST",
+  tw_strength_core_v1: "TW强势核心",
 };
 
 const allocateWeights = (scores) => {
@@ -133,6 +134,40 @@ const buildProfileScores = (items) => {
     item.steady_return_score = targetScore(dailyRet, 0.015, 0.005);
     item.momentum_accel = (item.ret_3 || 0) - (item.ret_1 || 0);
   });
+};
+
+const mean = (values) => {
+  if (!values.length) return 0;
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
+};
+
+const computeStrengthMetrics = ({ closes, highs, volumes }) => {
+  const lastClose = closes[closes.length - 1];
+  const close5 = closes.length > 5 ? closes[closes.length - 6] : null;
+  const close20 = closes.length > 20 ? closes[closes.length - 21] : null;
+  const ret5 = close5 !== null ? percentChange(close5, lastClose) : null;
+  const ret20 = close20 !== null ? percentChange(close20, lastClose) : null;
+  const highs20 = highs.slice(-20);
+  const maxHigh20 = highs20.length === 20 ? Math.max(...highs20) : null;
+  const drawdown20 = maxHigh20 ? lastClose / maxHigh20 - 1 : null;
+  const volumes20 = volumes.slice(-20);
+  const smaVolume20 = volumes20.length === 20 ? mean(volumes20) : null;
+  const volumeRatio =
+    smaVolume20 && smaVolume20 > 0 ? volumes[volumes.length - 1] / smaVolume20 : null;
+  const strengthScore =
+    ret20 !== null && ret5 !== null && drawdown20 !== null && volumeRatio !== null
+      ? 0.45 * ret20 +
+        0.25 * ret5 -
+        0.2 * Math.abs(drawdown20) +
+        0.1 * Math.log(volumeRatio)
+      : null;
+  return {
+    ret5,
+    ret20,
+    drawdown20,
+    volumeRatio,
+    strengthScore,
+  };
 };
 
 const profileScore = (profileId, item) => {
@@ -315,6 +350,7 @@ export default async function handler(req, res) {
       const volStd = stddev(volumes);
       const volStability = volStd / (avgVolume + 1e-6);
       const lastVolume = volumes[volumes.length - 1] || 0;
+      const strengthMetrics = computeStrengthMetrics({ closes, highs, volumes });
       stats.push({
         stock_id: stock.stock_id,
         name: stock.name || stock.stock_id,
@@ -326,6 +362,10 @@ export default async function handler(req, res) {
         ret_3: ret3,
         ret_5: ret5,
         ret_10: ret10,
+        ret_20: strengthMetrics.ret20,
+        drawdown_20: strengthMetrics.drawdown20,
+        volume_ratio_20: strengthMetrics.volumeRatio,
+        strength_score: strengthMetrics.strengthScore,
         avg_range: avgRange,
         vol_stability: volStability,
         last_close: lastClose,
@@ -408,6 +448,56 @@ export default async function handler(req, res) {
           },
         });
       });
+    });
+
+    const strengthStrategyId = "tw_strength_core_v1";
+    const strengthCandidates = universe.filter(
+      (item) =>
+        item.ret_20 !== null &&
+        item.drawdown_20 !== null &&
+        item.volume_ratio_20 !== null &&
+        item.strength_score !== null &&
+        item.ret_20 >= 0.12 &&
+        item.drawdown_20 >= -0.08 &&
+        item.volume_ratio_20 >= 1.2
+    );
+    strengthCandidates.sort((a, b) => (b.strength_score || 0) - (a.strength_score || 0));
+    const strengthPicks = strengthCandidates.slice(0, 15);
+    const strengthWeights = allocateWeights(
+      strengthPicks.map((item) => item.strength_score || 0)
+    );
+    strengthPicks.forEach((pick, idx) => {
+      signalsPayload.push({
+        strategy_id: strengthStrategyId,
+        risk_level: "core",
+        week_end: weekEnd,
+        stock_id: pick.stock_id,
+        target_weight: Number(strengthWeights[idx].toFixed(6)),
+        score: Number((pick.strength_score || 0).toFixed(6)),
+        reason: {
+          ret_5: pick.ret_5,
+          ret_20: pick.ret_20,
+          drawdown_20: pick.drawdown_20,
+          volume_ratio_20: pick.volume_ratio_20,
+        },
+      });
+    });
+    runsPayload.push({
+      strategy_id: strengthStrategyId,
+      risk_level: "core",
+      week_end: weekEnd,
+      universe_count: universe.length,
+      selected_count: strengthPicks.length,
+      gross_exposure: 1.0,
+      risk_state: "normal",
+      metrics: {
+        label: STRATEGY_LABELS[strengthStrategyId] || strengthStrategyId,
+        drawdown: null,
+        volatility: null,
+        sharpe: null,
+        annualized_return: null,
+        win_rate: null,
+      },
     });
 
     if (dryRun) {

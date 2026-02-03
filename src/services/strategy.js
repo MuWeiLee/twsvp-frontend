@@ -13,6 +13,7 @@ export const STRATEGY_IDS = [
   "fixed_50w_low_vol",
   "fixed_50w_income",
   "fixed_50w_steady",
+  "tw_strength_core_v1",
 ];
 
 export const STRATEGY_LABELS = {
@@ -28,6 +29,7 @@ export const STRATEGY_LABELS = {
   fixed_50w_low_vol: "F50-LV",
   fixed_50w_income: "F50-IN",
   fixed_50w_steady: "F50-ST",
+  tw_strength_core_v1: "TW强势核心",
 };
 
 export const fetchLatestStrategyRuns = async (limit = 30) => {
