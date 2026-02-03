@@ -109,7 +109,7 @@
                 <span class="perf-value">{{ formatPercent(displayTodayValue(card)) }}</span>
               </div>
               <div class="perf-item">
-                <span class="perf-label">{{ t("累计绩效") }}</span>
+                <span class="perf-label">{{ t("近10日绩效") }}</span>
                 <span class="perf-value">{{ formatPercent(card.cumulative) }}</span>
               </div>
             </div>
@@ -382,10 +382,7 @@ const getLocalDateKey = (date = new Date()) => {
 
 const todayKey = computed(() => getLocalDateKey());
 
-const displayTodayValue = (card) => {
-  if (!card?.latestTradeDate) return null;
-  return card.latestTradeDate === todayKey.value ? card.today : null;
-};
+const displayTodayValue = (card) => card?.today ?? null;
 
 const loadStrategies = async () => {
   const runs = await fetchLatestStrategyRuns(60);
