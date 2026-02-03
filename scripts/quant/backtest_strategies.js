@@ -41,6 +41,69 @@ const stddev = (values) => {
   return Math.sqrt(variance);
 };
 
+const median = (values) => {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 0) return (sorted[mid - 1] + sorted[mid]) / 2;
+  return sorted[mid];
+};
+
+const rankPercentile = (values) => {
+  const n = values.length;
+  if (!n) return [];
+  const indexed = values.map((value, index) => ({ value, index }));
+  indexed.sort((a, b) => a.value - b.value);
+  const ranks = new Array(n).fill(0);
+  let i = 0;
+  while (i < n) {
+    let j = i + 1;
+    while (j < n && indexed[j].value === indexed[i].value) j += 1;
+    const avgRank = (i + 1 + j) / 2;
+    for (let k = i; k < j; k += 1) {
+      ranks[indexed[k].index] = avgRank / n;
+    }
+    i = j;
+  }
+  return ranks;
+};
+
+const computeAccelerationMetrics = (rows) => {
+  if (!rows.length) return null;
+  const closes = rows.map((r) => r.close);
+  const volumes = rows.map((r) => r.volume || 0);
+  const idx = rows.length - 1;
+  if (idx < 24) return null;
+  const close = closes[idx];
+  const close5 = closes[idx - 5];
+  const close20 = closes[idx - 20];
+  if (!close || !close5 || !close20) return null;
+  const v5 = (close - close5) / (5 * close5);
+  const v20 = (close - close20) / (20 * close20);
+  const v5Series = [];
+  for (let i = idx - 19; i <= idx; i += 1) {
+    const base = closes[i - 5];
+    const current = closes[i];
+    if (!base || !current) return null;
+    v5Series.push((current - base) / (5 * base));
+  }
+  const v5Sma20 = mean(v5Series);
+  if (!v5Sma20) return null;
+  const vZ = v5 / v5Sma20;
+  const volSlice = volumes.slice(idx - 19, idx + 1);
+  const volSma20 = mean(volSlice);
+  if (!volSma20) return null;
+  const volZ20 = volumes[idx] / volSma20;
+  const acc = v5 - v20;
+  return {
+    v_5: v5,
+    v_20: v20,
+    acc,
+    v_z: vZ,
+    vol_z20: volZ20,
+  };
+};
+
 const STRATEGY_CAPITALS = [
   { id: "fixed_5w", name: "固定金额 5万", priceMin: 10, priceMax: 100 },
   { id: "fixed_20w", name: "固定金额 20万", priceMin: 100, priceMax: 500 },
@@ -68,6 +131,7 @@ const STRATEGY_LABELS = {
   fixed_50w_income: "F50-IN",
   fixed_50w_steady: "F50-ST",
   tw_strength_core_v1: "TW强势核心",
+  tw_acceleration_monitor_v1: "动能加速",
 };
 
 const allocateWeights = (scores) => {
@@ -273,6 +337,7 @@ const listStrategyIds = () => [
     STRATEGY_RISKS.map((risk) => `${capital.id}_${risk.id}`)
   ),
   "tw_strength_core_v1",
+  "tw_acceleration_monitor_v1",
 ];
 
 export const runBacktest = async (options = {}) => {
@@ -282,6 +347,8 @@ export const runBacktest = async (options = {}) => {
 
   const startDate = toDateString(options.startDate || process.env.START_DATE || "2026-01-10");
   const lookback = Number(options.lookback ?? process.env.LOOKBACK ?? 20);
+  const accelLookback = 30;
+  const effectiveLookback = Math.max(lookback, accelLookback);
   const liquidityTop = Number(options.liquidityTop ?? process.env.LIQUIDITY_TOP ?? 500);
   const maxPicks = Math.min(Number(options.maxPicks ?? process.env.MAX_PICKS ?? 5), 5);
   const dryRun = options.dryRun ?? `${process.env.DRY_RUN || ""}` === "1";
@@ -330,7 +397,7 @@ export const runBacktest = async (options = {}) => {
   const tradeDates = tradeDatesAll.slice(-10);
   if (!tradeDates.length) throw new Error("No trade dates found in range");
 
-  const startWithLookback = toDateString(addDays(new Date(startDate), -lookback - 1));
+  const startWithLookback = toDateString(addDays(new Date(startDate), -effectiveLookback - 1));
   const stockIds = filteredStocks.map((s) => s.stock_id);
 
   const priceMap = new Map();
@@ -359,9 +426,10 @@ export const runBacktest = async (options = {}) => {
 
   for (let i = 0; i < tradeDates.length; i += 1) {
     const tradeDate = tradeDates[i];
-    const windowStart = toDateString(addDays(new Date(tradeDate), -lookback));
+    const windowStart = toDateString(addDays(new Date(tradeDate), -effectiveLookback));
 
     const stats = [];
+    const windowRowsByStock = new Map();
     filteredStocks.forEach((stock) => {
       const rows = priceMap.get(stock.stock_id) || [];
       if (!rows.length) return;
@@ -369,6 +437,7 @@ export const runBacktest = async (options = {}) => {
       if (windowRows.length < 2) return;
       const lastRow = windowRows[windowRows.length - 1];
       if (lastRow.trade_date !== tradeDate) return;
+      windowRowsByStock.set(stock.stock_id, windowRows);
 
       const closes = windowRows.map((r) => r.close).filter((v) => v !== null && v !== undefined);
       if (closes.length < 2) return;
@@ -532,37 +601,88 @@ export const runBacktest = async (options = {}) => {
 
     const strengthStrategyId = "tw_strength_core_v1";
     if (shouldInclude(strengthStrategyId)) {
-      const strengthCandidates = universe.filter(
-        (item) =>
-          item.ret_20 !== null &&
-          item.drawdown_20 !== null &&
-          item.volume_ratio_20 !== null &&
-          item.strength_score !== null &&
-          item.ret_20 >= 0.12 &&
-          item.drawdown_20 >= -0.08 &&
-          item.volume_ratio_20 >= 1.2
-      );
-      strengthCandidates.sort((a, b) => (b.strength_score || 0) - (a.strength_score || 0));
-      const overallStrength = [...universe].sort(
-        (a, b) => (b.strength_score || 0) - (a.strength_score || 0)
-      );
-      const strengthPicks = strengthCandidates.slice(0, 5);
-      if (strengthPicks.length < 5) {
-        overallStrength.forEach((item) => {
-          if (strengthPicks.length >= 5) return;
-          if (!strengthPicks.includes(item)) strengthPicks.push(item);
+      const ret1ByStock = new Map(universe.map((item) => [item.stock_id, item.ret_1]));
+      const strengthRows = [];
+      universe.forEach((item) => {
+        const windowRows = windowRowsByStock.get(item.stock_id);
+        if (!windowRows || !windowRows.length) return;
+        const idx = windowRows.length - 1;
+        const row = windowRows[idx];
+        if (!row || !row.volume || row.volume <= 0) return;
+        const close = row.close;
+        const high = row.high;
+        if (close === null || close === undefined || high === null || high === undefined) return;
+        const closes = windowRows.map((r) => r.close);
+        const highs = windowRows.map((r) => r.high);
+        const volumes = windowRows.map((r) => r.volume || 0);
+        const ret3 =
+          idx >= 3 && closes[idx - 3] !== null && closes[idx - 3] !== undefined
+            ? percentChange(closes[idx - 3], close)
+            : null;
+        const h10Prev = idx >= 10 ? Math.max(...highs.slice(idx - 10, idx)) : null;
+        const h5Prev = idx >= 5 ? Math.max(...highs.slice(idx - 5, idx)) : null;
+        const volMa10 = idx >= 9 ? mean(volumes.slice(idx - 9, idx + 1)) : null;
+        const volZ = volMa10 ? volumes[idx] / volMa10 : null;
+        const dd = h5Prev ? close / h5Prev - 1 : null;
+        const hhFilter = h10Prev ? (close >= h10Prev ? 1 : 0) : 0;
+        const pctChg =
+          idx >= 1 && closes[idx - 1] !== null && closes[idx - 1] !== undefined
+            ? percentChange(closes[idx - 1], close) * 100
+            : null;
+        strengthRows.push({
+          stock_id: item.stock_id,
+          name: item.name || item.stock_id,
+          close,
+          ret_3: ret3,
+          h10_prev: h10Prev,
+          h5_prev: h5Prev,
+          vol_z: volZ,
+          dd,
+          HH_Filter: hhFilter,
+          pct_chg: pctChg,
         });
-      }
-      const strengthWeights = allocateWeights(
-        strengthPicks.map((item) => item.strength_score || 0)
+      });
+
+      const strengthEligible = strengthRows.filter(
+        (row) =>
+          row.ret_3 !== null &&
+          row.h10_prev !== null &&
+          row.h5_prev !== null &&
+          row.vol_z !== null
       );
+
+      const ret3Median = median(strengthEligible.map((row) => row.ret_3));
+      strengthEligible.forEach((row) => {
+        row.RS = row.ret_3 - ret3Median;
+      });
+
+      const rsRanks = rankPercentile(strengthEligible.map((row) => row.RS));
+      const ddRanks = rankPercentile(strengthEligible.map((row) => row.dd));
+      const volRanks = rankPercentile(strengthEligible.map((row) => row.vol_z));
+
+      strengthEligible.forEach((row, idx) => {
+        row.score_RS = rsRanks[idx];
+        row.score_dd = ddRanks[idx];
+        row.score_vol = volRanks[idx];
+        if (row.pct_chg !== null && row.pct_chg >= 9.8) {
+          row.score_vol = 1.0;
+        }
+        row.Total_Score =
+          (row.score_RS * 0.5 + row.score_vol * 0.3 + row.score_dd * 0.2) *
+          row.HH_Filter;
+      });
+
+      strengthEligible.sort((a, b) => (b.Total_Score || 0) - (a.Total_Score || 0));
+      const strengthPicks = strengthEligible.slice(0, 5);
+      const expScores = strengthPicks.map((row) => Math.exp(Math.max(0, row.Total_Score || 0) * 5));
+      const expSum = expScores.reduce((sum, v) => sum + v, 0) || 1;
       const strengthSignals = [];
       let strengthReturnSum = 0;
       let strengthHoldings = 0;
       let strengthWeightSum = 0;
       strengthPicks.forEach((pick, idx) => {
-        const weight = Number(strengthWeights[idx].toFixed(6));
-        const ret1 = pick.ret_1 ?? null;
+        const weight = Number((expScores[idx] / expSum).toFixed(6));
+        const ret1 = ret1ByStock.get(pick.stock_id) ?? null;
         if (ret1 !== null && ret1 !== undefined) {
           strengthReturnSum += ret1;
           strengthHoldings += 1;
@@ -574,12 +694,14 @@ export const runBacktest = async (options = {}) => {
           week_end: tradeDate,
           stock_id: pick.stock_id,
           target_weight: weight,
-          score: Number((pick.strength_score || 0).toFixed(6)),
+          score: Number((pick.Total_Score || 0).toFixed(6)),
           reason: {
-            ret_5: pick.ret_5,
-            ret_20: pick.ret_20,
-            drawdown_20: pick.drawdown_20,
-            volume_ratio_20: pick.volume_ratio_20,
+            ret_3: pick.ret_3,
+            h10_prev: pick.h10_prev,
+            h5_prev: pick.h5_prev,
+            vol_z: pick.vol_z,
+            dd: pick.dd,
+            RS: pick.RS,
           },
         });
       });
@@ -613,6 +735,95 @@ export const runBacktest = async (options = {}) => {
       });
 
       dailySignalsByStrategy.set(strengthStrategyId, strengthSignals);
+    }
+
+    const accelStrategyId = "tw_acceleration_monitor_v1";
+    if (shouldInclude(accelStrategyId)) {
+      const ret1ByStock = new Map(universe.map((item) => [item.stock_id, item.ret_1]));
+      const accelRows = [];
+      universe.forEach((item) => {
+        const windowRows = windowRowsByStock.get(item.stock_id);
+        if (!windowRows || !windowRows.length) return;
+        const lastRow = windowRows[windowRows.length - 1];
+        if (!lastRow || lastRow.trade_date !== tradeDate) return;
+        const metrics = computeAccelerationMetrics(windowRows);
+        if (!metrics) return;
+        accelRows.push({
+          stock_id: item.stock_id,
+          name: item.name || item.stock_id,
+          close: lastRow.close,
+          ...metrics,
+        });
+      });
+
+      const accelCandidates = accelRows.filter(
+        (row) => row.v_5 > 0.004 && row.acc > 0.0015 && row.v_z > 1.3 && row.vol_z20 > 1.5
+      );
+      accelCandidates.sort(
+        (a, b) => b.acc * b.vol_z20 - a.acc * a.vol_z20
+      );
+      const accelPicks = accelCandidates.slice(0, maxPicks);
+      const accelWeights = allocateWeights(
+        accelPicks.map((row) => row.acc * row.vol_z20)
+      );
+      const accelSignals = [];
+      let accelReturnSum = 0;
+      let accelHoldings = 0;
+      let accelWeightSum = 0;
+      accelPicks.forEach((pick, idx) => {
+        const weight = Number(accelWeights[idx].toFixed(6));
+        const ret1 = ret1ByStock.get(pick.stock_id) ?? null;
+        if (ret1 !== null && ret1 !== undefined) {
+          accelReturnSum += ret1;
+          accelHoldings += 1;
+          accelWeightSum += weight;
+        }
+        accelSignals.push({
+          strategy_id: accelStrategyId,
+          risk_level: "core",
+          week_end: tradeDate,
+          stock_id: pick.stock_id,
+          target_weight: weight,
+          score: Number((pick.acc * pick.vol_z20).toFixed(6)),
+          reason: {
+            v_5: pick.v_5,
+            v_20: pick.v_20,
+            acc: pick.acc,
+            v_z: pick.v_z,
+            vol_z20: pick.vol_z20,
+          },
+        });
+      });
+
+      const accelReturnValue = accelHoldings
+        ? Number((accelReturnSum / accelHoldings).toFixed(6))
+        : null;
+      latestDayReturns.set(accelStrategyId, accelReturnValue);
+
+      const history = rollingMap.get(accelStrategyId) || [];
+      if (accelReturnValue !== null && accelReturnValue !== undefined) {
+        history.unshift(accelReturnValue);
+      }
+      const nextHistory = history.slice(0, 10);
+      rollingMap.set(accelStrategyId, nextHistory);
+      const avgRolling = nextHistory.length
+        ? Number(
+            (nextHistory.reduce((sum, v) => sum + v, 0) / nextHistory.length).toFixed(6)
+          )
+        : null;
+
+      dailyRows.push({
+        strategy_id: accelStrategyId,
+        trade_date: tradeDate,
+        daily_return: accelReturnValue,
+        weighted_return: accelReturnValue,
+        cumulative_return: avgRolling,
+        holdings_count: accelHoldings,
+        weight_sum: Number(accelWeightSum.toFixed(6)),
+        source: "backtest",
+      });
+
+      dailySignalsByStrategy.set(accelStrategyId, accelSignals);
     }
 
     if (!dryRun && dailyRows.length) {
@@ -675,6 +886,31 @@ export const runBacktest = async (options = {}) => {
             prev_day_return: prevDayReturns.get(strengthStrategyId) ?? null,
             today_return: latestDayReturns.get(strengthStrategyId) ?? null,
             cumulative_return: (rollingMap.get(strengthStrategyId) || [])[0] ?? null,
+          },
+        });
+      }
+      const accelStrategyId = "tw_acceleration_monitor_v1";
+      if (shouldInclude(accelStrategyId)) {
+        const signals = dailySignalsByStrategy.get(accelStrategyId) || [];
+        latestSignalsPayload.push(...signals);
+        latestRunsPayload.push({
+          strategy_id: accelStrategyId,
+          risk_level: "core",
+          week_end: tradeDate,
+          universe_count: liquidityTop,
+          selected_count: signals.length,
+          gross_exposure: 1.0,
+          risk_state: "normal",
+          metrics: {
+            label: STRATEGY_LABELS[accelStrategyId] || accelStrategyId,
+            drawdown: null,
+            volatility: null,
+            sharpe: null,
+            annualized_return: null,
+            win_rate: null,
+            prev_day_return: prevDayReturns.get(accelStrategyId) ?? null,
+            today_return: latestDayReturns.get(accelStrategyId) ?? null,
+            cumulative_return: (rollingMap.get(accelStrategyId) || [])[0] ?? null,
           },
         });
       }
