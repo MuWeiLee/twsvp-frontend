@@ -2,11 +2,31 @@
   "crons": [
     {
       "path": "/api/sync-stock-prices",
-      "schedule": "*/20 * * * *"
+      "schedule": "*/10 8-13 * * *"
+    },
+    {
+      "path": "/api/sync-stock-prices",
+      "schedule": "0 14 * * *"
     },
     {
       "path": "/api/sync-stock-prices-backfill",
-      "schedule": "*/20 * * * *"
+      "schedule": "30,40,50 14 * * *"
+    },
+    {
+      "path": "/api/sync-stock-prices-backfill",
+      "schedule": "*/10 15 * * *"
+    },
+    {
+      "path": "/api/sync-stock-prices-backfill",
+      "schedule": "*/10 16-23 * * *"
+    },
+    {
+      "path": "/api/sync-stock-prices-backfill",
+      "schedule": "*/10 0-6 * * *"
+    },
+    {
+      "path": "/api/sync-stock-prices-backfill",
+      "schedule": "0,10,20,30 7 * * *"
     },
     {
       "path": "/api/sync-feed-expiry-notifications",
