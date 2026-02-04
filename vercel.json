@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/sync-stock-prices",
-      "schedule": "*/10 8-13 * * *"
+      "schedule": "*/10 9-13 * * *"
     },
     {
       "path": "/api/sync-stock-prices",
@@ -10,31 +10,23 @@
     },
     {
       "path": "/api/sync-stock-prices-backfill",
-      "schedule": "30,40,50 14 * * *"
+      "schedule": "*/10 14-23 * * *"
     },
     {
       "path": "/api/sync-stock-prices-backfill",
-      "schedule": "*/10 15 * * *"
+      "schedule": "*/10 0-8 * * *"
     },
     {
       "path": "/api/sync-stock-prices-backfill",
-      "schedule": "*/10 16-23 * * *"
-    },
-    {
-      "path": "/api/sync-stock-prices-backfill",
-      "schedule": "*/10 0-6 * * *"
-    },
-    {
-      "path": "/api/sync-stock-prices-backfill",
-      "schedule": "0,10,20,30 7 * * *"
+      "schedule": "0 9 * * *"
     },
     {
       "path": "/api/sync-feed-expiry-notifications",
-      "schedule": "0 1 * * *"
+      "schedule": "0 16 * * *"
     },
     {
       "path": "/api/sync-feed-performance",
-      "schedule": "0 9 * * *"
+      "schedule": "0 14 * * *"
     },
     {
       "path": "/api/sync-newsdata",
@@ -46,11 +38,11 @@
     },
     {
       "path": "/api/run-strategy-signals",
-      "schedule": "0 14 * * *"
+      "schedule": "30 14 * * *"
     },
     {
       "path": "/api/calc-strategy-performance",
-      "schedule": "5 14 * * *"
+      "schedule": "0 */2 * * *"
     }
   ]
 }
