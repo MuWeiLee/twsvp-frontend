@@ -158,7 +158,6 @@ const permissionTypes = [
   { value: "views", label: "观点" },
   { value: "comments", label: "留言" },
   { value: "articles", label: "资讯" },
-  { value: "strategy", label: "策略" },
   { value: "stocks", label: "个股" },
   { value: "stock_detail", label: "个股详情" },
   { value: "system", label: "系统管理" },
