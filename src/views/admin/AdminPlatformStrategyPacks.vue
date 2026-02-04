@@ -398,12 +398,15 @@ const loadStrategies = async ({ keepActiveId } = {}) => {
     const strategyIds = Array.from(latestByStrategy.keys());
     const weekEnds = [...new Set(filteredRuns.map((row) => row.week_end))];
 
-    const [dailyRows, signals, visibility, meta] = await Promise.all([
-      fetchStrategyDailyPerformance(strategyIds, 200),
+    const [dailyRowsByStrategy, signals, visibility, meta] = await Promise.all([
+      Promise.all(
+        strategyIds.map((strategyId) => fetchStrategyDailyPerformance([strategyId], 200))
+      ),
       fetchStrategySignalsByWeekEnds(weekEnds, strategyIds),
       fetchStrategyVisibility(STRATEGY_IDS),
       fetchStrategyMeta(STRATEGY_IDS),
     ]);
+    const dailyRows = dailyRowsByStrategy.flat();
     visibilityMap.value = visibility;
     metaMap.value = meta;
 
