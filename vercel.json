@@ -10,11 +10,7 @@
     },
     {
       "path": "/api/sync-stock-prices-backfill",
-      "schedule": "*/10 14-23 * * *"
-    },
-    {
-      "path": "/api/sync-stock-prices-backfill",
-      "schedule": "*/10 0-8 * * *"
+      "schedule": "*/10 14-23,0-8 * * *"
     },
     {
       "path": "/api/sync-stock-prices-backfill",
