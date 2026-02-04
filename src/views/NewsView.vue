@@ -92,83 +92,8 @@
           </div>
         </section>
 
-        <section v-else class="card-list">
-          <article v-for="card in cards" :key="card.strategy_id" class="strategy-card">
-            <div class="card-header">
-              <div class="card-title">{{ card.name }}</div>
-              <div class="card-code">{{ card.code }}</div>
-            </div>
-
-            <div class="card-performance">
-              <div class="perf-item">
-                <span class="perf-label">{{ t("昨日绩效") }}</span>
-                <span class="perf-value">{{ formatPercent(card.prevDay) }}</span>
-              </div>
-              <div class="perf-item">
-                <span class="perf-label">{{ t("今日绩效") }}</span>
-                <span class="perf-value">{{ formatPercent(displayTodayValue(card)) }}</span>
-              </div>
-              <div class="perf-item">
-                <span class="perf-label">{{ t("近10日绩效") }}</span>
-                <span class="perf-value">{{ formatPercent(card.cumulative) }}</span>
-              </div>
-            </div>
-
-            <div class="dual-section">
-              <div class="dual-title">{{ pickLeftLabel }}</div>
-              <div class="dual-title">{{ pickLabel }}</div>
-              <div class="dual-col">
-                <div
-                  v-for="holding in card.prevHoldings"
-                  :key="holding.stock_id"
-                  class="holding-mini"
-                  role="button"
-                  tabindex="0"
-                  @click="goStock(holding.stock_id)"
-                  @keydown.enter="goStock(holding.stock_id)"
-                >
-                  <div class="mini-row">
-                    <div class="mini-name">{{ holding.name }}</div>
-                    <div class="mini-value">{{ t("开") }}: {{ formatPrice(holding.open) }}</div>
-                    <div class="mini-value">{{ t("仓位") }}: {{ formatPercent(holding.weight) }}</div>
-                  </div>
-                  <div class="mini-row">
-                    <div class="mini-code">{{ holding.stock_id }}</div>
-                    <div class="mini-value">{{ t("收") }}: {{ formatPrice(holding.close) }}</div>
-                    <div class="mini-value" :class="perfClass(holding.perf)">
-                      {{ t("绩效") }}: {{ formatPerf(holding.perf) }}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="dual-col">
-                <div
-                  v-for="holding in card.todayHoldings"
-                  :key="holding.stock_id"
-                  class="holding-mini"
-                  role="button"
-                  tabindex="0"
-                  @click="goStock(holding.stock_id)"
-                  @keydown.enter="goStock(holding.stock_id)"
-                >
-                  <div class="mini-row">
-                    <div class="mini-name">{{ holding.name }}</div>
-                    <div class="mini-value">{{ t("开") }}: {{ formatPrice(holding.open) }}</div>
-                    <div class="mini-value">{{ t("仓位") }}: {{ formatPercent(holding.weight) }}</div>
-                  </div>
-                  <div class="mini-row">
-                    <div class="mini-code">{{ holding.stock_id }}</div>
-                    <div class="mini-value">{{ t("收") }}: {{ formatPrice(holding.close) }}</div>
-                    <div class="mini-value" :class="perfClass(holding.perf)">
-                      {{ t("绩效") }}: {{ formatPerf(holding.perf) }}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </article>
-
-          <div v-if="!cards.length" class="empty">{{ t("暂无策略数据") }}</div>
+        <section v-else class="strategy-placeholder">
+          <div class="empty">{{ t("修复中，敬请期待") }}</div>
         </section>
       </div>
 
@@ -182,27 +107,16 @@
 
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
-import { useRouter } from "vue-router";
 import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
 import { fetchNewsSupabase } from "../services/news.js";
 import { formatFeedTimestamp } from "../services/feeds.js";
 import { t } from "../services/i18n.js";
-import {
-  STRATEGY_IDS,
-  STRATEGY_LABELS,
-  fetchLatestStrategyRuns,
-  fetchStrategyMeta,
-  fetchStrategySignals,
-  fetchStrategyVisibility,
-  fetchStockNames,
-  fetchStockPriceSnapshots,
-} from "../services/strategy.js";
+ 
 
 const activeTab = ref("news");
 const showTabs = ref(true);
 const lastScrollY = ref(0);
-const router = useRouter();
 
 const PAGE_SIZE = 20;
 const PULL_THRESHOLD = 60;
@@ -220,9 +134,7 @@ const pullDistance = ref(0);
 const touchStartY = ref(null);
 let loadObserver = null;
 
-const cards = ref([]);
-
-const allowedStrategies = new Set(STRATEGY_IDS);
+ 
 
 const refreshLabel = computed(() => {
   if (isRefreshing.value) return t("刷新中...");
@@ -234,11 +146,6 @@ const formatCreator = (creator) => {
   if (!creator) return "—";
   if (Array.isArray(creator)) return creator.filter(Boolean).join(" ");
   return `${creator}`;
-};
-
-const goStock = (symbol) => {
-  if (!symbol) return;
-  router.push(`/stock/${symbol}`);
 };
 
 const formatTime = (value) => formatFeedTimestamp(value);
@@ -340,173 +247,8 @@ const handleScroll = () => {
   lastScrollY.value = current;
 };
 
-const formatPercent = (value) => {
-  if (value === null || value === undefined) return "—";
-  const percent = Number(value) * 100;
-  return `${percent.toFixed(2)}%`;
-};
-
-const formatPrice = (value) => {
-  if (value === null || value === undefined) return "—";
-  const num = Number(value);
-  if (Number.isNaN(num)) return "—";
-  return num.toFixed(2);
-};
-
-const formatPerf = (value) => {
-  if (value === null || value === undefined) return "—";
-  const percent = Number(value) * 100;
-  return `${percent.toFixed(2)}%`;
-};
-
-const perfClass = (value) => {
-  if (value === null || value === undefined) return "price-neutral";
-  if (value > 0) return "price-up";
-  if (value < 0) return "price-down";
-  return "price-neutral";
-};
-
-const isAfterSwitch = computed(() => {
-  const hour = new Date().getHours();
-  return hour >= 22;
-});
-
-const pickLabel = computed(() => (isAfterSwitch.value ? t("明日选股") : t("今日选股")));
-const pickLeftLabel = computed(() => (isAfterSwitch.value ? t("今日选股") : t("昨日选股")));
-
-const getLocalDateKey = (date = new Date()) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const todayKey = computed(() => getLocalDateKey());
-
-const displayTodayValue = (card) => card?.today ?? null;
-
-const loadStrategies = async () => {
-  const runs = await fetchLatestStrategyRuns(60);
-  if (!runs.length) {
-    cards.value = [];
-    return;
-  }
-  const [visibility, meta] = await Promise.all([
-    fetchStrategyVisibility(STRATEGY_IDS),
-    fetchStrategyMeta(STRATEGY_IDS),
-  ]);
-  const visibleSet = new Set(
-    STRATEGY_IDS.filter((id) => visibility.get(id) === true)
-  );
-  const hasVisibility = visibility.size > 0;
-  const allowedSet = new Set(
-    [...allowedStrategies].filter((id) => (hasVisibility ? visibleSet.has(id) : true))
-  );
-  const weekEnds = [...new Set(runs.map((row) => row.week_end))].sort().reverse();
-  const latestWeek = weekEnds[0];
-  const prevWeek = weekEnds[1];
-
-  const latestRuns = runs.filter(
-    (row) => row.week_end === latestWeek && allowedSet.has(row.strategy_id)
-  );
-  const prevRuns = prevWeek
-    ? runs.filter((row) => row.week_end === prevWeek && allowedSet.has(row.strategy_id))
-    : [];
-
-  const latestIds = latestRuns.map((row) => row.strategy_id);
-  const prevIds = prevRuns.map((row) => row.strategy_id);
-
-  const latestSignals = await fetchStrategySignals(latestWeek, latestIds);
-  const prevSignals = prevWeek ? await fetchStrategySignals(prevWeek, prevIds) : [];
-
-  const stockIds = [...new Set([...latestSignals, ...prevSignals].map((s) => s.stock_id))];
-  const stockNames = await fetchStockNames(stockIds);
-  const priceSnapshots = await fetchStockPriceSnapshots(stockIds);
-
-  const latestByStrategy = new Map();
-  latestSignals.forEach((signal) => {
-    if (!latestByStrategy.has(signal.strategy_id)) {
-      latestByStrategy.set(signal.strategy_id, []);
-    }
-    latestByStrategy.get(signal.strategy_id).push(signal);
-  });
-
-  const prevByStrategy = new Map();
-  prevSignals.forEach((signal) => {
-    if (!prevByStrategy.has(signal.strategy_id)) {
-      prevByStrategy.set(signal.strategy_id, []);
-    }
-    prevByStrategy.get(signal.strategy_id).push(signal);
-  });
-
-  cards.value = latestRuns.map((run, index) => {
-    const latestHoldings = (latestByStrategy.get(run.strategy_id) || [])
-      .sort((a, b) => (b.score || 0) - (a.score || 0))
-      .slice(0, 5)
-      .map((signal) => {
-        const snapshot = priceSnapshots[signal.stock_id] || {};
-        const latest = snapshot.latest;
-        const isLatestToday = latest?.trade_date === todayKey.value;
-        const todayPerf =
-          isLatestToday && latest?.open && latest?.close
-            ? (latest.close - latest.open) / latest.open
-            : null;
-        return {
-          stock_id: signal.stock_id,
-          name: stockNames[signal.stock_id] || t("股票名称"),
-          weight: signal.target_weight,
-          open: isLatestToday ? latest?.open ?? null : null,
-          close: isLatestToday ? latest?.close ?? null : null,
-          perf: todayPerf,
-          latestTradeDate: latest?.trade_date || null,
-        };
-      });
-    const latestTradeDate =
-      latestHoldings
-        .map((holding) => holding.latestTradeDate)
-        .filter(Boolean)
-        .sort()
-        .reverse()[0] || null;
-    const prevHoldings = (prevByStrategy.get(run.strategy_id) || [])
-      .sort((a, b) => (b.score || 0) - (a.score || 0))
-      .slice(0, 5)
-      .map((signal) => {
-        const snapshot = priceSnapshots[signal.stock_id] || {};
-        const prev = snapshot.prev;
-        const prevPerf =
-          prev?.open && prev?.close ? (prev.close - prev.open) / prev.open : null;
-        return {
-          stock_id: signal.stock_id,
-          name: stockNames[signal.stock_id] || t("股票名称"),
-          weight: signal.target_weight,
-          open: prev?.open ?? null,
-          close: prev?.close ?? null,
-          perf: prevPerf,
-        };
-      });
-    const metrics = run.metrics || {};
-    const label =
-      meta.get(run.strategy_id) ||
-      metrics.label ||
-      STRATEGY_LABELS[run.strategy_id] ||
-      run.strategy_id;
-    return {
-      strategy_id: run.strategy_id,
-      code: label,
-      name: label,
-      prevDay: metrics.prev_day_return ?? null,
-      today: metrics.today_return ?? null,
-      cumulative: metrics.cumulative_return ?? null,
-      latestTradeDate,
-      prevHoldings,
-      todayHoldings: latestHoldings,
-    };
-  });
-};
-
 onMounted(async () => {
   await loadNews({ append: false });
-  await loadStrategies();
   await nextTick();
   setupInfiniteScroll();
   if (scrollContainer.value) {
@@ -739,157 +481,9 @@ onUnmounted(() => {
   font-size: 10px;
 }
 
-.card-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding-top: 12px;
-}
-
-.strategy-card {
-  background: var(--surface);
-  border-radius: var(--radius-card);
-  padding: 12px;
-  border: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.card-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.card-code {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.card-meta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.meta-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 0;
-}
-
-.meta-label {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.meta-value {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
-  text-align: right;
-}
-
-.card-performance {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  padding-top: 4px;
-}
-
-.perf-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 6px 0;
-}
-
-.perf-label {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.perf-value {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--ink);
-  text-align: right;
-}
-
-.dual-section {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.dual-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.dual-col {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.holding-mini {
-  background: var(--surface);
-  border-radius: var(--radius-card);
-  padding: 10px;
-  border: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.mini-row {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr 1fr;
-  gap: 8px;
-  align-items: center;
-}
-
-.mini-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.mini-code {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.mini-value {
-  font-size: 11px;
-  color: var(--muted);
-  text-align: right;
-}
-
-.price-up {
-  color: var(--price-up);
-}
-
-.price-down {
-  color: var(--price-down);
-}
-
-.price-neutral {
-  color: var(--muted);
+ 
+.strategy-placeholder {
+  padding: 24px 0 32px;
 }
 
 .legal {
