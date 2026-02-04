@@ -39,7 +39,6 @@
     {
       "path": "/api/sync-news-stock-links",
       "schedule": "10,40 * * * *"
-    },
- 
+    }
   ]
 }
