@@ -1,20 +1,12 @@
 {
   "crons": [
     {
-      "path": "/api/sync-stock-prices",
-      "schedule": "*/10 7-13 * * *"
+      "path": "/api/sync-trading-calendar",
+      "schedule": "5 18 * * 1-5"
     },
     {
-      "path": "/api/sync-stock-prices",
-      "schedule": "0 14 * * *"
-    },
-    {
-      "path": "/api/sync-stock-prices-backfill?mode=stock",
-      "schedule": "10-50/10 14 * * *"
-    },
-    {
-      "path": "/api/sync-stock-prices-backfill?mode=stock",
-      "schedule": "*/10 15-23 * * *"
+      "path": "/api/sync-stock-prices-daily",
+      "schedule": "10,30,50 18-23 * * 1-5"
     },
     {
       "path": "/api/sync-stock-prices-backfill?mode=stock",
