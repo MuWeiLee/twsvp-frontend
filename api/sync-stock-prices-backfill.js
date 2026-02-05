@@ -378,12 +378,24 @@ export default async function handler(req, res) {
     if (endDate < MIN_START_DATE) {
       endDate = MIN_START_DATE;
     }
+    const previousEndDate = endDate;
     if (autoExtend && latestAvailableDate > endDate) {
       endDate = latestAvailableDate;
       if (!dryRun) {
+        const shouldPrioritizeLatestDay = mode === "stock";
         state = await upsertState(supabase, state.state_id, {
           end_date: endDate,
+          cursor_date: shouldPrioritizeLatestDay ? latestAvailableDate : state.cursor_date,
+          stock_offset: shouldPrioritizeLatestDay ? 0 : state.stock_offset,
           status: state.status === "completed" ? "running" : state.status,
+          detail: {
+            ...state.detail,
+            latest_priority: {
+              previous_end_date: previousEndDate,
+              latest_available_date: latestAvailableDate,
+              activated_at: new Date().toISOString(),
+            },
+          },
         });
       }
     }
