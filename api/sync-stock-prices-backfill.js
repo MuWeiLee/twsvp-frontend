@@ -209,20 +209,6 @@ const parseParams = (req) => {
   return { ...(req.query || {}), ...(req.body || {}) };
 };
 
-const fetchLatestTradeDate = async (supabase) => {
-  const { data, error } = await supabase
-    .from("stock_prices")
-    .select("trade_date")
-    .order("trade_date", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error) {
-    console.error("读取 stock_prices 最新日期失败:", error);
-    return null;
-  }
-  return data?.trade_date || null;
-};
-
 const loadState = async (supabase, source, dataset) => {
   const { data, error } = await supabase
     .from("stock_price_backfill_state")
@@ -333,8 +319,7 @@ export default async function handler(req, res) {
       auth: { persistSession: false },
     });
 
-    const latestTradeDate = await fetchLatestTradeDate(supabase);
-    const latestAvailableDate = latestTradeDate || formatDate(new Date());
+    const latestAvailableDate = explicitEndDate || formatDate(new Date());
     const defaultRange = normalizeDateRange(
       startDateParam,
       explicitEndDate || latestAvailableDate
@@ -372,18 +357,29 @@ export default async function handler(req, res) {
       }
     }
 
-    const today = formatDate(new Date());
     const startDate = clampStartDate(state.start_date || defaultRange.startDate);
     let endDate = state.end_date || defaultRange.endDate;
     if (endDate < MIN_START_DATE) {
       endDate = MIN_START_DATE;
     }
+    const previousEndDate = endDate;
     if (autoExtend && latestAvailableDate > endDate) {
       endDate = latestAvailableDate;
       if (!dryRun) {
+        const shouldPrioritizeLatestDay = mode === "stock";
         state = await upsertState(supabase, state.state_id, {
           end_date: endDate,
+          cursor_date: shouldPrioritizeLatestDay ? latestAvailableDate : state.cursor_date,
+          stock_offset: shouldPrioritizeLatestDay ? 0 : state.stock_offset,
           status: state.status === "completed" ? "running" : state.status,
+          detail: {
+            ...state.detail,
+            latest_priority: {
+              previous_end_date: previousEndDate,
+              latest_available_date: latestAvailableDate,
+              activated_at: new Date().toISOString(),
+            },
+          },
         });
       }
     }
