@@ -209,20 +209,6 @@ const parseParams = (req) => {
   return { ...(req.query || {}), ...(req.body || {}) };
 };
 
-const fetchLatestTradeDate = async (supabase) => {
-  const { data, error } = await supabase
-    .from("stock_prices")
-    .select("trade_date")
-    .order("trade_date", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error) {
-    console.error("读取 stock_prices 最新日期失败:", error);
-    return null;
-  }
-  return data?.trade_date || null;
-};
-
 const loadState = async (supabase, source, dataset) => {
   const { data, error } = await supabase
     .from("stock_price_backfill_state")
@@ -333,8 +319,7 @@ export default async function handler(req, res) {
       auth: { persistSession: false },
     });
 
-    const latestTradeDate = await fetchLatestTradeDate(supabase);
-    const latestAvailableDate = latestTradeDate || formatDate(new Date());
+    const latestAvailableDate = explicitEndDate || formatDate(new Date());
     const defaultRange = normalizeDateRange(
       startDateParam,
       explicitEndDate || latestAvailableDate
@@ -372,7 +357,6 @@ export default async function handler(req, res) {
       }
     }
 
-    const today = formatDate(new Date());
     const startDate = clampStartDate(state.start_date || defaultRange.startDate);
     let endDate = state.end_date || defaultRange.endDate;
     if (endDate < MIN_START_DATE) {
