@@ -51,6 +51,19 @@ const resolveSleepMs = (explicitValue, rateLimitPerHour, fallbackMs = 250) => {
   return fallbackMs;
 };
 
+const fetchTradingCalendarDates = async (supabase, startDate, endDate) => {
+  const { data, error } = await supabase
+    .from("trading_calendar")
+    .select("trade_date")
+    .gte("trade_date", startDate)
+    .lte("trade_date", endDate)
+    .order("trade_date", { ascending: true });
+  if (error) {
+    throw new Error(`Supabase trading_calendar query failed: ${error.message}`);
+  }
+  return (data || []).map((row) => row.trade_date);
+};
+
 const fetchLatestTradeDate = async (supabase) => {
   const { data, error } = await supabase
     .from("stock_prices")
@@ -303,6 +316,11 @@ export default async function handler(req, res) {
       resolvedStartDate || getDefaultStartDate(),
       rawEndDate
     );
+    const calendarDates = await fetchTradingCalendarDates(supabase, startDate, endDate);
+    if (!calendarDates.length) {
+      throw new Error("No trading dates found in trading_calendar for the range.");
+    }
+    const calendarSet = new Set(calendarDates);
 
     logId = dryRun
       ? null
@@ -358,7 +376,9 @@ export default async function handler(req, res) {
           }
         }
         const raw = await fetchFinmindPrices(token, dataset, stockId, startDate, endDate);
-        rows = parseFinmindRows(raw, stockId);
+        rows = parseFinmindRows(raw, stockId).filter((row) =>
+          calendarSet.has(row.trade_date)
+        );
         if (!dryRun && rows.length) {
           await upsertRows(
             supabase,
