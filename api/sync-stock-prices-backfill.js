@@ -53,6 +53,29 @@ const resolveSleepMs = (explicitValue, rateLimitPerHour, fallbackMs = 250) => {
   return fallbackMs;
 };
 
+const fetchTradingCalendarDates = async (supabase, startDate, endDate) => {
+  const { data, error } = await supabase
+    .from("trading_calendar")
+    .select("trade_date")
+    .gte("trade_date", startDate)
+    .lte("trade_date", endDate)
+    .order("trade_date", { ascending: true });
+  if (error) {
+    throw new Error(`Supabase trading_calendar query failed: ${error.message}`);
+  }
+  return (data || []).map((row) => row.trade_date);
+};
+
+const findLatestCalendarDate = (calendarDates, targetDate) => {
+  if (!calendarDates.length) return null;
+  for (let i = calendarDates.length - 1; i >= 0; i -= 1) {
+    if (calendarDates[i] <= targetDate) {
+      return calendarDates[i];
+    }
+  }
+  return null;
+};
+
 const addDays = (dateString, days) => {
   const date = new Date(dateString);
   date.setDate(date.getDate() + days);
@@ -434,6 +457,16 @@ export default async function handler(req, res) {
     let nextDate = currentDate;
     let nextOffset = stockOffset;
     let rateLimited = false;
+    const calendarDates = await fetchTradingCalendarDates(supabase, startDate, endDate);
+    if (!calendarDates.length) {
+      throw new Error("No trading dates found in trading_calendar for the range.");
+    }
+    const calendarSet = new Set(calendarDates);
+    const alignedCurrentDate = findLatestCalendarDate(calendarDates, currentDate);
+    if (!alignedCurrentDate) {
+      throw new Error("Cursor date is outside trading_calendar range.");
+    }
+    currentDate = alignedCurrentDate;
 
     const token = requiredEnv("FINMIND_TOKEN");
     if (mode === "stock") {
@@ -498,7 +531,9 @@ export default async function handler(req, res) {
         let errorMessage = null;
         try {
           const raw = await fetchFinmindPrices(token, dataset, stockId, currentDate, endDate);
-          rows = parseFinmindRows(raw, stockId);
+          rows = parseFinmindRows(raw, stockId).filter((row) =>
+            calendarSet.has(row.trade_date)
+          );
           if (!dryRun && rows.length) {
             await upsertRows(
               supabase,
@@ -595,7 +630,9 @@ export default async function handler(req, res) {
             currentDate,
             currentDate
           );
-          rows = parseFinmindRows(raw, stockId);
+          rows = parseFinmindRows(raw, stockId).filter((row) =>
+            calendarSet.has(row.trade_date)
+          );
           if (!dryRun && rows.length) {
             await upsertRows(
               supabase,
