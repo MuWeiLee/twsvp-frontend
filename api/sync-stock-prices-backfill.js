@@ -69,6 +69,18 @@ const normalizeNumber = (value) => {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const parseIsoTime = (value) => {
+  if (!value) return null;
+  const ts = Date.parse(value);
+  return Number.isNaN(ts) ? null : ts;
+};
+
+const isRecentlyUpdated = (value, staleMinutes) => {
+  const ts = parseIsoTime(value);
+  if (!ts) return false;
+  return Date.now() - ts <= staleMinutes * 60 * 1000;
+};
+
 const fetchFinmindPrices = async (
   token,
   dataset,
@@ -224,6 +236,86 @@ const loadState = async (supabase, source, dataset) => {
   return data || null;
 };
 
+
+const closeOtherRunningStates = async (
+  supabase,
+  source,
+  dataset,
+  keepStateId = null,
+  reason = "superseded_by_reset"
+) => {
+  let query = supabase
+    .from("stock_price_backfill_state")
+    .update({
+      status: "superseded",
+      finished_at: new Date().toISOString(),
+      detail: { reason },
+    })
+    .eq("source", source)
+    .eq("dataset", dataset)
+    .eq("status", "running");
+  if (keepStateId) {
+    query = query.neq("state_id", keepStateId);
+  }
+  await query;
+};
+
+const hasActiveStateConflict = async (
+  supabase,
+  source,
+  dataset,
+  keepStateId,
+  staleMinutes = 20
+) => {
+  let query = supabase
+    .from("stock_price_backfill_state")
+    .select("state_id,status,updated_at")
+    .eq("source", source)
+    .eq("dataset", dataset)
+    .eq("status", "running")
+    .order("updated_at", { ascending: false })
+    .limit(5);
+  if (keepStateId) {
+    query = query.neq("state_id", keepStateId);
+  }
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(`Backfill state conflict query failed: ${error.message}`);
+  }
+  return (data || []).some((item) => isRecentlyUpdated(item.updated_at, staleMinutes));
+};
+
+const recordMissingRange = async (
+  supabase,
+  source,
+  dataset,
+  stockId,
+  startDate,
+  endDate,
+  errorMessage = null,
+  mode = "stock"
+) => {
+  const payload = {
+    source,
+    dataset,
+    stock_id: stockId,
+    start_date: startDate,
+    end_date: endDate,
+    reason: errorMessage || "empty_response",
+    detail: {
+      mode,
+      error: errorMessage,
+    },
+  };
+  try {
+    await supabase.from("stock_price_missing_ranges").upsert(payload, {
+      onConflict: "source,dataset,stock_id,start_date,end_date",
+    });
+  } catch (_) {
+    return;
+  }
+};
+
 const upsertState = async (supabase, stateId, payload) => {
   if (!stateId) {
     const { data, error } = await supabase
@@ -305,6 +397,9 @@ export default async function handler(req, res) {
   const reset = `${params.reset || ""}` === "1";
   const autoExtend =
     `${params.auto_extend || process.env.BACKFILL_AUTO_EXTEND || "1"}` === "1";
+  const conflictStaleMinutes = Number(
+    params.conflict_stale_minutes || process.env.STOCK_PRICE_CONFLICT_STALE_MINUTES || 20
+  );
 
   let supabase = null;
   let logId = null;
@@ -326,6 +421,12 @@ export default async function handler(req, res) {
     );
 
     let state = reset ? null : await loadState(supabase, source, dataset);
+    if (state?.status === "running") {
+      await closeOtherRunningStates(supabase, source, dataset, state.state_id, "duplicate_cleanup");
+    }
+    if (reset) {
+      await closeOtherRunningStates(supabase, source, dataset, state?.state_id || null);
+    }
     if (state && state.detail?.mode && state.detail.mode !== mode && !reset) {
       res.status(409).json({
         error: `Backfill mode mismatch. Existing state is ${state.detail.mode}.`,
@@ -333,6 +434,23 @@ export default async function handler(req, res) {
       });
       return;
     }
+    const hasConflict = await hasActiveStateConflict(
+      supabase,
+      source,
+      dataset,
+      state?.state_id || null,
+      conflictStaleMinutes
+    );
+    if (hasConflict) {
+      res.status(409).json({
+        error: "Backfill sync conflict detected",
+        detail: "Another running backfill state is active recently.",
+        source,
+        dataset,
+      });
+      return;
+    }
+
     if (!state) {
       const { startDate: initialStartDate, endDate: initialEndDate } = defaultRange;
       const initialState = {
@@ -519,6 +637,18 @@ export default async function handler(req, res) {
           }
         }
         summary.push({ stock_id: stockId, rows: rows.length, error: errorMessage });
+        if (!dryRun && (!rows.length || errorMessage)) {
+          await recordMissingRange(
+            supabase,
+            source,
+            dataset,
+            stockId,
+            currentDate,
+            endDate,
+            errorMessage,
+            mode
+          );
+        }
         if (rateLimited) break;
         if (sleepMs > 0) {
           await sleep(sleepMs);
@@ -616,6 +746,18 @@ export default async function handler(req, res) {
           }
         }
         summary.push({ stock_id: stockId, rows: rows.length, error: errorMessage });
+        if (!dryRun && (!rows.length || errorMessage)) {
+          await recordMissingRange(
+            supabase,
+            source,
+            dataset,
+            stockId,
+            currentDate,
+            currentDate,
+            errorMessage,
+            mode
+          );
+        }
         if (rateLimited) break;
         if (sleepMs > 0) {
           await sleep(sleepMs);
