@@ -61,6 +61,7 @@ export default async function handler(req, res) {
     params.stale_minutes || process.env.STOCK_PRICE_CONFLICT_STALE_MINUTES || 20
   );
   const dryRun = `${params.dry_run || params.dryRun || "0"}` === "1";
+  const targetSource = `${params.target_source || params.targetSource || "finmind"}`.toLowerCase();
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
@@ -78,14 +79,20 @@ export default async function handler(req, res) {
     }
 
     const groups = new Map();
+    const keepIds = new Set();
+    const closeTargets = [];
+
     for (const row of data || []) {
+      const source = `${row.source || ""}`.toLowerCase();
+      if (source !== targetSource) {
+        closeTargets.push({ state_id: row.state_id, reason: "disabled_source", source });
+        continue;
+      }
       const key = groupKeyOf(row);
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(row);
     }
 
-    const keepIds = new Set();
-    const closeTargets = [];
     for (const rows of groups.values()) {
       rows.sort((a, b) => (parseIsoTime(b.updated_at) || 0) - (parseIsoTime(a.updated_at) || 0));
       const leader = rows[0];
@@ -118,6 +125,7 @@ export default async function handler(req, res) {
       status: "ok",
       dryRun,
       staleMinutes,
+      targetSource,
       runningBefore: (data || []).length,
       keepCount: keepIds.size,
       closedCount: closeTargets.length,

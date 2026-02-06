@@ -66,5 +66,6 @@
 
 - 新增维护接口：`/api/cleanup-stock-price-backfill-state`
   - 支持 `dry_run=1` 先预览清理结果。
-  - 默认会将重复或过期的 `running` 状态标记为 `superseded`。
+  - 默认 `target_source=finmind`，会将非 FinMind 的 `running` 状态（例如旧 TWSE_TPEX / public）标记为 `superseded`。
+  - 同 source 内会将重复或过期的 `running` 状态标记为 `superseded`。
 - daily/backfill 运行时也会自动清理同流中的重复 `running` 记录，降低并发任务互相覆盖风险。
