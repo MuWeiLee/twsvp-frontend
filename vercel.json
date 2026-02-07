@@ -10,15 +10,15 @@
     },
     {
       "path": "/api/sync-stock-prices-backfill?mode=stock",
-      "schedule": "*/10 0-6 * * *"
+      "schedule": "*/10 0-18 * * 1-5"
     },
     {
       "path": "/api/sync-stock-prices-backfill?mode=stock",
-      "schedule": "0 7 * * *"
+      "schedule": "0 0 * * *"
     },
     {
       "path": "/api/sync-stock-prices-history",
-      "schedule": "0,20,40 1-6 * * 6,0"
+      "schedule": "*/20 * * * 6,0"
     },
     {
       "path": "/api/sync-feed-expiry-notifications",
