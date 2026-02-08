@@ -977,10 +977,15 @@ const candleLayout = computed(() => {
     return {};
   }
   const slot = width / count;
-  const widthRatio = count >= 100 ? 0.72 : count >= 50 ? 0.68 : 0.6;
+  const widthRatio = count >= 100 ? 0.8 : count >= 50 ? 0.74 : 0.66;
   let gap = count > 1 ? slot * (1 - widthRatio) : 0;
-  gap = Math.min(Math.max(gap, 1), 8);
-  const candleWidth = Math.max(1, slot - gap);
+  const gapMax = Math.min(8, slot * 0.6);
+  gap = Math.min(Math.max(gap, 0), gapMax);
+  let candleWidth = slot - gap;
+  if (slot <= 3) {
+    gap = 0;
+    candleWidth = slot;
+  }
   const pad = gap / 2;
   const contentWidth = count * candleWidth + Math.max(0, count - 1) * gap;
   const offset = Math.max(0, width - pad * 2 - contentWidth);
