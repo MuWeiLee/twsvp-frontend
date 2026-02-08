@@ -282,13 +282,20 @@ const viewsWithStatus = computed(() =>
 
 const performance = computed(() => {
   const totalViews = feeds.value.length;
+  const settled = viewsWithStatus.value.filter(
+    (view) => view.statusPhase === "ended" && Number.isFinite(view.performancePct)
+  );
+  const wins = settled.filter((view) => view.performancePct > 0).length;
+  const winRateLabel = settled.length
+    ? `${Math.round((wins / settled.length) * 100)}%`
+    : "—";
   const avgPerformance = userPerformance.value.avgPerformance;
   const hasPerformance =
     userPerformance.value.feedCount > 0 && Number.isFinite(avgPerformance);
   const performanceLabel = hasPerformance ? formatFeedPercent(avgPerformance) : "—";
   return {
     totalViews,
-    winRate: totalViews ? t("待结算") : "—",
+    winRate: winRateLabel,
     performance: performanceLabel,
   };
 });
