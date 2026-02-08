@@ -41,7 +41,12 @@
             </div>
           </div>
         </div>
-        <div class="chart-body" ref="chartBodyRef" @click.self="clearActivePrice">
+        <div
+          class="chart-body"
+          ref="chartBodyRef"
+          :style="axisLayout"
+          @click.self="clearActivePrice"
+        >
           <template v-if="chartPrices.length">
             <div class="chart-axis y-axis left">
               <span
@@ -670,26 +675,97 @@ const sortedSeries = computed(() => {
   });
 });
 
+const tradingDays = computed(() => {
+  if (!sortedSeries.value.length) return [];
+  const days = [];
+  let lastDate = "";
+  sortedSeries.value.forEach((item) => {
+    const date = item.trade_date;
+    if (!date || date === lastDate) return;
+    days.push(date);
+    lastDate = date;
+  });
+  return days;
+});
+
+const chartAnchorDate = computed(() => {
+  const list = tradingDays.value;
+  if (!list.length) return "";
+  const queryDate = typeof route.query.date === "string" ? route.query.date.trim() : "";
+  if (queryDate && list.includes(queryDate)) {
+    return queryDate;
+  }
+  return list[list.length - 1];
+});
+
 const chartTimeline = computed(() => {
-  const list = sortedSeries.value;
+  const list = tradingDays.value;
   if (!list.length) return [];
   const days = Math.max(1, Number(selectedRange.value) || 1);
-  return list.slice(-days).map((item) => item.trade_date);
+  const anchorIndex = chartAnchorDate.value
+    ? list.indexOf(chartAnchorDate.value)
+    : list.length - 1;
+  const endIndex = anchorIndex >= 0 ? anchorIndex : list.length - 1;
+  const startIndex = Math.max(0, endIndex - days + 1);
+  return list.slice(startIndex, endIndex + 1);
 });
 
 const displaySeries = computed(() => {
-  const list = sortedSeries.value;
-  if (!list.length) return [];
-  const days = Math.max(1, Number(selectedRange.value) || 1);
-  return list.slice(-days).map((item, index) => ({
-    ...item,
-    trade_date: item.trade_date,
-    seriesIndex: index,
-    empty: false,
-  }));
+  const timeline = chartTimeline.value;
+  if (!timeline.length) return [];
+  const dataMap = new Map(
+    sortedSeries.value
+      .filter((item) => item.trade_date)
+      .map((item) => [item.trade_date, item])
+  );
+  return timeline.map((trade_date, index) => {
+    const item = dataMap.get(trade_date);
+    if (!item) {
+      return {
+        trade_date,
+        seriesIndex: index,
+        empty: true,
+      };
+    }
+    return {
+      ...item,
+      trade_date,
+      seriesIndex: index,
+      empty: false,
+    };
+  });
 });
 
 const dataSeries = computed(() => displaySeries.value.filter((item) => !item.empty));
+
+const createMeasureContext = () => {
+  if (typeof document === "undefined") return null;
+  const canvas = document.createElement("canvas");
+  return canvas.getContext("2d");
+};
+
+const measureAxisWidth = (labels, fontSize, fallback) => {
+  if (!labels?.length) return fallback;
+  const context = createMeasureContext();
+  if (!context) return fallback;
+  const fontFamily =
+    chartBodyRef.value && typeof window !== "undefined"
+      ? window.getComputedStyle(chartBodyRef.value).fontFamily || "system-ui"
+      : "system-ui";
+  context.font = `${fontSize}px ${fontFamily}`;
+  let maxWidth = 0;
+  labels.forEach((label) => {
+    const text = label?.text ?? "";
+    if (!text) return;
+    const width = context.measureText(text).width || 0;
+    if (width > maxWidth) maxWidth = width;
+  });
+  const padding = 14;
+  const raw = Math.ceil(maxWidth + padding);
+  const min = 48;
+  const max = 96;
+  return Math.max(min, Math.min(max, raw));
+};
 
 const roundUpToStep = (value, step) => {
   const rounded = Math.ceil(value / step) * step;
@@ -883,6 +959,15 @@ const axisLabels = computed(() => {
 
 const activePrice = computed(() => {
   return selectedPrice.value;
+});
+
+const axisLayout = computed(() => {
+  const left = measureAxisWidth(axisLabels.value.price, 11, 56);
+  const right = measureAxisWidth(axisLabels.value.pct, 11, 60);
+  return {
+    "--axis-left-width": `${left}px`,
+    "--axis-right-width": `${right}px`,
+  };
 });
 
 const candleLayout = computed(() => {
@@ -1479,11 +1564,13 @@ watch(isCreateOpen, (value) => {
 .chart-body {
   height: 220px;
   position: relative;
+  --axis-left-width: 56px;
+  --axis-right-width: 60px;
 }
 
 .chart-plot {
   position: absolute;
-  inset: 12px 64px 26px 64px;
+  inset: 12px var(--axis-right-width) 26px var(--axis-left-width);
   overflow: hidden;
 }
 
@@ -1578,15 +1665,15 @@ watch(isCreateOpen, (value) => {
 }
 
 .chart-axis.left {
-  left: 6px;
+  left: 0;
   text-align: left;
-  width: 54px;
+  width: var(--axis-left-width);
 }
 
 .chart-axis.right {
-  right: 6px;
+  right: 0;
   text-align: right;
-  width: 60px;
+  width: var(--axis-right-width);
 }
 
 .chart-axis.left .axis-label {
@@ -1599,8 +1686,8 @@ watch(isCreateOpen, (value) => {
 
 .x-axis {
   position: absolute;
-  left: 64px;
-  right: 64px;
+  left: var(--axis-left-width);
+  right: var(--axis-right-width);
   bottom: 4px;
   height: 16px;
   font-size: 10px;
@@ -1622,26 +1709,8 @@ watch(isCreateOpen, (value) => {
 }
 
 @media (max-width: 420px) {
-  .chart-plot {
-    inset: 12px 56px 26px 56px;
-  }
-
-  .x-axis {
-    left: 56px;
-    right: 56px;
-    font-size: 10px;
-  }
-
   .chart-axis {
     font-size: 10px;
-  }
-
-  .chart-axis.left {
-    width: 48px;
-  }
-
-  .chart-axis.right {
-    width: 52px;
   }
 }
 
