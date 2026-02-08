@@ -60,12 +60,12 @@
             <div class="stat-value">{{ stats.totalViews }}</div>
           </div>
           <div>
-            <div class="stat-label">{{ t("已结束") }}</div>
-            <div class="stat-value">{{ stats.closedViews }}</div>
-          </div>
-          <div>
             <div class="stat-label">{{ t("胜率") }}</div>
             <div class="stat-value">{{ stats.winRate }}</div>
+          </div>
+          <div>
+            <div class="stat-label">{{ t("近30日绩效") }}</div>
+            <div class="stat-value">{{ stats.performance }}</div>
           </div>
         </div>
 
@@ -215,6 +215,11 @@ const user = ref({
 const feeds = ref([]);
 const likedIds = ref(new Set());
 const currentUserId = ref("");
+const userPerformance = ref({
+  avgPerformance: null,
+  feedCount: 0,
+  asOfDate: null,
+});
 const page = ref(1);
 const hasMore = ref(true);
 const isLoadingMore = ref(false);
@@ -284,13 +289,21 @@ const viewsWithStatus = computed(() =>
 
 const stats = computed(() => {
   const totalViews = feeds.value.length;
-  const closedViews = viewsWithStatus.value.filter(
-    (view) => view.statusPhase === "ended"
-  ).length;
+  const settled = viewsWithStatus.value.filter(
+    (view) => view.statusPhase === "ended" && Number.isFinite(view.performancePct)
+  );
+  const wins = settled.filter((view) => view.performancePct > 0).length;
+  const winRateLabel = settled.length
+    ? `${Math.round((wins / settled.length) * 100)}%`
+    : "—";
+  const avgPerformance = userPerformance.value.avgPerformance;
+  const hasPerformance =
+    userPerformance.value.feedCount > 0 && Number.isFinite(avgPerformance);
+  const performanceLabel = hasPerformance ? formatFeedPercent(avgPerformance) : "—";
   return {
     totalViews,
-    closedViews,
-    winRate: totalViews ? t("待结算") : "—",
+    winRate: winRateLabel,
+    performance: performanceLabel,
   };
 });
 
@@ -449,7 +462,35 @@ const loadProfile = async () => {
   applyShareMeta({ name: nickname, url: shareUrl });
   page.value = 1;
   hasMore.value = true;
+  await loadUserPerformance();
   await loadFeeds();
+};
+
+const loadUserPerformance = async () => {
+  const userId = resolvedUserId.value;
+  if (!userId) return;
+  const { data, error } = await supabase
+    .from("user_performance")
+    .select("avg_performance,feed_count,as_of_date")
+    .eq("user_id", userId)
+    .eq("window_days", 30)
+    .order("as_of_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("读取 user_performance 失败:", error);
+    return;
+  }
+
+  userPerformance.value = {
+    avgPerformance:
+      data?.avg_performance === null || data?.avg_performance === undefined
+        ? null
+        : Number(data.avg_performance),
+    feedCount: data?.feed_count ?? 0,
+    asOfDate: data?.as_of_date ?? null,
+  };
 };
 
 const loadMore = async () => {
