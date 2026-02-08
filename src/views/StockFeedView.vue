@@ -675,39 +675,57 @@ const sortedSeries = computed(() => {
   });
 });
 
-const tradingDays = computed(() => {
-  if (!sortedSeries.value.length) return [];
-  const days = [];
-  let lastDate = "";
-  sortedSeries.value.forEach((item) => {
-    const date = item.trade_date;
-    if (!date || date === lastDate) return;
-    days.push(date);
-    lastDate = date;
-  });
-  return days;
+const parseDateOnly = (value) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate()));
+};
+
+const formatDateOnly = (value) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : parseDateOnly(value);
+  if (!date) return "";
+  return date.toISOString().slice(0, 10);
+};
+
+const lastDataDate = computed(() => {
+  const list = sortedSeries.value;
+  if (!list.length) return "";
+  return list[list.length - 1]?.trade_date || "";
 });
 
 const chartAnchorDate = computed(() => {
-  const list = tradingDays.value;
-  if (!list.length) return "";
   const queryDate = typeof route.query.date === "string" ? route.query.date.trim() : "";
-  if (queryDate && list.includes(queryDate)) {
-    return queryDate;
+  const normalizedQuery = formatDateOnly(queryDate);
+  if (normalizedQuery) {
+    return normalizedQuery;
   }
-  return list[list.length - 1];
+  return formatDateOnly(lastDataDate.value);
+});
+
+const tradingDays = computed(() => {
+  const anchor = chartAnchorDate.value;
+  if (!anchor) return [];
+  const count = Math.max(1, Number(selectedRange.value) || 1);
+  const anchorDate = parseDateOnly(anchor);
+  if (!anchorDate) return [];
+  const days = [];
+  let cursor = anchorDate;
+  let guard = 0;
+  while (days.length < count && guard < count * 3) {
+    const day = cursor.getUTCDay();
+    if (day !== 0 && day !== 6) {
+      days.push(formatDateOnly(cursor));
+    }
+    cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000);
+    guard += 1;
+  }
+  return days.reverse();
 });
 
 const chartTimeline = computed(() => {
-  const list = tradingDays.value;
-  if (!list.length) return [];
-  const days = Math.max(1, Number(selectedRange.value) || 1);
-  const anchorIndex = chartAnchorDate.value
-    ? list.indexOf(chartAnchorDate.value)
-    : list.length - 1;
-  const endIndex = anchorIndex >= 0 ? anchorIndex : list.length - 1;
-  const startIndex = Math.max(0, endIndex - days + 1);
-  return list.slice(startIndex, endIndex + 1);
+  return tradingDays.value;
 });
 
 const displaySeries = computed(() => {
@@ -716,20 +734,20 @@ const displaySeries = computed(() => {
   const dataMap = new Map(
     sortedSeries.value
       .filter((item) => item.trade_date)
-      .map((item) => [item.trade_date, item])
+      .map((item) => [formatDateOnly(item.trade_date), item])
   );
   return timeline.map((trade_date, index) => {
-    const item = dataMap.get(trade_date);
+    const item = dataMap.get(formatDateOnly(trade_date));
     if (!item) {
       return {
-        trade_date,
+        trade_date: formatDateOnly(trade_date),
         seriesIndex: index,
         empty: true,
       };
     }
     return {
       ...item,
-      trade_date,
+      trade_date: formatDateOnly(trade_date),
       seriesIndex: index,
       empty: false,
     };
@@ -989,12 +1007,14 @@ const candleLayout = computed(() => {
   const pad = gap / 2;
   const contentWidth = count * candleWidth + Math.max(0, count - 1) * gap;
   const offset = Math.max(0, width - pad * 2 - contentWidth);
+  const halfOffset = offset / 2;
   return {
     "--candle-gap": `${gap}px`,
     "--candle-width": `${candleWidth}px`,
     "--candle-pad": `${pad}px`,
     "--candle-half": `${candleWidth / 2}px`,
     "--candle-offset": `${offset}px`,
+    "--candle-offset-half": `${halfOffset}px`,
   };
 });
 
@@ -1590,14 +1610,14 @@ watch(isCreateOpen, (value) => {
 
 .candles {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: stretch;
   gap: var(--candle-gap, 6px);
   height: 100%;
   width: 100%;
   position: relative;
   z-index: 2;
-  padding: 0 var(--candle-pad, 0px);
+  padding: 0 calc(var(--candle-pad, 0px) + var(--candle-offset-half, 0px));
   box-sizing: border-box;
 }
 
@@ -1699,8 +1719,7 @@ watch(isCreateOpen, (value) => {
   color: var(--muted);
   z-index: 2;
   display: block;
-  padding: 0 var(--candle-pad, 0px);
-  padding-left: calc(var(--candle-pad, 0px) + var(--candle-offset, 0px));
+  padding: 0 calc(var(--candle-pad, 0px) + var(--candle-offset-half, 0px));
   box-sizing: border-box;
   overflow: hidden;
 }
