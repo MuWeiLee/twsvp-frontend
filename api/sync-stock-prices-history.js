@@ -332,6 +332,7 @@ export default async function handler(req, res) {
 
     const summary = [];
     let totalRows = 0;
+    let rateLimited = false;
     for (const stockId of stockIds) {
       let errorMessage = null;
       let rows = [];
@@ -344,11 +345,54 @@ export default async function handler(req, res) {
         totalRows += rows.length;
       } catch (error) {
         errorMessage = error.message;
+        if (
+          errorMessage &&
+          /402|403|429|Payment Required|rate limit|quota/i.test(errorMessage)
+        ) {
+          rateLimited = true;
+        }
       }
       summary.push({ stock_id: stockId, rows: rows.length, error: errorMessage });
+      if (rateLimited) break;
       if (sleepMs > 0) {
         await sleep(sleepMs);
       }
+    }
+
+    if (rateLimited) {
+      await upsertHistoryState(supabase, state.state_id, {
+        status: "rate_limited",
+        detail: {
+          mode: "history",
+          totalStocks,
+          last_run: {
+            offset: state.stock_offset,
+            total_rows: totalRows,
+            summary,
+            error: "rate_limited",
+          },
+        },
+      });
+
+      await updateSyncLog(supabase, logId, {
+        status: "rate_limited",
+        total_rows: totalRows,
+        finished_at: new Date().toISOString(),
+        detail: { mode: "history", offset: state.stock_offset, summary },
+      });
+
+      res.status(429).json({
+        status: "rate_limited",
+        totalRows,
+        offset: state.stock_offset,
+        nextOffset: state.stock_offset,
+        totalStocks,
+        batch: stockIds.length,
+        startDate,
+        endDate,
+        summary,
+      });
+      return;
     }
 
     const nextOffset = state.stock_offset + stockIds.length;

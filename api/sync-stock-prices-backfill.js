@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const FINMIND_ENDPOINT =
   process.env.FINMIND_ENDPOINT || "https://api.finmindtrade.com/api/v4/data";
-const MIN_START_DATE = process.env.STOCK_PRICE_MIN_START_DATE || "2025-01-01";
+const MIN_START_DATE = process.env.STOCK_PRICE_MIN_START_DATE || "2020-01-01";
 
 const requiredEnv = (key) => {
   const value = process.env[key];
@@ -295,6 +295,9 @@ export default async function handler(req, res) {
   const startDateParam =
     params.start_date || process.env.BACKFILL_START_DATE || MIN_START_DATE;
   const explicitEndDate = params.end_date || process.env.BACKFILL_END_DATE || null;
+  const endDateLagDays = Number(
+    params.end_date_lag_days || process.env.BACKFILL_END_DATE_LAG_DAYS || 0
+  );
   const backfillRateLimit =
     params.rate_limit_per_hour || process.env.BACKFILL_RATE_LIMIT_PER_HOUR || 600;
   const requestedMaxStocks = Number(
@@ -335,9 +338,13 @@ export default async function handler(req, res) {
 
     const latestTradeDate = await fetchLatestTradeDate(supabase);
     const latestAvailableDate = latestTradeDate || formatDate(new Date());
+    const laggedAvailableDate =
+      Number.isFinite(endDateLagDays) && endDateLagDays > 0
+        ? addDays(latestAvailableDate, -endDateLagDays)
+        : latestAvailableDate;
     const defaultRange = normalizeDateRange(
       startDateParam,
-      explicitEndDate || latestAvailableDate
+      explicitEndDate || laggedAvailableDate
     );
 
     let state = reset ? null : await loadState(supabase, source, dataset);
