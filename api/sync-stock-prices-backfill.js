@@ -184,7 +184,9 @@ const parseFinmindRows = (rows, stockId) =>
 const upsertRows = async (supabase, table, rows, chunkSize, onConflict) => {
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize);
-    const { error } = await supabase.from(table).upsert(chunk, { onConflict });
+    const { error } = await supabase
+      .from(table)
+      .upsert(chunk, { onConflict, ignoreDuplicates: true });
     if (error) {
       throw new Error(`Supabase upsert failed: ${error.message}`);
     }
