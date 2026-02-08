@@ -677,39 +677,24 @@ const formatDateOnly = (value) => {
   return date.toISOString().slice(0, 10);
 };
 
-const lastDataDate = computed(() => {
-  const list = sortedSeries.value;
-  if (!list.length) return "";
-  return list[list.length - 1]?.trade_date || "";
-});
-
-const chartAnchorDate = computed(() => {
-  const queryDate = typeof route.query.date === "string" ? route.query.date.trim() : "";
-  const normalizedQuery = formatDateOnly(queryDate);
-  if (normalizedQuery) {
-    return normalizedQuery;
-  }
-  return formatDateOnly(lastDataDate.value);
-});
-
 const tradingDays = computed(() => {
-  const anchor = chartAnchorDate.value;
-  if (!anchor) return [];
+  const list = sortedSeries.value;
+  if (!list.length) return [];
+  const unique = [];
+  let lastDate = "";
+  list.forEach((item) => {
+    const date = formatDateOnly(item.trade_date);
+    if (!date || date === lastDate) return;
+    unique.push(date);
+    lastDate = date;
+  });
   const count = Math.max(1, Number(selectedRange.value) || 1);
-  const anchorDate = parseDateOnly(anchor);
-  if (!anchorDate) return [];
-  const days = [];
-  let cursor = anchorDate;
-  let guard = 0;
-  while (days.length < count && guard < count * 3) {
-    const day = cursor.getUTCDay();
-    if (day !== 0 && day !== 6) {
-      days.push(formatDateOnly(cursor));
-    }
-    cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000);
-    guard += 1;
-  }
-  return days.reverse();
+  const queryDate = typeof route.query.date === "string" ? route.query.date.trim() : "";
+  const anchor = formatDateOnly(queryDate);
+  const anchorIndex = anchor ? unique.indexOf(anchor) : unique.length - 1;
+  const endIndex = anchorIndex >= 0 ? anchorIndex : unique.length - 1;
+  const startIndex = Math.max(0, endIndex - count + 1);
+  return unique.slice(startIndex, endIndex + 1);
 });
 
 const chartTimeline = computed(() => {
@@ -995,14 +980,12 @@ const candleLayout = computed(() => {
   const pad = gap / 2;
   const contentWidth = count * candleWidth + Math.max(0, count - 1) * gap;
   const offset = Math.max(0, width - pad * 2 - contentWidth);
-  const halfOffset = offset / 2;
   return {
     "--candle-gap": `${gap}px`,
     "--candle-width": `${candleWidth}px`,
     "--candle-pad": `${pad}px`,
     "--candle-half": `${candleWidth / 2}px`,
     "--candle-offset": `${offset}px`,
-    "--candle-offset-half": `${halfOffset}px`,
   };
 });
 
@@ -1603,14 +1586,15 @@ watch(isCreateOpen, (value) => {
 
 .candles {
   display: flex;
-  justify-content: flex-start;
+  justify-content: flex-end;
   align-items: stretch;
   gap: var(--candle-gap, 6px);
   height: 100%;
   width: 100%;
   position: relative;
   z-index: 2;
-  padding: 0 calc(var(--candle-pad, 0px) + var(--candle-offset-half, 0px));
+  padding: 0 var(--candle-pad, 0px);
+  padding-left: calc(var(--candle-pad, 0px) + var(--candle-offset, 0px));
   box-sizing: border-box;
 }
 
@@ -1712,7 +1696,8 @@ watch(isCreateOpen, (value) => {
   color: var(--muted);
   z-index: 2;
   display: block;
-  padding: 0 calc(var(--candle-pad, 0px) + var(--candle-offset-half, 0px));
+  padding: 0 var(--candle-pad, 0px);
+  padding-left: calc(var(--candle-pad, 0px) + var(--candle-offset, 0px));
   box-sizing: border-box;
   overflow: visible;
 }
