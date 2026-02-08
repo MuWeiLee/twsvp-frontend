@@ -103,29 +103,17 @@
               </span>
             </div>
             <div v-if="activePrice" class="hint-card chart-hint" :class="hintPlacement">
-              <div class="hint-row">
-                <span class="hint-date">{{ activePrice.dateLabel }}</span>
-                <span class="hint-meta">
-                  {{ t("观点数量：{count} 条", { count: activePrice.feedCount }) }}
-                </span>
-              </div>
-              <div class="hint-grid">
-                <div>
-                  {{ t("收盘价：{value}元", { value: formatPrice(activePrice.close) }) }}
+              <div class="hint-column">
+                <div class="hint-date">{{ activePrice.dateLabel }}</div>
+                <div class="hint-meta">
+                  {{ t("观点数量：{count}条", { count: activePrice.feedCount }) }}
                 </div>
-                <div>
-                  {{ t("涨跌幅：{value}", { value: formatPercent(activePrice.changePct) }) }}
-                </div>
-                <div>
-                  {{ t("开盘价：{value}元", { value: formatPrice(activePrice.open) }) }}
-                </div>
-                <div>{{ t("振幅") }}：{{ formatPercent(activePrice.amplitude) }}</div>
-                <div>
-                  {{ t("最高：{value}元", { value: formatPrice(activePrice.high) }) }}
-                </div>
-                <div>
-                  {{ t("最低：{value}元", { value: formatPrice(activePrice.low) }) }}
-                </div>
+                <div>{{ t("涨跌幅：{value}", { value: formatPercent(activePrice.changePct) }) }}</div>
+                <div>{{ t("开盘价：{value}元", { value: formatPrice(activePrice.open) }) }}</div>
+                <div>{{ t("收盘价：{value}元", { value: formatPrice(activePrice.close) }) }}</div>
+                <div>{{ t("最高价：{value}元", { value: formatPrice(activePrice.high) }) }}</div>
+                <div>{{ t("最低价：{value}元", { value: formatPrice(activePrice.low) }) }}</div>
+                <div>{{ t("振幅：{value}", { value: formatPercent(activePrice.amplitude) }) }}</div>
               </div>
             </div>
           </template>
@@ -1570,8 +1558,15 @@ watch(isCreateOpen, (value) => {
   font-weight: 600;
 }
 
+.hint-column {
+  display: grid;
+  gap: 6px;
+  font-weight: 500;
+}
+
 .hint-date {
   font-size: 12px;
+  font-weight: 600;
 }
 
 .hint-meta {
@@ -1580,10 +1575,7 @@ watch(isCreateOpen, (value) => {
 }
 
 .hint-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 12px;
-  color: var(--muted);
+  display: none;
 }
 
 .chart-body {
@@ -1591,6 +1583,7 @@ watch(isCreateOpen, (value) => {
   position: relative;
   --axis-left-width: 56px;
   --axis-right-width: 60px;
+  overflow: visible;
 }
 
 .chart-plot {
@@ -1721,7 +1714,7 @@ watch(isCreateOpen, (value) => {
   display: block;
   padding: 0 calc(var(--candle-pad, 0px) + var(--candle-offset-half, 0px));
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .x-axis-label {
@@ -1730,6 +1723,7 @@ watch(isCreateOpen, (value) => {
   position: absolute;
   transform: translateX(-50%);
   font-variant-numeric: tabular-nums;
+  max-width: 96px;
 }
 
 @media (max-width: 420px) {
