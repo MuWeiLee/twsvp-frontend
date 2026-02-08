@@ -27,18 +27,7 @@
         <div class="chart-header">
           <div class="chart-title">{{ t("日K行情") }}</div>
           <div class="chart-range">
-            <div class="chart-range-buttons">
-              <button
-                v-for="option in chartRangeOptions"
-                :key="option.value"
-                class="chart-range-btn"
-                :class="{ active: selectedRange === option.value }"
-                type="button"
-                @click="handleRangeChange(option.value)"
-              >
-                {{ t(option.label) }}
-              </button>
-            </div>
+            <span class="chart-range-label">{{ t("20日") }}</span>
           </div>
         </div>
         <div
@@ -450,11 +439,6 @@ const isLoadingMore = ref(false);
 const isStockFollowed = ref(false);
 const PAGE_SIZE = 20;
 const FOLLOW_STOCKS_KEY = "twsvp_followed_stocks";
-const chartRangeOptions = [
-  { value: 20, label: "20日" },
-  { value: 50, label: "50日" },
-  { value: 100, label: "100日" },
-];
 const selectedRange = ref(20);
 const activeSymbol = ref("");
 const brokerId = ref("");
@@ -594,11 +578,6 @@ const selectPrice = (price, event) => {
   const horizontal = x < rect.width / 2 ? "right" : "left";
   const vertical = y < rect.height / 2 ? "bottom" : "top";
   hintPlacement.value = `${vertical}-${horizontal}`;
-};
-
-const handleRangeChange = (value) => {
-  selectedRange.value = value;
-  selectedPrice.value = null;
 };
 
 const clearActivePrice = () => {
@@ -1500,27 +1479,10 @@ watch(isCreateOpen, (value) => {
   gap: 6px;
 }
 
-.chart-range-buttons {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 12px;
-  justify-content: flex-end;
-  white-space: nowrap;
-}
-
-.chart-range-btn {
-  border: 0;
-  background: transparent;
-  padding: 0 0 4px;
+.chart-range-label {
   font-size: 12px;
-  color: var(--muted);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-}
-
-.chart-range-btn.active {
   color: var(--ink);
-  border-color: var(--ink);
+  font-weight: 600;
 }
 
 .hint-card {
