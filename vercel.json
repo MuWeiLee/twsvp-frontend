@@ -26,7 +26,11 @@
     },
     {
       "path": "/api/sync-feed-performance",
-      "schedule": "20 14 * * *"
+      "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/sync-user-performance",
+      "schedule": "0 17 * * *"
     },
     {
       "path": "/api/sync-newsdata",

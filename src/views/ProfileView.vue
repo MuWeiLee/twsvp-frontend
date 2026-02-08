@@ -55,7 +55,7 @@
             <div class="stat-value">{{ performance.winRate }}</div>
           </div>
           <div>
-            <div class="stat-label">{{ t("绩效表现") }}</div>
+            <div class="stat-label">{{ t("近30日绩效") }}</div>
             <div class="stat-value">{{ performance.performance }}</div>
           </div>
         </div>
@@ -224,6 +224,11 @@ const feeds = ref([]);
 const likedIds = ref(new Set());
 const currentUserId = ref("");
 const activeMenuId = ref(null);
+const userPerformance = ref({
+  avgPerformance: null,
+  feedCount: 0,
+  asOfDate: null,
+});
 const page = ref(1);
 const hasMore = ref(true);
 const isLoadingMore = ref(false);
@@ -277,10 +282,14 @@ const viewsWithStatus = computed(() =>
 
 const performance = computed(() => {
   const totalViews = feeds.value.length;
+  const avgPerformance = userPerformance.value.avgPerformance;
+  const hasPerformance =
+    userPerformance.value.feedCount > 0 && Number.isFinite(avgPerformance);
+  const performanceLabel = hasPerformance ? formatFeedPercent(avgPerformance) : "—";
   return {
     totalViews,
     winRate: totalViews ? t("待结算") : "—",
-    performance: totalViews ? t("待结算") : "—",
+    performance: performanceLabel,
   };
 });
 
@@ -330,7 +339,34 @@ const loadProfile = async () => {
   };
   page.value = 1;
   hasMore.value = true;
+  await loadUserPerformance();
   await loadFeeds();
+};
+
+const loadUserPerformance = async () => {
+  if (!currentUserId.value) return;
+  const { data, error } = await supabase
+    .from("user_performance")
+    .select("avg_performance,feed_count,as_of_date")
+    .eq("user_id", currentUserId.value)
+    .eq("window_days", 30)
+    .order("as_of_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("读取 user_performance 失败:", error);
+    return;
+  }
+
+  userPerformance.value = {
+    avgPerformance:
+      data?.avg_performance === null || data?.avg_performance === undefined
+        ? null
+        : Number(data.avg_performance),
+    feedCount: data?.feed_count ?? 0,
+    asOfDate: data?.as_of_date ?? null,
+  };
 };
 
 const loadMore = async () => {
