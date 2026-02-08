@@ -51,6 +51,27 @@ const resolveSleepMs = (explicitValue, rateLimitPerHour, fallbackMs = 250) => {
   return fallbackMs;
 };
 
+const resolveMaxRuntimeMs = (explicitValue, fallbackMs = 290000) => {
+  const parsed = Number(explicitValue);
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return fallbackMs;
+};
+
+const resolveRequestOverheadMs = (explicitValue, fallbackMs = 1000) => {
+  const parsed = Number(explicitValue);
+  if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  return fallbackMs;
+};
+
+const applyRuntimeLimit = (requestedMax, sleepMs, overheadMs, maxRuntimeMs) => {
+  const perRequestMs = Math.max(0, sleepMs) + Math.max(0, overheadMs);
+  if (!Number.isFinite(perRequestMs) || perRequestMs <= 0) return requestedMax;
+  const safetyMs = 5000;
+  const budget = Math.max(0, maxRuntimeMs - safetyMs);
+  const safeMax = Math.max(1, Math.floor(budget / perRequestMs));
+  return Math.max(1, Math.min(requestedMax, safeMax));
+};
+
 const fetchLatestTradeDate = async (supabase) => {
   const { data, error } = await supabase
     .from("stock_prices")
@@ -242,6 +263,14 @@ export default async function handler(req, res) {
     rateLimitPerHour,
     250
   );
+  const maxRuntimeMs = resolveMaxRuntimeMs(
+    params.max_runtime_ms || process.env.STOCK_PRICE_SYNC_MAX_RUNTIME_MS,
+    290000
+  );
+  const requestOverheadMs = resolveRequestOverheadMs(
+    params.request_overhead_ms || process.env.STOCK_PRICE_SYNC_REQUEST_OVERHEAD_MS,
+    1000
+  );
   const incremental =
     `${params.incremental || params.incremental_sync || process.env.STOCK_PRICE_SYNC_INCREMENTAL || "1"}` ===
     "1";
@@ -272,7 +301,7 @@ export default async function handler(req, res) {
     stockId: stockIdParam || null,
     stockIds: stockIdsParam.length ? stockIdsParam : null,
     stockOffset,
-    maxStocks,
+    maxStocks: applyRuntimeLimit(maxStocks, sleepMs, requestOverheadMs, maxRuntimeMs),
     purge,
     purgeAll,
     incremental,
@@ -337,7 +366,7 @@ export default async function handler(req, res) {
         supabase,
         markets,
         stockOffset,
-        maxStocks,
+        applyRuntimeLimit(maxStocks, sleepMs, requestOverheadMs, maxRuntimeMs),
         includeInactive
       );
     }

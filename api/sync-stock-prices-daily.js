@@ -37,6 +37,27 @@ const resolveSleepMs = (explicitValue, rateLimitPerHour, fallbackMs = 250) => {
   return fallbackMs;
 };
 
+const resolveMaxRuntimeMs = (explicitValue, fallbackMs = 290000) => {
+  const parsed = Number(explicitValue);
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return fallbackMs;
+};
+
+const resolveRequestOverheadMs = (explicitValue, fallbackMs = 1000) => {
+  const parsed = Number(explicitValue);
+  if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  return fallbackMs;
+};
+
+const applyRuntimeLimit = (requestedMax, sleepMs, overheadMs, maxRuntimeMs) => {
+  const perRequestMs = Math.max(0, sleepMs) + Math.max(0, overheadMs);
+  if (!Number.isFinite(perRequestMs) || perRequestMs <= 0) return requestedMax;
+  const safetyMs = 5000;
+  const budget = Math.max(0, maxRuntimeMs - safetyMs);
+  const safeMax = Math.max(1, Math.floor(budget / perRequestMs));
+  return Math.max(1, Math.min(requestedMax, safeMax));
+};
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const fetchFinmindPrices = async (token, stockId, tradeDate, retry = 2) => {
@@ -284,6 +305,14 @@ export default async function handler(req, res) {
     params.max_stocks || params.maxStocks || process.env.STOCK_PRICE_DAILY_MAX_STOCKS || 200
   );
   const reset = `${params.reset || ""}` === "1";
+  const maxRuntimeMs = resolveMaxRuntimeMs(
+    params.max_runtime_ms || process.env.STOCK_PRICE_DAILY_MAX_RUNTIME_MS,
+    290000
+  );
+  const requestOverheadMs = resolveRequestOverheadMs(
+    params.request_overhead_ms || process.env.STOCK_PRICE_DAILY_REQUEST_OVERHEAD_MS,
+    1000
+  );
 
   let supabase = null;
   let logId = null;
@@ -335,16 +364,22 @@ export default async function handler(req, res) {
         mode: "daily",
         tradeDate,
         offset: state.stock_offset,
-        maxStocks,
+        maxStocks: applyRuntimeLimit(maxStocks, sleepMs, requestOverheadMs, maxRuntimeMs),
         rateLimitPerHour,
       },
     });
 
+  const effectiveMaxStocks = applyRuntimeLimit(
+    maxStocks,
+    sleepMs,
+    requestOverheadMs,
+    maxRuntimeMs
+  );
   const stockIds = await fetchStockIds(
     supabase,
     markets,
     state.stock_offset,
-    maxStocks,
+    effectiveMaxStocks,
     includeInactive
   );
 

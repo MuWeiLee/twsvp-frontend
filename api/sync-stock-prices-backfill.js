@@ -53,6 +53,27 @@ const resolveSleepMs = (explicitValue, rateLimitPerHour, fallbackMs = 250) => {
   return fallbackMs;
 };
 
+const resolveMaxRuntimeMs = (explicitValue, fallbackMs = 290000) => {
+  const parsed = Number(explicitValue);
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return fallbackMs;
+};
+
+const resolveRequestOverheadMs = (explicitValue, fallbackMs = 1000) => {
+  const parsed = Number(explicitValue);
+  if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  return fallbackMs;
+};
+
+const applyRuntimeLimit = (requestedMax, sleepMs, overheadMs, maxRuntimeMs) => {
+  const perRequestMs = Math.max(0, sleepMs) + Math.max(0, overheadMs);
+  if (!Number.isFinite(perRequestMs) || perRequestMs <= 0) return requestedMax;
+  const safetyMs = 5000;
+  const budget = Math.max(0, maxRuntimeMs - safetyMs);
+  const safeMax = Math.max(1, Math.floor(budget / perRequestMs));
+  return Math.max(1, Math.min(requestedMax, safeMax));
+};
+
 const addDays = (dateString, days) => {
   const date = new Date(dateString);
   date.setDate(date.getDate() + days);
@@ -209,6 +230,32 @@ const parseParams = (req) => {
   return { ...(req.query || {}), ...(req.body || {}) };
 };
 
+const fetchTradingDates = async (supabase, startDate, endDate) => {
+  const { data, error } = await supabase
+    .from("trading_calendar")
+    .select("trade_date")
+    .gte("trade_date", startDate)
+    .lte("trade_date", endDate)
+    .order("trade_date", { ascending: true });
+  if (error) {
+    throw new Error(`Trading calendar query failed: ${error.message}`);
+  }
+  return (data || []).map((row) => row.trade_date);
+};
+
+const fetchExistingDates = async (supabase, stockId, startDate, endDate) => {
+  const { data, error } = await supabase
+    .from("stock_prices")
+    .select("trade_date")
+    .eq("stock_id", stockId)
+    .gte("trade_date", startDate)
+    .lte("trade_date", endDate);
+  if (error) {
+    throw new Error(`Stock prices query failed: ${error.message}`);
+  }
+  return new Set((data || []).map((row) => row.trade_date));
+};
+
 const fetchLatestTradeDate = async (supabase) => {
   const { data, error } = await supabase
     .from("stock_prices")
@@ -312,6 +359,20 @@ export default async function handler(req, res) {
     backfillRateLimit,
     250
   );
+  const maxRuntimeMs = resolveMaxRuntimeMs(
+    params.max_runtime_ms || process.env.BACKFILL_MAX_RUNTIME_MS,
+    290000
+  );
+  const requestOverheadMs = resolveRequestOverheadMs(
+    params.request_overhead_ms || process.env.BACKFILL_REQUEST_OVERHEAD_MS,
+    1000
+  );
+  const useMissing =
+    `${params.use_missing || process.env.BACKFILL_USE_MISSING || "0"}` === "1";
+  const missingLimit = Math.max(
+    1,
+    Number(params.missing_limit || process.env.BACKFILL_MISSING_LIMIT || 30)
+  );
   const markets = (params.markets || process.env.BACKFILL_MARKETS || "上市,上櫃,興櫃")
     .split(",")
     .map((value) => value.trim())
@@ -401,7 +462,7 @@ export default async function handler(req, res) {
     }
     let stockOffset = state.stock_offset || 0;
 
-    if (currentDate < startDate) {
+    if (mode !== "stock" && currentDate < startDate) {
       if (!dryRun) {
         state = await upsertState(supabase, state.state_id, {
           status: autoExtend ? "idle" : "completed",
@@ -423,7 +484,7 @@ export default async function handler(req, res) {
     if (!dryRun) {
       logId = await createSyncLog(supabase, {
         source,
-        start_date: currentDate,
+        start_date: mode === "stock" ? startDate : currentDate,
         end_date: mode === "stock" ? endDate : currentDate,
         status: "running",
         detail: {
@@ -432,7 +493,7 @@ export default async function handler(req, res) {
             markets,
             mode,
             stockOffset,
-            maxStocks,
+            maxStocks: applyRuntimeLimit(maxStocks, sleepMs, requestOverheadMs, maxRuntimeMs),
             includeInactive,
             sleepMs,
           },
@@ -448,23 +509,26 @@ export default async function handler(req, res) {
 
     const token = requiredEnv("FINMIND_TOKEN");
     if (mode === "stock") {
+      const effectiveMaxStocks = applyRuntimeLimit(
+        maxStocks,
+        sleepMs,
+        requestOverheadMs,
+        maxRuntimeMs
+      );
       const stockIds = await fetchStockIds(
         supabase,
         markets,
         stockOffset,
-        maxStocks,
+        effectiveMaxStocks,
         includeInactive
       );
       if (!stockIds.length) {
         if (stockOffset === 0) {
           throw new Error("No stocks found for markets.");
         }
-        const nextCursorDate = addDays(currentDate, -1);
-        const status =
-          nextCursorDate < startDate ? (autoExtend ? "idle" : "completed") : "running";
+        const status = autoExtend ? "idle" : "completed";
         if (!dryRun) {
           state = await upsertState(supabase, state.state_id, {
-            cursor_date: nextCursorDate,
             stock_offset: 0,
             status,
             finished_at: status === "completed" ? new Date().toISOString() : null,
@@ -472,7 +536,7 @@ export default async function handler(req, res) {
               ...state.detail,
               last_run: {
                 note: "Reached end of stock list",
-                range: { start: currentDate, end: endDate },
+                range: { start: startDate, end: endDate },
               },
             },
           });
@@ -488,7 +552,7 @@ export default async function handler(req, res) {
                 markets,
                 mode,
                 stockOffset,
-                maxStocks,
+                maxStocks: effectiveMaxStocks,
                 includeInactive,
                 sleepMs,
               },
@@ -504,22 +568,77 @@ export default async function handler(req, res) {
         return;
       }
 
+      const tradingDates = useMissing
+        ? await fetchTradingDates(supabase, startDate, endDate)
+        : null;
+
       for (const stockId of stockIds) {
         let rows = [];
         let errorMessage = null;
         try {
-          const raw = await fetchFinmindPrices(token, dataset, stockId, currentDate, endDate);
-          rows = parseFinmindRows(raw, stockId);
-          if (!dryRun && rows.length) {
-            await upsertRows(
+          if (useMissing) {
+            const existingDates = await fetchExistingDates(
               supabase,
-              "stock_prices",
-              rows,
-              chunkSize,
-              "stock_id,trade_date"
+              stockId,
+              startDate,
+              endDate
             );
+            const missingDates = (tradingDates || []).filter(
+              (date) => !existingDates.has(date)
+            );
+            if (missingDates.length > 0 && missingDates.length <= missingLimit) {
+              for (const missingDate of missingDates) {
+                const raw = await fetchFinmindPrices(
+                  token,
+                  dataset,
+                  stockId,
+                  missingDate,
+                  missingDate
+                );
+                const missingRows = parseFinmindRows(raw, stockId);
+                if (!dryRun && missingRows.length) {
+                  await upsertRows(
+                    supabase,
+                    "stock_prices",
+                    missingRows,
+                    chunkSize,
+                    "stock_id,trade_date"
+                  );
+                }
+                totalRows += missingRows.length;
+                rows.push(...missingRows);
+                if (sleepMs > 0) {
+                  await sleep(sleepMs);
+                }
+              }
+            } else if (missingDates.length > missingLimit) {
+              const raw = await fetchFinmindPrices(token, dataset, stockId, startDate, endDate);
+              rows = parseFinmindRows(raw, stockId);
+              if (!dryRun && rows.length) {
+                await upsertRows(
+                  supabase,
+                  "stock_prices",
+                  rows,
+                  chunkSize,
+                  "stock_id,trade_date"
+                );
+              }
+              totalRows += rows.length;
+            }
+          } else {
+            const raw = await fetchFinmindPrices(token, dataset, stockId, startDate, endDate);
+            rows = parseFinmindRows(raw, stockId);
+            if (!dryRun && rows.length) {
+              await upsertRows(
+                supabase,
+                "stock_prices",
+                rows,
+                chunkSize,
+                "stock_id,trade_date"
+              );
+            }
+            totalRows += rows.length;
           }
-          totalRows += rows.length;
         } catch (error) {
           errorMessage = error.message;
           if (
@@ -541,11 +660,17 @@ export default async function handler(req, res) {
         nextOffset = stockOffset + stockIds.length;
       }
     } else {
+      const effectiveMaxStocks = applyRuntimeLimit(
+        maxStocks,
+        sleepMs,
+        requestOverheadMs,
+        maxRuntimeMs
+      );
       const stockIds = await fetchStockIds(
         supabase,
         markets,
         stockOffset,
-        maxStocks,
+        effectiveMaxStocks,
         includeInactive
       );
       if (!stockIds.length) {
@@ -579,7 +704,7 @@ export default async function handler(req, res) {
                 markets,
                 mode,
                 stockOffset,
-                maxStocks,
+                maxStocks: effectiveMaxStocks,
                 includeInactive,
                 sleepMs,
               },
@@ -662,7 +787,7 @@ export default async function handler(req, res) {
                 error: "rate_limited",
               };
         state = await upsertState(supabase, state.state_id, {
-          cursor_date: currentDate,
+          cursor_date: mode === "stock" ? state.cursor_date : currentDate,
           stock_offset: stockOffset,
           max_stocks: maxStocks,
           end_date: endDate,
@@ -684,7 +809,7 @@ export default async function handler(req, res) {
               markets,
               mode,
               stockOffset,
-              maxStocks,
+              maxStocks: applyRuntimeLimit(maxStocks, sleepMs, requestOverheadMs, maxRuntimeMs),
               includeInactive,
               sleepMs,
             },
@@ -716,7 +841,7 @@ export default async function handler(req, res) {
       const lastRun =
         mode === "stock"
           ? {
-              range: { start: currentDate, end: endDate },
+              range: { start: startDate, end: endDate },
               stock_offset: stockOffset,
               total_rows: totalRows,
               summary,
@@ -728,7 +853,7 @@ export default async function handler(req, res) {
               summary,
             };
       state = await upsertState(supabase, state.state_id, {
-        cursor_date: nextDate,
+        cursor_date: mode === "stock" ? state.cursor_date : nextDate,
         stock_offset: nextOffset,
         max_stocks: maxStocks,
         end_date: endDate,
@@ -752,7 +877,7 @@ export default async function handler(req, res) {
             markets,
             mode,
             stockOffset,
-            maxStocks,
+            maxStocks: applyRuntimeLimit(maxStocks, sleepMs, requestOverheadMs, maxRuntimeMs),
             includeInactive,
             sleepMs,
           },
