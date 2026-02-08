@@ -552,7 +552,7 @@ const formatHintDate = (value) => {
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
   const day = `${date.getDate()}`.padStart(2, "0");
-  return `${year}/${month}/${day}`;
+  return `${year}-${month}-${day}`;
 };
 
 
@@ -941,7 +941,7 @@ const axisLabels = computed(() => {
     if (Number.isNaN(date.getTime())) return "—";
     const month = `${date.getMonth() + 1}`.padStart(2, "0");
     const day = `${date.getDate()}`.padStart(2, "0");
-    return `${month}/${day}`;
+    return `${month}-${day}`;
   };
   const timeStart = formatAxisDate(chartTimeline.value[0]);
   const timeMid = formatAxisDate(chartTimeline.value[midIndex]);

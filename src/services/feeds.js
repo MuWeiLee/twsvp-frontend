@@ -69,8 +69,8 @@ export const formatFeedTimestamp = (value) => {
 
   const month = pad2(date.getMonth() + 1);
   const day = pad2(date.getDate());
-  if (date >= oneYearAgo) return `${month}/${day} ${time}`;
-  return `${date.getFullYear()}/${month}/${day} ${time}`;
+  if (date >= oneYearAgo) return `${month}-${day} ${time}`;
+  return `${date.getFullYear()}-${month}-${day} ${time}`;
 };
 
 export const HORIZON_RANGES = {
