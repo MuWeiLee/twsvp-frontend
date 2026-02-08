@@ -39,6 +39,37 @@ npm run dev
 http://localhost:5173
 ```
 
+## 数据补录（Supabase）
+
+> 适用于数据库被清空后的历史行情/股票列表补录。
+
+### 必填环境变量
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+### 可选环境变量
+
+- `START_DATE`：补录起始日（格式 `YYYY-MM-DD`，仅用于价格补录）
+- `END_DATE`：补录结束日（格式 `YYYY-MM-DD`，仅用于价格补录）
+- `CHUNK_SIZE`：每次 upsert 数量（默认 500）
+- `SLEEP_MS`：每日请求间隔（默认 250）
+- `MAX_LOOKBACK_DAYS`：拉取股票列表最大回溯天数（默认 7）
+- `DRY_RUN=1`：只跑流程不写入（仅用于价格补录）
+
+### 一键补录
+
+```bash
+npm run backfill:data
+```
+
+### 分步补录
+
+```bash
+npm run sync:stocks
+npm run sync:stock-prices
+```
+
 ## 项目结构
 
 ```

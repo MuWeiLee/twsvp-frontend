@@ -2,7 +2,9 @@ import { createClient } from "@supabase/supabase-js";
 
 const FINMIND_ENDPOINT =
   process.env.FINMIND_ENDPOINT || "https://api.finmindtrade.com/api/v4/data";
-const DEFAULT_START_DATE = process.env.STOCK_PRICE_HISTORY_START_DATE || "2020-01-01";
+const MIN_START_DATE = "2025-01-01";
+const DEFAULT_START_DATE =
+  process.env.STOCK_PRICE_HISTORY_START_DATE || MIN_START_DATE;
 
 const requiredEnv = (key) => {
   const value = process.env[key];
@@ -19,6 +21,11 @@ const formatDate = (date) => {
   const month = pad2(date.getMonth() + 1);
   const day = pad2(date.getDate());
   return `${year}-${month}-${day}`;
+};
+
+const clampStartDate = (value) => {
+  if (!value) return MIN_START_DATE;
+  return value < MIN_START_DATE ? MIN_START_DATE : value;
 };
 
 const normalizeNumber = (value) => {
@@ -60,6 +67,19 @@ const applyRuntimeLimit = (requestedMax, sleepMs, overheadMs, maxRuntimeMs) => {
 };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const fetchTradingCalendarDates = async (supabase, startDate, endDate) => {
+  const { data, error } = await supabase
+    .from("trading_calendar")
+    .select("trade_date")
+    .gte("trade_date", startDate)
+    .lte("trade_date", endDate)
+    .order("trade_date", { ascending: true });
+  if (error) {
+    throw new Error(`Supabase trading_calendar query failed: ${error.message}`);
+  }
+  return (data || []).map((row) => row.trade_date);
+};
 
 const fetchFinmindPrices = async (token, stockId, startDate, endDate, retry = 2) => {
   const url = new URL(FINMIND_ENDPOINT);
@@ -134,7 +154,7 @@ const upsertRows = async (supabase, rows, chunkSize) => {
     const chunk = rows.slice(i, i + chunkSize);
     const { error } = await supabase
       .from("stock_prices")
-      .upsert(chunk, { onConflict: "stock_id,trade_date" });
+      .upsert(chunk, { onConflict: "stock_id,trade_date", ignoreDuplicates: true });
     if (error) {
       throw new Error(`Supabase upsert failed: ${error.message}`);
     }
@@ -272,7 +292,9 @@ export default async function handler(req, res) {
   }
 
   const params = parseParams(req);
-  const startDate = `${params.start_date || params.startDate || DEFAULT_START_DATE}`;
+  const startDate = clampStartDate(
+    `${params.start_date || params.startDate || DEFAULT_START_DATE}`
+  );
   const endDate = `${params.end_date || params.endDate || formatDate(new Date())}`;
   const chunkSize = Number(params.chunk_size || params.chunkSize || 500);
   const rateLimitPerHour =
@@ -312,6 +334,12 @@ export default async function handler(req, res) {
     supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
     });
+
+    const tradingDates = await fetchTradingCalendarDates(supabase, startDate, endDate);
+    if (!tradingDates.length) {
+      throw new Error("No trading dates found in trading_calendar for the range.");
+    }
+    const tradingDateSet = new Set(tradingDates);
 
     let state = await loadHistoryState(supabase, dataset);
     if (reset || !state || state.status !== "running") {
@@ -374,7 +402,9 @@ export default async function handler(req, res) {
       let rows = [];
       try {
         const raw = await fetchFinmindPrices(token, stockId, startDate, endDate);
-        rows = parseFinmindRows(raw, stockId);
+        rows = parseFinmindRows(raw, stockId).filter((row) =>
+          tradingDateSet.has(row.trade_date)
+        );
         if (rows.length) {
           await upsertRows(supabase, rows, chunkSize);
         }

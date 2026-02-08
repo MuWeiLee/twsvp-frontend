@@ -60,6 +60,18 @@ const applyRuntimeLimit = (requestedMax, sleepMs, overheadMs, maxRuntimeMs) => {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const parseIsoTime = (value) => {
+  if (!value) return null;
+  const ts = Date.parse(value);
+  return Number.isNaN(ts) ? null : ts;
+};
+
+const isRecentlyUpdated = (value, staleMinutes) => {
+  const ts = parseIsoTime(value);
+  if (!ts) return false;
+  return Date.now() - ts <= staleMinutes * 60 * 1000;
+};
+
 const fetchFinmindPrices = async (token, stockId, tradeDate, retry = 2) => {
   const url = new URL(FINMIND_ENDPOINT);
   url.searchParams.set("dataset", "TaiwanStockPrice");
@@ -248,6 +260,75 @@ const upsertDailyState = async (supabase, stateId, payload) => {
   return data;
 };
 
+const closeOtherRunningDailyStates = async (supabase, tradeDate, keepStateId = null) => {
+  let query = supabase
+    .from("stock_price_backfill_state")
+    .update({
+      status: "superseded",
+      finished_at: new Date().toISOString(),
+      detail: { reason: "superseded_by_reset", mode: "daily", tradeDate },
+    })
+    .eq("source", "finmind")
+    .eq("dataset", "TaiwanStockPrice")
+    .eq("cursor_date", tradeDate)
+    .eq("status", "running");
+  if (keepStateId) {
+    query = query.neq("state_id", keepStateId);
+  }
+  await query;
+};
+
+const hasActiveDailyConflict = async (
+  supabase,
+  tradeDate,
+  keepStateId,
+  staleMinutes = 20
+) => {
+  let query = supabase
+    .from("stock_price_backfill_state")
+    .select("state_id,status,updated_at")
+    .eq("source", "finmind")
+    .eq("dataset", "TaiwanStockPrice")
+    .eq("cursor_date", tradeDate)
+    .eq("status", "running")
+    .order("updated_at", { ascending: false })
+    .limit(5);
+  if (keepStateId) {
+    query = query.neq("state_id", keepStateId);
+  }
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(`Backfill state conflict query failed: ${error.message}`);
+  }
+  return (data || []).some((item) => isRecentlyUpdated(item.updated_at, staleMinutes));
+};
+
+const recordMissingDaily = async (
+  supabase,
+  stockId,
+  tradeDate,
+  errorMessage = null
+) => {
+  const payload = {
+    source: "finmind",
+    dataset: "TaiwanStockPrice",
+    stock_id: stockId,
+    trade_date: tradeDate,
+    reason: errorMessage || "empty_response",
+    detail: {
+      mode: "daily",
+      error: errorMessage,
+    },
+  };
+  try {
+    await supabase.from("stock_price_missing").upsert(payload, {
+      onConflict: "source,dataset,stock_id,trade_date",
+    });
+  } catch (_) {
+    return;
+  }
+};
+
 const isTradingDay = async (supabase, tradeDate) => {
   const { data, error } = await supabase
     .from("trading_calendar")
@@ -313,6 +394,9 @@ export default async function handler(req, res) {
     params.request_overhead_ms || process.env.STOCK_PRICE_DAILY_REQUEST_OVERHEAD_MS,
     1000
   );
+  const conflictStaleMinutes = Number(
+    params.conflict_stale_minutes || process.env.STOCK_PRICE_CONFLICT_STALE_MINUTES || 20
+  );
 
   let supabase = null;
   let logId = null;
@@ -330,7 +414,13 @@ export default async function handler(req, res) {
     }
 
     let state = await loadDailyState(supabase, tradeDate);
+    if (state?.status === "running") {
+      await closeOtherRunningDailyStates(supabase, tradeDate, state.state_id);
+    }
     if (reset || !state || state.status !== "running") {
+      if (reset) {
+        await closeOtherRunningDailyStates(supabase, tradeDate, state?.state_id || null);
+      }
       state = await upsertDailyState(supabase, state?.state_id || null, {
         source: "finmind",
         dataset: "TaiwanStockPrice",
@@ -342,6 +432,21 @@ export default async function handler(req, res) {
         status: "running",
         detail: { mode: "daily" },
       });
+    }
+
+    const hasConflict = await hasActiveDailyConflict(
+      supabase,
+      tradeDate,
+      state?.state_id || null,
+      conflictStaleMinutes
+    );
+    if (hasConflict) {
+      res.status(409).json({
+        error: "Daily sync conflict detected",
+        detail: "Another running daily state is active recently.",
+        tradeDate,
+      });
+      return;
     }
 
     const totalStocks = await countStocks(supabase, markets, includeInactive);
@@ -406,6 +511,9 @@ export default async function handler(req, res) {
         }
       }
       summary.push({ stock_id: stockId, rows: rows.length, error: errorMessage });
+      if (!dryRun && (!rows.length || errorMessage)) {
+        await recordMissingDaily(supabase, stockId, tradeDate, errorMessage);
+      }
       if (rateLimited) break;
       if (sleepMs > 0) {
         await sleep(sleepMs);
