@@ -108,7 +108,9 @@
 - `/api/sync-feed-expiry-notifications`  
   `0 16 * * *`（每天 16:00）
 - `/api/sync-feed-performance`  
-  `20 14 * * *`（每天 14:20）
+  `0 16 * * *`（每天 16:00）
+- `/api/sync-user-performance`  
+  `0 17 * * *`（每天 17:00）
 - `/api/sync-newsdata`  
   `*/30 * * * *`（每 30 分钟）
 - `/api/sync-news-stock-links`  
@@ -173,7 +175,7 @@
 - `CRON_SECRET`
 - `PURGE_REQUIRE_POST`
 - `PURGE_SECRET`
-- `active_only`
+- `active_only`（默认 `1`，仅计算进行中观点）
 
 **代码中使用的核心变量**
 - `SUPABASE_URL`（服务端必须）

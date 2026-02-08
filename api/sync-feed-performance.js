@@ -106,7 +106,9 @@ export default async function handler(req, res) {
   const limit = Math.max(1, Number(params.limit || 500));
   const offset = Math.max(0, Number(params.offset || 0));
   const windowDays = Math.max(1, Number(params.window_days || params.windowDays || 7));
-  const activeOnly = `${params.active_only || params.activeOnly || ""}` === "1";
+  const activeOnly =
+    `${params.active_only || params.activeOnly || ""}` === "1" ||
+    !("active_only" in params || "activeOnly" in params);
   const dryRun = `${params.dry_run || params.dryRun || ""}` === "1";
   const feedId = params.feed_id || params.feedId || null;
 
