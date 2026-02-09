@@ -120,6 +120,17 @@
 
     <footer class="footer slide-in">
       <div class="footer-line">
+        redNote：
+        <a
+          class="footer-link"
+          href="https://xhslink.com/m/40BiiXE4KEv"
+          target="_blank"
+          rel="noreferrer"
+        >
+          pai_product
+        </a>
+      </div>
+      <div class="footer-line">
         ins：
         <a
           class="footer-link"
