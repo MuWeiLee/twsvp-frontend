@@ -82,7 +82,7 @@ export default async function handler(req, res) {
 
     const { data: articles, error: newsError } = await supabase
       .from("news_articles")
-      .select("article_id,title,description,pub_date")
+      .select("article_id,title,description,pub_date,source_id")
       .gte("pub_date", sinceIso)
       .order("pub_date", { ascending: false })
       .limit(newsLimit);
@@ -95,7 +95,11 @@ export default async function handler(req, res) {
       if (!article?.article_id) continue;
       const rawTitle = `${article.title || ""}`;
       const rawDescription = `${article.description || ""}`;
-      const descriptionText = normalizeText(`${rawTitle} ${rawDescription}`);
+      const isMops = `${article.source_id || ""}`.toLowerCase() === "mops";
+      const descriptionText = normalizeText(
+        isMops ? `${rawTitle} ${rawDescription}` : rawDescription
+      );
+      const requiredMatches = isMops ? 1 : Math.max(1, minNameMatches);
       const nameMatches = new Set();
       if (!descriptionText) continue;
       for (const stock of activeStocks) {
@@ -106,12 +110,12 @@ export default async function handler(req, res) {
         if (!name) continue;
         const namePattern = new RegExp(escapeRegExp(name), "g");
         const count = (descriptionText.match(namePattern) || []).length;
-        if (count >= minNameMatches && !nameMatches.has(stockId)) {
+        if (count >= requiredMatches && !nameMatches.has(stockId)) {
           stockMatches.push({
             article_id: article.article_id,
             stock_id: stockId,
             matched_text: stock.name,
-            match_method: "title_desc_name",
+            match_method: isMops ? "mops_title_desc_name" : "desc_name",
           });
           nameMatches.add(stockId);
         }
