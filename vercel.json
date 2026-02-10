@@ -10,11 +10,7 @@
     },
     {
       "path": "/api/sync-stock-prices-backfill?mode=stock&start_date=2025-01-01",
-      "schedule": "*/10 0-18 * * 1-5"
-    },
-    {
-      "path": "/api/sync-stock-prices-backfill?mode=stock&start_date=2025-01-01",
-      "schedule": "0 0 * * *"
+      "schedule": "0 2 * * *"
     },
     {
       "path": "/api/sync-stock-prices-history?start_date=2025-01-01",
