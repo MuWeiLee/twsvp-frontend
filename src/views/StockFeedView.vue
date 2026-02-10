@@ -110,26 +110,6 @@
         </div>
       </section>
 
-      <div class="list-title list-title-spaced">{{ t("最新资讯") }}</div>
-      <section v-if="newsItems.length" class="news-list">
-        <article
-          v-for="item in newsItems"
-          :key="item.article_id"
-          class="news-card"
-          @click="openNews(item.link)"
-        >
-          <h3 class="news-title">{{ item.title || "—" }}</h3>
-          <p v-if="item.description" class="news-summary">{{ item.description }}</p>
-          <p v-else-if="item.content" class="news-summary">{{ item.content }}</p>
-          <div class="news-meta">
-            <span>{{ formatNewsTime(item.pub_date) }}</span>
-            <span class="dot">·</span>
-            <span>{{ formatNewsCreator(item.creator) }}</span>
-          </div>
-        </article>
-      </section>
-      <div v-else class="news-empty">{{ t("暂无资讯") }}</div>
-
       <div class="list-title list-title-spaced">{{ t("近 7 日观点统计") }}</div>
       <section class="sentiment-card">
         <div class="sentiment-row">
@@ -394,7 +374,6 @@ import { supabase } from "../services/supabase.js";
 import { fetchStockByIdSupabase, fetchStockPricesSupabase } from "../services/stocks.js";
 import { t } from "../services/i18n.js";
 import { applyShareMeta } from "../services/shareMeta.js";
-import { fetchNewsSupabase } from "../services/news.js";
 import {
   fetchBrokerPreferenceSupabase,
   getAppStoreDeepLink,
@@ -429,7 +408,6 @@ const hintPlacement = ref("bottom-right");
 const chartBodyRef = ref(null);
 const chartPlotRef = ref(null);
 const chartPlotWidth = ref(0);
-const newsItems = ref([]);
 const isEditOpen = ref(false);
 const isEditSaving = ref(false);
 const editingFeed = ref(null);
@@ -555,13 +533,6 @@ const formatPercent = (value) => {
   return `${sign}${num.toFixed(2)}%`;
 };
 
-const formatNewsTime = (value) => formatFeedTimestamp(value);
-
-const formatNewsCreator = (creator) => {
-  if (!creator) return "—";
-  if (Array.isArray(creator)) return creator.filter(Boolean).join(" ");
-  return `${creator}`;
-};
 
 const updateChartPlotWidth = () => {
   const rect = chartPlotRef.value?.getBoundingClientRect();
@@ -1039,15 +1010,6 @@ const loadFeeds = async ({ append = false } = {}) => {
   await loadLikedIds(views.value);
 };
 
-const loadNews = async () => {
-  try {
-    newsItems.value = await fetchNewsSupabase(3);
-  } catch (error) {
-    console.error("Load news failed:", error);
-    newsItems.value = [];
-  }
-};
-
 const loadData = async () => {
   const symbolParam = route.params.symbol;
   if (!symbolParam || Array.isArray(symbolParam)) {
@@ -1061,7 +1023,6 @@ const loadData = async () => {
     fetchStockByIdSupabase(symbol),
     fetchStockPricesSupabase(symbol),
   ]);
-  await loadNews();
   priceSeries.value = prices;
   selectedPrice.value = null;
   await loadFeeds();
@@ -1118,11 +1079,6 @@ const goProfile = (view) => {
   } else {
     router.push(`/user/${userId}`);
   }
-};
-
-const openNews = (link) => {
-  if (!link) return;
-  window.open(link, "_blank", "noopener");
 };
 
 const goCreateFeed = () => {
@@ -1713,58 +1669,6 @@ watch(isCreateOpen, (value) => {
   font-size: 12px;
 }
 
-.news-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  cursor: pointer;
-}
-
-.news-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.news-title {
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.4;
-  color: var(--ink);
-}
-
-.news-summary {
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--muted);
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.news-meta {
-  font-size: 12px;
-  color: var(--muted);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.news-meta .dot {
-  font-size: 12px;
-}
-
-.news-empty {
-  text-align: center;
-  font-size: 12px;
-  color: var(--muted);
-  padding: 6px 0 4px;
-}
 
 .sentiment-card {
   background: var(--surface);

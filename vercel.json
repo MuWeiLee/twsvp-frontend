@@ -9,15 +9,15 @@
       "schedule": "10,30,50 18-23 * * 1-5"
     },
     {
-      "path": "/api/sync-stock-prices-backfill?mode=stock",
+      "path": "/api/sync-stock-prices-backfill?mode=stock&start_date=2025-01-01",
       "schedule": "*/10 0-18 * * 1-5"
     },
     {
-      "path": "/api/sync-stock-prices-backfill?mode=stock",
+      "path": "/api/sync-stock-prices-backfill?mode=stock&start_date=2025-01-01",
       "schedule": "0 0 * * *"
     },
     {
-      "path": "/api/sync-stock-prices-history",
+      "path": "/api/sync-stock-prices-history?start_date=2025-01-01",
       "schedule": "*/20 * * * 6,0"
     },
     {
@@ -41,7 +41,7 @@
       "schedule": "10,40 * * * *"
     },
     {
-      "path": "/api/sync-stock-prices-missing-scan",
+      "path": "/api/sync-stock-prices-missing-scan?start_date=2025-01-01",
       "schedule": "10 1 * * *"
     },
     {
