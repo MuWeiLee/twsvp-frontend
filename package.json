@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.91.0",
+    "fast-xml-parser": "^4.5.3",
     "vue": "^3.4.31",
     "vue-router": "^4.4.3"
   },

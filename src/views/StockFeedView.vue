@@ -110,6 +110,18 @@
         </div>
       </section>
 
+      <section v-if="newsItems.length" class="stock-news-marquee" aria-label="个股公告">
+        <div class="marquee-track" :style="{ animationDuration: marqueeDuration }">
+          <span
+            v-for="(item, index) in marqueeItems"
+            :key="`${item.article_id}-${index}`"
+            class="marquee-item"
+          >
+            {{ formatNewsItem(item) }}
+          </span>
+        </div>
+      </section>
+
       <div class="list-title list-title-spaced">{{ t("近 7 日观点统计") }}</div>
       <section class="sentiment-card">
         <div class="sentiment-row">
@@ -372,6 +384,7 @@ import {
 } from "../services/feeds.js";
 import { supabase } from "../services/supabase.js";
 import { fetchStockByIdSupabase, fetchStockPricesSupabase } from "../services/stocks.js";
+import { fetchStockNewsSupabase } from "../services/news.js";
 import { t } from "../services/i18n.js";
 import { applyShareMeta } from "../services/shareMeta.js";
 import {
@@ -421,6 +434,7 @@ const selectedRange = ref(20);
 const activeSymbol = ref("");
 const brokerId = ref("");
 const showShareToast = ref(false);
+const newsItems = ref([]);
 let shareToastTimer;
 
 const stockFollowLabel = computed(() => (isStockFollowed.value ? t("已关注") : t("+关注")));
@@ -992,6 +1006,27 @@ const filteredViews = computed(() => {
   return list;
 });
 
+const marqueeItems = computed(() => {
+  const list = newsItems.value || [];
+  if (!list.length) return [];
+  return list.concat(list);
+});
+
+const marqueeDuration = computed(() => {
+  const count = Math.max(1, newsItems.value.length || 1);
+  const seconds = Math.max(18, Math.min(48, count * 8));
+  return `${seconds}s`;
+});
+
+const formatNewsItem = (item) => {
+  const title = `${item?.title || ""}`.trim();
+  const description = `${item?.description || ""}`.trim();
+  if (title && description) return `【${title}｜${description}】`;
+  if (title) return `【${title}】`;
+  if (description) return `【${description}】`;
+  return "【—】";
+};
+
 const loadFeeds = async ({ append = false } = {}) => {
   if (!activeSymbol.value) return;
   const feeds = await fetchFeedsBySymbolSupabase(activeSymbol.value, {
@@ -1013,16 +1048,19 @@ const loadFeeds = async ({ append = false } = {}) => {
 const loadData = async () => {
   const symbolParam = route.params.symbol;
   if (!symbolParam || Array.isArray(symbolParam)) {
+    newsItems.value = [];
     return;
   }
   const symbol = String(symbolParam);
   activeSymbol.value = symbol;
   syncStockFollowState(symbol);
   isLoading.value = true;
-  const [stockInfo, prices] = await Promise.all([
+  const [stockInfo, prices, news] = await Promise.all([
     fetchStockByIdSupabase(symbol),
     fetchStockPricesSupabase(symbol),
+    fetchStockNewsSupabase(symbol, 5),
   ]);
+  newsItems.value = news || [];
   priceSeries.value = prices;
   selectedPrice.value = null;
   await loadFeeds();
@@ -1667,6 +1705,38 @@ watch(isCreateOpen, (value) => {
   place-items: center;
   color: var(--muted);
   font-size: 12px;
+}
+
+.stock-news-marquee {
+  margin-top: 12px;
+  background: #000;
+  color: #fff;
+  border-radius: 10px;
+  padding: 8px 0;
+  overflow: hidden;
+}
+
+.marquee-track {
+  display: inline-flex;
+  align-items: center;
+  gap: 28px;
+  white-space: nowrap;
+  padding-left: 100%;
+  animation: stock-marquee linear infinite;
+}
+
+.marquee-item {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@keyframes stock-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
 }
 
 

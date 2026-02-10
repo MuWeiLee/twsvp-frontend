@@ -37,6 +37,10 @@
       "schedule": "*/30 * * * *"
     },
     {
+      "path": "/api/sync-mops-rss",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/sync-news-stock-links",
       "schedule": "10,40 * * * *"
     },

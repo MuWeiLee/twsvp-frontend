@@ -56,3 +56,26 @@ export const searchNewsSupabase = async (query, limitOrOptions = {}) => {
 
   return data || [];
 };
+
+export const fetchStockNewsSupabase = async (stockId, limit = 5) => {
+  const symbol = `${stockId || ""}`.trim();
+  if (!symbol) return [];
+  const safeLimit = Math.max(1, Math.min(20, Number(limit) || 5));
+  const { data, error } = await supabase
+    .from("news_stock_links")
+    .select(
+      "news_articles:news_articles(article_id,title,link,description,content,pub_date,source_id,source_url,source_icon)"
+    )
+    .eq("stock_id", symbol)
+    .order("pub_date", { ascending: false, nullsFirst: false, foreignTable: "news_articles" })
+    .limit(safeLimit);
+
+  if (error) {
+    console.error("读取个股资讯失败:", error);
+    return [];
+  }
+
+  return (data || [])
+    .map((row) => row?.news_articles)
+    .filter((item) => item && item.article_id);
+};
