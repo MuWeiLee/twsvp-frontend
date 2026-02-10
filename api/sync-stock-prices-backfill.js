@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const FINMIND_ENDPOINT =
   process.env.FINMIND_ENDPOINT || "https://api.finmindtrade.com/api/v4/data";
-const MIN_START_DATE = process.env.STOCK_PRICE_MIN_START_DATE || "2020-01-01";
+const MIN_START_DATE = process.env.STOCK_PRICE_MIN_START_DATE || "2025-01-01";
 
 const requiredEnv = (key) => {
   const value = process.env[key];
