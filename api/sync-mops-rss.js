@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { XMLParser } from "fast-xml-parser";
+import iconv from "iconv-lite";
 import crypto from "crypto";
 
 const RSS_URL =
@@ -49,6 +50,22 @@ const hashId = (value) => {
   return crypto.createHash("sha1").update(value).digest("hex");
 };
 
+const getCharset = (contentType = "") => {
+  const match = `${contentType}`.match(/charset=([^;]+)/i);
+  if (!match) return "";
+  return match[1].trim().toLowerCase();
+};
+
+const decodeResponse = async (response) => {
+  const contentType = response.headers?.get?.("content-type") || "";
+  const charset = getCharset(contentType);
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (charset.includes("big5") || charset.includes("ms950") || charset.includes("cp950")) {
+    return iconv.decode(buffer, "big5");
+  }
+  return buffer.toString("utf8");
+};
+
 export default async function handler(req, res) {
   if (req.method !== "GET" && req.method !== "POST") {
     res.status(405).json({ error: "Method Not Allowed" });
@@ -89,7 +106,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    const xml = await response.text();
+    const xml = await decodeResponse(response);
     const parser = new XMLParser({
       ignoreAttributes: false,
       attributeNamePrefix: "",
