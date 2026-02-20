@@ -714,7 +714,7 @@ onMounted(async () => {
 .table {
   border: 1px solid var(--border);
   border-radius: 10px;
-  overflow: hidden;
+  overflow: auto;
 }
 
 .table-row {
@@ -725,6 +725,7 @@ onMounted(async () => {
   padding: 8px 10px;
   border-bottom: 1px solid var(--border);
   font-size: 12px;
+  min-width: 760px;
 }
 
 .table-row:last-child {

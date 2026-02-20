@@ -1,31 +1,68 @@
 <template>
   <div class="app-shell admin-shell">
-    <div class="phone-frame admin-frame">
-      <header class="admin-nav">
-        <div class="admin-brand">
-          <img :src="logoUrl" alt="TWSVP" />
+    <div class="admin-frame">
+      <header class="admin-topbar">
+        <div class="topbar-left">
+          <div class="admin-brand">
+            <img :src="logoUrl" alt="TWSVP" />
+          </div>
+          <div class="admin-title-wrap">
+            <div class="admin-title">后台管理</div>
+            <div class="admin-subtitle">{{ activeSectionLabel }}</div>
+          </div>
         </div>
-        <div class="admin-title">后台管理</div>
         <router-link class="admin-exit" to="/feed">退出后台</router-link>
       </header>
 
-      <nav v-if="sectionTabs.length" class="admin-tabs">
-        <router-link
-          v-for="tab in sectionTabs"
-          :key="tab.to"
-          class="admin-tab"
-          :class="{ active: route.path === tab.to }"
-          :to="tab.to"
-        >
-          {{ tab.label }}
-        </router-link>
-      </nav>
+      <div class="admin-body">
+        <aside class="admin-sidebar">
+          <div class="menu-group">
+            <div class="menu-title">主导航</div>
+            <router-link
+              v-for="item in bottomTabs"
+              :key="item.key"
+              class="side-link"
+              :class="{ active: activeSection === item.key }"
+              :to="item.to"
+            >
+              {{ item.label }}
+            </router-link>
+          </div>
 
-      <main class="admin-content">
-        <router-view />
-      </main>
+          <div v-if="sectionTabs.length" class="menu-group">
+            <div class="menu-title">当前分区</div>
+            <router-link
+              v-for="tab in sectionTabs"
+              :key="tab.to"
+              class="side-link section-link"
+              :class="{ active: route.path === tab.to }"
+              :to="tab.to"
+            >
+              {{ tab.label }}
+            </router-link>
+          </div>
+        </aside>
 
-      <nav class="admin-bottom">
+        <main class="admin-main">
+          <nav v-if="sectionTabs.length" class="admin-tabs-mobile">
+            <router-link
+              v-for="tab in sectionTabs"
+              :key="tab.to"
+              class="admin-tab"
+              :class="{ active: route.path === tab.to }"
+              :to="tab.to"
+            >
+              {{ tab.label }}
+            </router-link>
+          </nav>
+
+          <section class="admin-content">
+            <router-view />
+          </section>
+        </main>
+      </div>
+
+      <nav class="admin-bottom-mobile">
         <router-link
           v-for="item in bottomTabs"
           :key="item.key"
@@ -55,6 +92,14 @@ const bottomTabs = [
   { key: "system", label: "系统", to: "/admin/backend/system/permissions" },
 ];
 
+const sectionLabels = {
+  data: "数据与指标",
+  content: "内容管理",
+  platform: "平台配置",
+  stocks: "个股资料",
+  system: "系统设置",
+};
+
 const tabsBySection = {
   data: [{ label: "Dashboard", to: "/admin/backend/dashboard" }],
   content: [
@@ -74,6 +119,9 @@ const tabsBySection = {
 
 const activeSection = computed(() => route.meta.section || "data");
 const sectionTabs = computed(() => tabsBySection[activeSection.value] || []);
+const activeSectionLabel = computed(
+  () => sectionLabels[activeSection.value] || "后台工作台"
+);
 
 </script>
 
@@ -81,29 +129,38 @@ const sectionTabs = computed(() => tabsBySection[activeSection.value] || []);
 .app-shell {
   min-height: 100vh;
   display: flex;
-  justify-content: center;
+  justify-content: stretch;
   background: var(--bg);
   color: var(--ink);
 }
 
-.phone-frame {
-  width: min(600px, 100%);
+.admin-frame {
+  width: 100%;
   min-height: 100vh;
   background: var(--bg);
   display: flex;
   flex-direction: column;
 }
 
-.admin-nav {
-  position: sticky;
+.admin-topbar {
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) 20px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  z-index: 30;
+}
+
+.topbar-left {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px 12px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  z-index: 2;
 }
 
 .admin-brand {
@@ -117,13 +174,22 @@ const sectionTabs = computed(() => tabsBySection[activeSection.value] || []);
   object-fit: cover;
 }
 
+.admin-title-wrap {
+  display: grid;
+  gap: 2px;
+}
+
 .admin-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
 }
 
+.admin-subtitle {
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .admin-exit {
-  margin-left: auto;
   font-size: 12px;
   color: var(--muted);
   text-decoration: none;
@@ -138,14 +204,71 @@ const sectionTabs = computed(() => tabsBySection[activeSection.value] || []);
   border-color: var(--accent);
 }
 
-.admin-tabs {
-  display: flex;
-  gap: 8px;
-  padding: 12px 16px;
-  background: var(--bg);
+.admin-body {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 0;
+  min-height: calc(100vh - 58px - env(safe-area-inset-top, 0px));
+  margin-top: calc(58px + env(safe-area-inset-top, 0px));
+}
+
+.admin-sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  padding: 16px 12px;
   position: sticky;
-  top: calc(64px + env(safe-area-inset-top, 0px));
-  z-index: 1;
+  top: calc(58px + env(safe-area-inset-top, 0px));
+  height: calc(100vh - 58px - env(safe-area-inset-top, 0px));
+  overflow: auto;
+}
+
+.menu-group + .menu-group {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.menu-title {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.side-link {
+  display: block;
+  text-decoration: none;
+  color: var(--ink);
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.side-link + .side-link {
+  margin-top: 6px;
+}
+
+.side-link.active {
+  background: var(--accent-soft);
+  border-color: var(--border);
+  font-weight: 600;
+}
+
+.section-link {
+  font-size: 12px;
+}
+
+.admin-main {
+  min-width: 0;
+  padding: 14px 20px;
+}
+
+.admin-tabs-mobile {
+  display: none;
+  gap: 8px;
+  padding: 4px 0 12px;
+  background: var(--bg);
+  overflow-x: auto;
 }
 
 .admin-tab {
@@ -165,19 +288,51 @@ const sectionTabs = computed(() => tabsBySection[activeSection.value] || []);
 }
 
 .admin-content {
-  flex: 1;
-  padding: 8px 16px calc(88px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: 18px;
 }
 
-.admin-bottom {
-  position: sticky;
-  bottom: 0;
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
-  padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
-  background: var(--surface);
-  border-top: 1px solid var(--border);
+.admin-bottom-mobile {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .admin-body {
+    grid-template-columns: 1fr;
+    margin-top: calc(58px + env(safe-area-inset-top, 0px));
+    min-height: auto;
+  }
+
+  .admin-sidebar {
+    display: none;
+  }
+
+  .admin-main {
+    padding: 12px 14px;
+  }
+
+  .admin-tabs-mobile {
+    display: flex;
+    position: sticky;
+    top: calc(58px + env(safe-area-inset-top, 0px));
+    z-index: 20;
+  }
+
+  .admin-content {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .admin-bottom-mobile {
+    position: fixed;
+    left: 0;
+    right: 0;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    z-index: 40;
+  }
 }
 
 .bottom-tab {
