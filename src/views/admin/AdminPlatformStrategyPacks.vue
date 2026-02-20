@@ -7,25 +7,12 @@
 
     <div class="workspace">
       <aside class="panel list-panel">
-        <div class="panel-title">策略列表</div>
-
-        <form class="create-form" @submit.prevent="handleCreate">
-          <input
-            v-model="createForm.name"
-            class="input"
-            type="text"
-            placeholder="策略名称（必填）"
-          />
-          <input
-            v-model="createForm.code"
-            class="input"
-            type="text"
-            placeholder="策略代码（可选）"
-          />
-          <button class="btn primary" type="submit" :disabled="saving">
+        <div class="list-head">
+          <div class="panel-title">策略列表</div>
+          <button class="btn primary" type="button" :disabled="saving" @click="openCreateForm">
             新建策略
           </button>
-        </form>
+        </div>
 
         <div class="strategy-list">
           <button
@@ -49,12 +36,12 @@
       </aside>
 
       <section class="panel detail-panel">
-        <div v-if="!selectedStrategy" class="empty">
-          请先从左侧选择策略。
+        <div v-if="!selectedStrategy && !isCreating" class="empty">
+          请先从左侧选择策略，或点击「新建策略」。
         </div>
 
         <template v-else>
-          <div class="panel-title">策略详情</div>
+          <div class="panel-title">{{ isCreating ? "新建策略" : "策略详情" }}</div>
 
           <div class="detail-grid">
             <label class="field">
@@ -76,18 +63,35 @@
           </div>
 
           <div class="actions">
-            <button class="btn primary" type="button" :disabled="saving" @click="handleSaveEdit">
-              保存编辑
+            <button
+              class="btn primary"
+              type="button"
+              :disabled="saving"
+              @click="isCreating ? handleCreate : handleSaveEdit"
+            >
+              {{ isCreating ? "建立策略" : "保存编辑" }}
             </button>
-            <button class="btn" type="button" :disabled="saving" @click="handleRename">
-              重新命名
+            <button
+              v-if="isCreating"
+              class="btn"
+              type="button"
+              :disabled="saving"
+              @click="cancelCreateForm"
+            >
+              取消
             </button>
-            <button class="btn danger" type="button" :disabled="saving" @click="handleDelete">
-              删除策略
-            </button>
+            <template v-else>
+              <button class="btn" type="button" :disabled="saving" @click="handleRename">
+                重新命名
+              </button>
+              <button class="btn danger" type="button" :disabled="saving" @click="handleDelete">
+                删除策略
+              </button>
+            </template>
           </div>
 
-          <div class="panel-title">回测任务</div>
+          <template v-if="!isCreating">
+            <div class="panel-title">回测任务</div>
           <div class="run-toolbar">
             <button
               class="btn primary"
@@ -138,6 +142,7 @@
               当前回测无明细数据。
             </div>
           </div>
+          </template>
         </template>
       </section>
     </div>
@@ -176,6 +181,7 @@ const saving = ref(false);
 const status = ref("");
 const strategies = ref([]);
 const selectedStrategyId = ref("");
+const isCreating = ref(false);
 const runs = ref([]);
 const activeRunId = ref("");
 const runDailyRows = ref([]);
@@ -184,11 +190,6 @@ const queueing = ref(false);
 const backtestWindow = ref({
   startDate: "",
   endDate: "",
-});
-
-const createForm = ref({
-  name: "",
-  code: "",
 });
 
 const editForm = ref({
@@ -218,6 +219,39 @@ const summaryPerformance = computed(() => {
   );
 });
 
+const parseMaybeJson = (value) => {
+  if (!value) return null;
+  if (typeof value === "object") return value;
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    return null;
+  }
+};
+
+const normalizeParamsObject = (params) => {
+  let value = parseMaybeJson(params) || {};
+  if (typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  for (let i = 0; i < 2; i += 1) {
+    if (typeof value.strategy_code === "string") {
+      const nested = parseMaybeJson(value.strategy_code);
+      if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+        value = { ...value, ...nested };
+        value.strategy_code =
+          nested.strategy_code && typeof nested.strategy_code === "string"
+            ? nested.strategy_code
+            : value.strategy_code;
+      }
+    }
+  }
+  return value;
+};
+
 const formatDate = (value) => {
   if (!value) return "—";
   const d = new Date(value);
@@ -231,8 +265,10 @@ const formatPercent = (value) => {
   return `${(n * 100).toFixed(2)}%`;
 };
 
-const resolveStrategyCode = (item) =>
-  item?.params?.strategy_code || item?.params?.code || item?.strategy_id || "—";
+const resolveStrategyCode = (item) => {
+  const params = normalizeParamsObject(item?.params);
+  return params.strategy_code || params.code || item?.strategy_id || "—";
+};
 
 const slugifyCode = (value) =>
   String(value || "")
@@ -244,7 +280,7 @@ const slugifyCode = (value) =>
 const syncEditForm = () => {
   const current = selectedStrategy.value;
   if (!current) return;
-  const params = current.params && typeof current.params === "object" ? current.params : {};
+  const params = normalizeParamsObject(current.params);
   editForm.value = {
     name: current.name || "",
     code: params.strategy_code || params.code || slugifyCode(current.name),
@@ -258,23 +294,50 @@ const loadStrategies = async () => {
   status.value = "加载策略中...";
   const data = await fetchQuantStrategies();
   strategies.value = data;
-  if (!selectedStrategyId.value && data.length) {
-    selectedStrategyId.value = data[0].strategy_id;
+  if (selectedStrategyId.value && !data.some((item) => item.strategy_id === selectedStrategyId.value)) {
+    selectedStrategyId.value = "";
   }
   loading.value = false;
   status.value = "";
 };
 
 const syncBacktestWindow = async () => {
-  const lookbackDays = Number(selectedStrategy.value?.params?.lookback_days || 60);
+  const params = normalizeParamsObject(selectedStrategy.value?.params);
+  const lookbackDays = Number(params.lookback_days || 60);
   backtestWindow.value = await resolveBacktestWindow(lookbackDays);
 };
 
 const selectStrategy = async (strategyId) => {
+  isCreating.value = false;
   selectedStrategyId.value = strategyId;
   syncEditForm();
   await syncBacktestWindow();
   await loadRuns();
+};
+
+const openCreateForm = () => {
+  isCreating.value = true;
+  selectedStrategyId.value = "";
+  runs.value = [];
+  activeRunId.value = "";
+  runDailyRows.value = [];
+  runPickRows.value = [];
+  editForm.value = {
+    name: "",
+    code: "",
+    description: "",
+    paramsText: JSON.stringify(DEFAULT_PARAMS, null, 2),
+  };
+  resolveBacktestWindow(60).then((window) => {
+    backtestWindow.value = window;
+  });
+};
+
+const cancelCreateForm = () => {
+  isCreating.value = false;
+  if (strategies.value.length) {
+    selectStrategy(strategies.value[0].strategy_id);
+  }
 };
 
 const loadRuns = async () => {
@@ -320,18 +383,25 @@ const parseParamsText = (text) => {
 };
 
 const handleCreate = async () => {
-  const name = createForm.value.name.trim();
+  const name = editForm.value.name.trim();
   if (!name) {
     status.value = "策略名称不能为空";
     return;
   }
-  const code = createForm.value.code.trim() || slugifyCode(name);
+  let params;
+  try {
+    params = parseParamsText(editForm.value.paramsText);
+  } catch (error) {
+    status.value = error.message || "参数 JSON 格式错误";
+    return;
+  }
+  const code = editForm.value.code.trim() || slugifyCode(name);
   saving.value = true;
   status.value = "创建策略中...";
-  const params = { ...DEFAULT_PARAMS, strategy_code: code };
+  params.strategy_code = code;
   const created = await createQuantStrategy({
     name,
-    description: "",
+    description: editForm.value.description,
     params,
   });
   if (!created) {
@@ -346,8 +416,8 @@ const handleCreate = async () => {
     targetId: created.strategy_id,
     summary: `${created.name} (${code})`.slice(0, 60),
   });
-  createForm.value = { name: "", code: "" };
   await loadStrategies();
+  isCreating.value = false;
   selectedStrategyId.value = created.strategy_id;
   syncEditForm();
   await syncBacktestWindow();
@@ -542,10 +612,8 @@ const dailyDetailRows = computed(() => {
 
 onMounted(async () => {
   await loadStrategies();
-  if (selectedStrategyId.value) {
-    syncEditForm();
-    await syncBacktestWindow();
-    await loadRuns();
+  if (strategies.value.length) {
+    await selectStrategy(strategies.value[0].strategy_id);
   }
 });
 </script>
@@ -586,9 +654,11 @@ onMounted(async () => {
   margin-bottom: 10px;
 }
 
-.create-form {
-  display: grid;
-  gap: 8px;
+.list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin-bottom: 10px;
 }
 

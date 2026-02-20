@@ -15,8 +15,8 @@
       </div>
       <div v-for="row in rows" :key="row.article_id" class="table-row">
         <span class="cell-id">{{ row.article_id }}</span>
-        <span class="cell-content">{{ row.title || "—" }}</span>
-        <span class="cell-content">{{ row.description || "—" }}</span>
+        <span class="cell-content">{{ displayArticleText(row.title, row.source_id) }}</span>
+        <span class="cell-content">{{ displayArticleText(row.description, row.source_id) }}</span>
         <span class="cell-tags">
           <span
             v-for="stock in row.stocks"
@@ -138,6 +138,17 @@ const dangerActions = computed(() => [
     action: "hide-article",
   },
 ]);
+
+const isMojibake = (value) => typeof value === "string" && value.includes("�");
+
+const displayArticleText = (value, sourceId) => {
+  if (!value) return "—";
+  if (!isMojibake(value)) return value;
+  if (sourceId === "mops") {
+    return "[编码异常，执行一次 /api/sync-mops-rss 可修复新数据]";
+  }
+  return "[编码异常]";
+};
 
 const openSheet = (row) => {
   activeRow.value = row;

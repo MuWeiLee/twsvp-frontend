@@ -178,7 +178,7 @@ export const fetchContentComments = async () => {
 export const fetchArticles = async () => {
   const { data, error } = await supabase
     .from("news_articles")
-    .select("article_id, title, description, created_at, pub_date")
+    .select("article_id, title, description, source_id, created_at, pub_date")
     .order("pub_date", { ascending: false, nullsFirst: false })
     .limit(200);
 
@@ -538,11 +538,19 @@ const toIsoDate = (date) => {
   return `${y}-${m}-${d}`;
 };
 
+const getTaipeiToday = () => {
+  const now = new Date();
+  const taipei = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  return taipei.toISOString().slice(0, 10);
+};
+
 export const resolveBacktestWindow = async (lookbackDays = 60) => {
   const days = Math.max(1, Number(lookbackDays) || 60);
+  const today = getTaipeiToday();
   const { data, error } = await supabase
     .from("trading_calendar")
     .select("trade_date")
+    .lte("trade_date", today)
     .order("trade_date", { ascending: false })
     .limit(days);
 

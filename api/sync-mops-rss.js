@@ -56,14 +56,35 @@ const getCharset = (contentType = "") => {
   return match[1].trim().toLowerCase();
 };
 
+const getXmlDeclaredEncoding = (buffer) => {
+  const head = buffer.slice(0, 240).toString("ascii").toLowerCase();
+  const match = head.match(/encoding=['"]([^'"]+)['"]/i);
+  return match ? `${match[1]}`.trim().toLowerCase() : "";
+};
+
+const isBig5Like = (value) =>
+  value.includes("big5") || value.includes("cp950") || value.includes("ms950");
+
+const mojibakeScore = (text = "") => {
+  const replacementCount = (text.match(/�/g) || []).length;
+  const weirdCount = (text.match(/[�]/g) || []).length;
+  return replacementCount + weirdCount;
+};
+
 const decodeResponse = async (response) => {
   const contentType = response.headers?.get?.("content-type") || "";
   const charset = getCharset(contentType);
   const buffer = Buffer.from(await response.arrayBuffer());
-  if (charset.includes("big5") || charset.includes("ms950") || charset.includes("cp950")) {
+  const xmlEncoding = getXmlDeclaredEncoding(buffer);
+
+  if (isBig5Like(charset) || isBig5Like(xmlEncoding)) {
     return iconv.decode(buffer, "big5");
   }
-  return buffer.toString("utf8");
+
+  const utf8Text = buffer.toString("utf8");
+  const big5Text = iconv.decode(buffer, "big5");
+
+  return mojibakeScore(big5Text) < mojibakeScore(utf8Text) ? big5Text : utf8Text;
 };
 
 export default async function handler(req, res) {
