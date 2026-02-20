@@ -198,6 +198,72 @@
 - 通知列表背景为浅灰，卡片白底无圆角，内容间距紧凑
 - Tab 底线样式与 Tab 模块样式需与观点流一致
 
+# 2 级模块（量化工作台 / Backend）
+
+## 量化工作台（Vercel 触发 + Supabase 计算）
+
+### 目标
+- 支持策略配置、回测触发、回测结果查询
+- 数据源：Supabase `stock_prices`（OHLCV）
+- 回测默认区间：最近 60 个交易日（可在触发时覆盖）
+
+### 策略参数（当前默认）
+- `top_n = 5`
+- `hold_days = 5`
+- `momentum_window_short = 3`（短窗口收益，用于衡量短期动量）
+- `momentum_window_long = 10`（长窗口收益，用于衡量中期动量）
+- `volume_ma = 10`（成交量均线窗口）
+
+### Supabase 数据表（SQL）
+```sql
+-- 策略定义
+create table if not exists public.quant_strategies (
+  strategy_id uuid primary key default gen_random_uuid(),
+  name text not null,
+  description text null,
+  params jsonb not null default '{}'::jsonb,
+  is_active boolean not null default true,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now()
+);
+
+create index if not exists idx_quant_strategies_active
+  on public.quant_strategies (is_active);
+
+-- 回测任务
+create table if not exists public.quant_runs (
+  run_id uuid primary key default gen_random_uuid(),
+  strategy_id uuid not null references public.quant_strategies(strategy_id) on delete cascade,
+  status text not null default 'queued', -- queued | running | success | failed
+  start_date date not null,
+  end_date date not null,
+  summary jsonb not null default '{}'::jsonb, -- 绩效摘要，如最大回撤、夏普、胜率等
+  error_message text null,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now()
+);
+
+create index if not exists idx_quant_runs_strategy
+  on public.quant_runs (strategy_id);
+create index if not exists idx_quant_runs_status
+  on public.quant_runs (status);
+create index if not exists idx_quant_runs_date
+  on public.quant_runs (start_date, end_date);
+
+-- 回测每日绩效
+create table if not exists public.quant_run_daily (
+  run_id uuid not null references public.quant_runs(run_id) on delete cascade,
+  trade_date date not null,
+  daily_return numeric(12, 6) null,
+  cumulative_return numeric(12, 6) null,
+  created_at timestamp with time zone not null default now(),
+  primary key (run_id, trade_date)
+);
+
+create index if not exists idx_quant_run_daily_trade_date
+  on public.quant_run_daily (trade_date desc);
+```
+
 ### 关键字段
 - noti_id, type(like/bookmark/share/expire_soon/expired)
 - actor_user_id, target_view_id, created_at, read_at

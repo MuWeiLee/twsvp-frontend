@@ -386,3 +386,205 @@ export const searchUsersByEmail = async (query) => {
   }
   return fallback || [];
 };
+
+const normalizeStrategyParams = (params) => {
+  if (!params || typeof params !== "object" || Array.isArray(params)) return {};
+  return params;
+};
+
+export const fetchQuantStrategies = async () => {
+  const { data, error } = await supabase
+    .from("quant_strategies")
+    .select("strategy_id, name, description, params, is_active, created_at, updated_at")
+    .order("updated_at", { ascending: false })
+    .limit(500);
+
+  if (error) {
+    console.error("读取量化策略失败:", error);
+    return [];
+  }
+
+  return (data || []).map((item) => ({
+    ...item,
+    params: normalizeStrategyParams(item.params),
+  }));
+};
+
+export const createQuantStrategy = async ({ name, description, params }) => {
+  const payload = {
+    name: String(name || "").trim(),
+    description: String(description || "").trim() || null,
+    params: normalizeStrategyParams(params),
+    is_active: true,
+  };
+
+  const { data, error } = await supabase
+    .from("quant_strategies")
+    .insert(payload)
+    .select("strategy_id, name, description, params, is_active, created_at, updated_at")
+    .single();
+
+  if (error) {
+    console.error("新增量化策略失败:", error);
+    return null;
+  }
+
+  return data;
+};
+
+export const updateQuantStrategy = async (strategyId, patch = {}) => {
+  if (!strategyId) return null;
+  const payload = {};
+  if (Object.prototype.hasOwnProperty.call(patch, "name")) {
+    payload.name = String(patch.name || "").trim();
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "description")) {
+    payload.description = String(patch.description || "").trim() || null;
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "params")) {
+    payload.params = normalizeStrategyParams(patch.params);
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "is_active")) {
+    payload.is_active = Boolean(patch.is_active);
+  }
+  payload.updated_at = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("quant_strategies")
+    .update(payload)
+    .eq("strategy_id", strategyId)
+    .select("strategy_id, name, description, params, is_active, created_at, updated_at")
+    .single();
+
+  if (error) {
+    console.error("更新量化策略失败:", error);
+    return null;
+  }
+  return data;
+};
+
+export const deleteQuantStrategy = async (strategyId) => {
+  if (!strategyId) return false;
+  const { error } = await supabase
+    .from("quant_strategies")
+    .delete()
+    .eq("strategy_id", strategyId);
+
+  if (error) {
+    console.error("删除量化策略失败:", error);
+    return false;
+  }
+  return true;
+};
+
+export const fetchQuantRunsByStrategy = async (strategyId) => {
+  if (!strategyId) return [];
+  const { data, error } = await supabase
+    .from("quant_runs")
+    .select(
+      "run_id, strategy_id, status, start_date, end_date, summary, error_message, created_at, updated_at"
+    )
+    .eq("strategy_id", strategyId)
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (error) {
+    console.error("读取策略回测任务失败:", error);
+    return [];
+  }
+  return data || [];
+};
+
+export const fetchQuantRunDaily = async (runId) => {
+  if (!runId) return [];
+  const { data, error } = await supabase
+    .from("quant_run_daily")
+    .select("run_id, trade_date, daily_return, cumulative_return, created_at")
+    .eq("run_id", runId)
+    .order("trade_date", { ascending: false })
+    .limit(400);
+
+  if (error) {
+    console.error("读取每日绩效失败:", error);
+    return [];
+  }
+  return data || [];
+};
+
+export const fetchQuantRunPicks = async (runId) => {
+  if (!runId) return [];
+  const candidates = ["quant_run_picks", "quant_run_holdings"];
+
+  for (const table of candidates) {
+    const { data, error } = await supabase
+      .from(table)
+      .select("*")
+      .eq("run_id", runId)
+      .order("trade_date", { ascending: false })
+      .limit(3000);
+
+    if (!error) {
+      return data || [];
+    }
+  }
+
+  return [];
+};
+
+const toIsoDate = (date) => {
+  const y = date.getFullYear();
+  const m = `${date.getMonth() + 1}`.padStart(2, "0");
+  const d = `${date.getDate()}`.padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
+export const resolveBacktestWindow = async (lookbackDays = 60) => {
+  const days = Math.max(1, Number(lookbackDays) || 60);
+  const { data, error } = await supabase
+    .from("trading_calendar")
+    .select("trade_date")
+    .order("trade_date", { ascending: false })
+    .limit(days);
+
+  if (!error && data && data.length) {
+    const sorted = data
+      .map((row) => row.trade_date)
+      .filter(Boolean)
+      .sort((a, b) => String(a).localeCompare(String(b)));
+    return {
+      startDate: sorted[0],
+      endDate: sorted[sorted.length - 1],
+    };
+  }
+
+  const end = new Date();
+  const start = new Date(end);
+  start.setDate(end.getDate() - (days - 1));
+  return {
+    startDate: toIsoDate(start),
+    endDate: toIsoDate(end),
+  };
+};
+
+export const queueQuantRun = async ({ strategyId, startDate, endDate }) => {
+  if (!strategyId || !startDate || !endDate) return null;
+  const { data, error } = await supabase
+    .from("quant_runs")
+    .insert({
+      strategy_id: strategyId,
+      status: "queued",
+      start_date: startDate,
+      end_date: endDate,
+      summary: {},
+    })
+    .select(
+      "run_id, strategy_id, status, start_date, end_date, summary, error_message, created_at, updated_at"
+    )
+    .single();
+
+  if (error) {
+    console.error("创建回测任务失败:", error);
+    return null;
+  }
+  return data;
+};
