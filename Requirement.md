@@ -262,6 +262,146 @@ create table if not exists public.quant_run_daily (
 
 create index if not exists idx_quant_run_daily_trade_date
   on public.quant_run_daily (trade_date desc);
+
+-- 每日选股明细（个别绩效）
+create table if not exists public.quant_run_picks (
+  run_id uuid not null references public.quant_runs(run_id) on delete cascade,
+  trade_date date not null,
+  stock_id text not null,
+  stock_name text null,
+  pick_rank int null,
+  score numeric(14, 6) null,
+  return_pct numeric(12, 6) null,
+  created_at timestamp with time zone not null default now(),
+  primary key (run_id, trade_date, stock_id)
+);
+
+create index if not exists idx_quant_run_picks_trade_date
+  on public.quant_run_picks (trade_date desc);
+create index if not exists idx_quant_run_picks_stock_id
+  on public.quant_run_picks (stock_id);
+```
+
+### Supabase RLS（4 张表建议开启）
+```sql
+-- 建议：开启 RLS，前端仅允许管理员账号访问
+alter table public.quant_strategies enable row level security;
+alter table public.quant_runs enable row level security;
+alter table public.quant_run_daily enable row level security;
+alter table public.quant_run_picks enable row level security;
+
+-- 管理员判定函数（先用 email，后续可改角色表）
+create or replace function public.is_admin_email()
+returns boolean
+language sql
+stable
+as $$
+  select coalesce((auth.jwt() ->> 'email') = 'pai.product.manager@gmail.com', false);
+$$;
+
+-- quant_strategies
+create policy quant_strategies_admin_select
+on public.quant_strategies
+for select
+to authenticated
+using (public.is_admin_email());
+
+create policy quant_strategies_admin_insert
+on public.quant_strategies
+for insert
+to authenticated
+with check (public.is_admin_email());
+
+create policy quant_strategies_admin_update
+on public.quant_strategies
+for update
+to authenticated
+using (public.is_admin_email())
+with check (public.is_admin_email());
+
+create policy quant_strategies_admin_delete
+on public.quant_strategies
+for delete
+to authenticated
+using (public.is_admin_email());
+
+-- quant_runs
+create policy quant_runs_admin_select
+on public.quant_runs
+for select
+to authenticated
+using (public.is_admin_email());
+
+create policy quant_runs_admin_insert
+on public.quant_runs
+for insert
+to authenticated
+with check (public.is_admin_email());
+
+create policy quant_runs_admin_update
+on public.quant_runs
+for update
+to authenticated
+using (public.is_admin_email())
+with check (public.is_admin_email());
+
+create policy quant_runs_admin_delete
+on public.quant_runs
+for delete
+to authenticated
+using (public.is_admin_email());
+
+-- quant_run_daily
+create policy quant_run_daily_admin_select
+on public.quant_run_daily
+for select
+to authenticated
+using (public.is_admin_email());
+
+create policy quant_run_daily_admin_insert
+on public.quant_run_daily
+for insert
+to authenticated
+with check (public.is_admin_email());
+
+create policy quant_run_daily_admin_update
+on public.quant_run_daily
+for update
+to authenticated
+using (public.is_admin_email())
+with check (public.is_admin_email());
+
+create policy quant_run_daily_admin_delete
+on public.quant_run_daily
+for delete
+to authenticated
+using (public.is_admin_email());
+
+-- quant_run_picks
+create policy quant_run_picks_admin_select
+on public.quant_run_picks
+for select
+to authenticated
+using (public.is_admin_email());
+
+create policy quant_run_picks_admin_insert
+on public.quant_run_picks
+for insert
+to authenticated
+with check (public.is_admin_email());
+
+create policy quant_run_picks_admin_update
+on public.quant_run_picks
+for update
+to authenticated
+using (public.is_admin_email())
+with check (public.is_admin_email());
+
+create policy quant_run_picks_admin_delete
+on public.quant_run_picks
+for delete
+to authenticated
+using (public.is_admin_email());
 ```
 
 ### 关键字段

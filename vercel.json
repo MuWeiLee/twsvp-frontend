@@ -47,6 +47,10 @@
     {
       "path": "/api/sync-stock-prices-missing",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/sync-quant-runs",
+      "schedule": "*/10 * * * 1-5"
     }
   ]
 }
