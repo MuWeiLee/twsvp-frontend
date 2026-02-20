@@ -120,6 +120,34 @@ const buildPriceMap = (rows) => {
   return byStock;
 };
 
+const fetchAllStockPrices = async (supabase, minTradeDate, maxTradeDate, pageSize = 1000) => {
+  const rows = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + pageSize - 1;
+    const { data, error } = await supabase
+      .from("stock_prices")
+      .select("stock_id,trade_date,close,volume")
+      .gte("trade_date", minTradeDate)
+      .lte("trade_date", maxTradeDate)
+      .order("trade_date", { ascending: true })
+      .order("stock_id", { ascending: true })
+      .range(from, to);
+
+    if (error) {
+      throw new Error(`stock_prices read failed: ${error.message}`);
+    }
+
+    const chunk = data || [];
+    rows.push(...chunk);
+    if (chunk.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return rows;
+};
+
 const collectDateRange = async (supabase, startDate, endDate, backBuffer, holdDays) => {
   const minDate = shiftDate(startDate, -Math.max(45, backBuffer * 6));
   const maxDate = shiftDate(endDate, Math.max(30, holdDays * 6));
@@ -169,14 +197,7 @@ const computeRun = async (supabase, run, strategyParams) => {
   const minTradeDate = dates[minIdx];
   const maxTradeDate = dates[maxIdx];
 
-  const { data: prices, error: pricesError } = await supabase
-    .from("stock_prices")
-    .select("stock_id,trade_date,close,volume")
-    .gte("trade_date", minTradeDate)
-    .lte("trade_date", maxTradeDate);
-  if (pricesError) {
-    throw new Error(`stock_prices read failed: ${pricesError.message}`);
-  }
+  const prices = await fetchAllStockPrices(supabase, minTradeDate, maxTradeDate);
 
   const stockMap = buildPriceMap(prices || []);
   const perDayCandidates = new Map();
