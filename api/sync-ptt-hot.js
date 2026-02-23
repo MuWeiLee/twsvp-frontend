@@ -101,10 +101,16 @@ const parseNetPush = (value = "") => {
 const extractPrevPageHref = (html = "") => {
   const groupMatch = `${html}`.match(/<div class="btn-group btn-group-paging">([\s\S]*?)<\/div>/i);
   if (!groupMatch) return "";
-  const links = [...groupMatch[1].matchAll(/<a[^>]*href="([^"]+)"[^>]*>/gi)]
-    .map((match) => `${match[1] || ""}`.trim())
-    .filter(Boolean);
-  return links[1] || "";
+  const anchors = [...groupMatch[1].matchAll(/<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+  for (const anchor of anchors) {
+    const href = `${anchor[1] || ""}`.trim();
+    const label = decodeHtml(normalizeText(anchor[2] || ""));
+    if (label.includes("上頁") || label.includes("‹")) {
+      return href;
+    }
+  }
+  const links = anchors.map((match) => `${match[1] || ""}`.trim()).filter(Boolean);
+  return links[1] || links[0] || "";
 };
 
 const parseSearchRows = (html = "") => {
@@ -303,6 +309,7 @@ const collectHotRows = async ({
 }) => {
   const results = [];
   const seen = new Set();
+  let stalePages = 0;
   let pageFetches = 0;
   let pageSuccesses = 0;
   let failedPageFetches = 0;
@@ -321,11 +328,13 @@ const collectHotRows = async ({
     pageSuccesses += 1;
 
     const rows = parseSearchRows(response.text);
+    let pageHasRecentRows = false;
     for (const row of rows) {
       if (!row.articleId || seen.has(row.articleId)) continue;
       seen.add(row.articleId);
       if (row.netPush < minNetPush) continue;
       if (!row.publishedMs || row.publishedMs < sinceMs) continue;
+      pageHasRecentRows = true;
       results.push(row);
       if (results.length >= maxArticles) {
         return {
@@ -336,13 +345,8 @@ const collectHotRows = async ({
         };
       }
     }
-
-    const oldestMs = rows.reduce((minValue, row) => {
-      if (!row.publishedMs) return minValue;
-      if (!Number.isFinite(minValue)) return row.publishedMs;
-      return Math.min(minValue, row.publishedMs);
-    }, Infinity);
-    if (oldestMs < sinceMs) break;
+    stalePages = pageHasRecentRows ? 0 : stalePages + 1;
+    if (stalePages >= 3) break;
 
     const prevHref = extractPrevPageHref(response.text);
     if (!prevHref) break;
