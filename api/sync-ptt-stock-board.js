@@ -106,19 +106,81 @@ const parseNetPush = (value = "") => {
   return 0;
 };
 
-const extractPrevPageHref = (html = "") => {
+const getPageIndexFromUrl = (url = "") => {
+  const match = `${url}`.match(/\/index(\d+)\.html(?:[?#].*)?$/);
+  if (!match) return null;
+  const index = Number(match[1]);
+  return Number.isFinite(index) ? index : null;
+};
+
+const getPageIndexFromHref = (href = "") => {
+  const match = `${href}`.match(/\/index(\d+)\.html(?:[?#].*)?$/);
+  if (!match) return null;
+  const index = Number(match[1]);
+  return Number.isFinite(index) ? index : null;
+};
+
+const toIndexPageUrl = (index) => `${PTT_BASE_URL}/bbs/Stock/index${index}.html`;
+
+const extractPagingAnchors = (html = "") => {
   const groupMatch = `${html}`.match(/<div class="btn-group btn-group-paging">([\s\S]*?)<\/div>/i);
-  if (!groupMatch) return "";
-  const anchors = [...groupMatch[1].matchAll(/<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+  if (!groupMatch) return [];
+  const anchors = [];
+  const matches = [...groupMatch[1].matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)];
+  for (const anchor of matches) {
+    const attrs = `${anchor[1] || ""}`;
+    const hrefMatch = attrs.match(/\bhref=(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+    const href = `${hrefMatch?.[1] || hrefMatch?.[2] || hrefMatch?.[3] || ""}`.trim();
+    if (!href) continue;
+    anchors.push({
+      href,
+      label: normalizeText(anchor[2] || ""),
+    });
+  }
+  return anchors;
+};
+
+const resolvePrevPageUrl = ({ html = "", currentUrl = "" } = {}) => {
+  const anchors = extractPagingAnchors(html);
+  const currentIndex = getPageIndexFromUrl(currentUrl);
+  let selectedHref = "";
+
   for (const anchor of anchors) {
-    const href = `${anchor[1] || ""}`.trim();
-    const label = normalizeText(anchor[2] || "");
-    if (label.includes("上頁") || label.includes("‹")) {
-      return href;
+    if (anchor.label.includes("上頁") || anchor.label.includes("‹") || anchor.label.includes("<")) {
+      selectedHref = anchor.href;
+      break;
     }
   }
-  const links = anchors.map((match) => `${match[1] || ""}`.trim()).filter(Boolean);
-  return links[1] || links[0] || "";
+
+  if (!selectedHref) {
+    const numericAnchors = anchors
+      .map((anchor) => ({ ...anchor, index: getPageIndexFromHref(anchor.href) }))
+      .filter((anchor) => Number.isFinite(anchor.index));
+    if (numericAnchors.length) {
+      if (Number.isFinite(currentIndex)) {
+        const lower = numericAnchors
+          .filter((anchor) => anchor.index < currentIndex)
+          .sort((a, b) => b.index - a.index)[0];
+        selectedHref = (lower || numericAnchors.sort((a, b) => b.index - a.index)[0]).href;
+      } else {
+        selectedHref = numericAnchors.sort((a, b) => b.index - a.index)[0].href;
+      }
+    }
+  }
+
+  if (selectedHref) {
+    try {
+      return new URL(selectedHref, PTT_BASE_URL).toString();
+    } catch {
+      return "";
+    }
+  }
+
+  if (Number.isFinite(currentIndex) && currentIndex > 0) {
+    return toIndexPageUrl(currentIndex - 1);
+  }
+
+  return "";
 };
 
 const parseBoardRows = (html = "") => {
@@ -236,43 +298,92 @@ const mapWithConcurrency = async (items, limit, worker) => {
 const collectBoardRows = async ({ sinceMs, maxPages, maxArticles }) => {
   const rows = [];
   const seen = new Set();
+  const visitedUrls = new Set();
+  const visitedIndexes = new Set();
+  const pageTrace = [];
   let pageFetches = 0;
   let pageSuccesses = 0;
   let pageFailures = 0;
   let stalePages = 0;
+  let consecutiveFailures = 0;
   let currentUrl = PTT_BOARD_INDEX_URL;
 
   for (let page = 0; page < maxPages; page += 1) {
     if (!currentUrl) break;
+    if (visitedUrls.has(currentUrl)) break;
+    visitedUrls.add(currentUrl);
+
+    const currentIndex = getPageIndexFromUrl(currentUrl);
+    if (Number.isFinite(currentIndex)) {
+      if (visitedIndexes.has(currentIndex)) break;
+      visitedIndexes.add(currentIndex);
+    }
+
     pageFetches += 1;
     const response = await fetchText(currentUrl);
     if (!response.ok) {
       pageFailures += 1;
-      continue;
+      consecutiveFailures += 1;
+      pageTrace.push({
+        url: currentUrl,
+        index: Number.isFinite(currentIndex) ? currentIndex : null,
+        ok: false,
+        status: response.status || 0,
+      });
+      if (consecutiveFailures >= 3) break;
+      if (Number.isFinite(currentIndex) && currentIndex > 0) {
+        currentUrl = toIndexPageUrl(currentIndex - 1);
+        continue;
+      }
+      break;
     }
     pageSuccesses += 1;
+    consecutiveFailures = 0;
 
     const pageRows = parseBoardRows(response.text);
     let pageHasRecentRows = false;
+    let pageAdded = 0;
     for (const row of pageRows) {
       if (!row.articleId || seen.has(row.articleId)) continue;
       seen.add(row.articleId);
       if (!row.publishedMs || row.publishedMs < sinceMs) continue;
       pageHasRecentRows = true;
       rows.push(row);
+      pageAdded += 1;
       if (rows.length >= maxArticles) {
-        return { rows, pageFetches, pageSuccesses, pageFailures };
+        pageTrace.push({
+          url: currentUrl,
+          index: Number.isFinite(currentIndex) ? currentIndex : null,
+          ok: true,
+          status: 200,
+          entries: pageRows.length,
+          added: pageAdded,
+          recent: true,
+          stale_pages: 0,
+          stop_reason: "max_articles",
+        });
+        return { rows, pageFetches, pageSuccesses, pageFailures, pageTrace };
       }
     }
     stalePages = pageHasRecentRows ? 0 : stalePages + 1;
-    if (stalePages >= 3) break;
+    pageTrace.push({
+      url: currentUrl,
+      index: Number.isFinite(currentIndex) ? currentIndex : null,
+      ok: true,
+      status: 200,
+      entries: pageRows.length,
+      added: pageAdded,
+      recent: pageHasRecentRows,
+      stale_pages: stalePages,
+    });
+    if (stalePages >= 5) break;
 
-    const prevHref = extractPrevPageHref(response.text);
-    if (!prevHref) break;
-    currentUrl = new URL(prevHref, PTT_BASE_URL).toString();
+    const prevUrl = resolvePrevPageUrl({ html: response.text, currentUrl });
+    if (!prevUrl || prevUrl === currentUrl) break;
+    currentUrl = prevUrl;
   }
 
-  return { rows, pageFetches, pageSuccesses, pageFailures };
+  return { rows, pageFetches, pageSuccesses, pageFailures, pageTrace };
 };
 
 const createRun = async (supabase) => {
@@ -360,7 +471,12 @@ export default async function handler(req, res) {
     const sinceMs = Date.now() - sinceHours * 60 * 60 * 1000;
     const collected = await collectBoardRows({ sinceMs, maxPages, maxArticles });
     if (collected.pageSuccesses === 0) {
-      throw new Error("PTT fetch failed: unable to fetch board pages");
+      const trace = (collected.pageTrace || [])
+        .map((entry) => `${entry.url}#${entry.status || 0}`)
+        .join(" | ");
+      throw new Error(
+        `PTT fetch failed: unable to fetch board pages${trace ? `; trace=${trace}` : ""}`
+      );
     }
 
     const scanned = collected.rows.length;
@@ -454,6 +570,8 @@ export default async function handler(req, res) {
         successes: collected.pageSuccesses,
         failures: collected.pageFailures,
       },
+      page_trace_count: (collected.pageTrace || []).length,
+      page_trace: (collected.pageTrace || []).slice(0, 30),
       with_content: saveRows.length,
       without_content: qualified - saveRows.length,
     });

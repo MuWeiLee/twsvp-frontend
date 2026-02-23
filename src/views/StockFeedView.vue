@@ -122,53 +122,6 @@
         </div>
       </section>
 
-      <div class="list-title">{{ t("财经资讯") }}</div>
-      <section class="external-list">
-        <a
-          v-for="item in financeNewsItems"
-          :key="`finance-${item.article_id}`"
-          class="external-card"
-          :href="item.link"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <div class="external-meta">
-            <span class="external-source">{{ formatFinanceSource(item) }}</span>
-            <span class="external-time">{{ formatExternalTime(item.pub_date) }}</span>
-          </div>
-          <div class="external-title">{{ item.title || t("无标题") }}</div>
-          <div v-if="item.description || item.content" class="external-snippet">
-            {{ item.description || item.content }}
-          </div>
-        </a>
-        <div v-if="!financeNewsItems.length" class="empty">
-          {{ t("暂无资讯") }}
-        </div>
-      </section>
-
-      <div class="list-title">{{ t("PTT最新文章") }}</div>
-      <section class="external-list">
-        <div v-if="isPttLoading" class="empty">{{ t("加载中...") }}</div>
-        <a
-          v-for="item in pttItems"
-          :key="`ptt-${item.id || item.url}`"
-          class="external-card"
-          :href="item.url"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <div class="external-meta">
-            <span class="external-source">PTT Stock</span>
-            <span class="external-time">{{ formatExternalTime(item.published_at) }}</span>
-          </div>
-          <div class="external-title">{{ item.title || t("无标题") }}</div>
-          <div v-if="item.author" class="external-snippet">{{ t("作者：{name}", { name: item.author }) }}</div>
-        </a>
-        <div v-if="!isPttLoading && !pttItems.length" class="empty">
-          {{ t("暂无文章") }}
-        </div>
-      </section>
-
       <div class="list-title">{{ t("观点列表") }}</div>
       <div class="tabs">
         <button
@@ -416,7 +369,6 @@ import { fetchStockByIdSupabase, fetchStockPricesSupabase } from "../services/st
 import { fetchMopsNewsByStockSupabase, fetchStockNewsSupabase } from "../services/news.js";
 import { t } from "../services/i18n.js";
 import { applyShareMeta } from "../services/shareMeta.js";
-import { fetchPttStockByKeyword } from "../services/socialFeeds.js";
 import {
   fetchBrokerPreferenceSupabase,
   getAppStoreDeepLink,
@@ -465,10 +417,6 @@ const activeSymbol = ref("");
 const brokerId = ref("");
 const showShareToast = ref(false);
 const mopsNewsItems = ref([]);
-const financeNewsItems = ref([]);
-const pttItems = ref([]);
-const isPttLoading = ref(false);
-let externalQuerySeq = 0;
 let shareToastTimer;
 
 const stockFollowLabel = computed(() => (isStockFollowed.value ? t("已关注") : t("+关注")));
@@ -1045,39 +993,6 @@ const formatNewsItem = (item) => {
   return "【—】";
 };
 
-const formatExternalTime = (value) => {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return formatFeedTimestamp(date.toISOString());
-};
-
-const formatFinanceSource = (item) => {
-  if (item?.source_id) return `${item.source_id}`;
-  const creator = item?.creator;
-  if (Array.isArray(creator)) {
-    return creator.filter(Boolean).join(" ");
-  }
-  return creator ? `${creator}` : "News";
-};
-
-const loadExternalArticles = async (stockName) => {
-  const keyword = `${stockName || ""}`.trim();
-  const currentSeq = ++externalQuerySeq;
-  if (!keyword) {
-    pttItems.value = [];
-    isPttLoading.value = false;
-    return;
-  }
-
-  isPttLoading.value = true;
-  const ptt = await fetchPttStockByKeyword(keyword, 5);
-
-  if (currentSeq !== externalQuerySeq) return;
-  pttItems.value = ptt || [];
-  isPttLoading.value = false;
-};
-
 const loadFeeds = async ({ append = false } = {}) => {
   if (!activeSymbol.value) return;
   const feeds = await fetchFeedsBySymbolSupabase(activeSymbol.value, {
@@ -1100,20 +1015,16 @@ const loadData = async () => {
   const symbolParam = route.params.symbol;
   if (!symbolParam || Array.isArray(symbolParam)) {
     mopsNewsItems.value = [];
-    financeNewsItems.value = [];
-    pttItems.value = [];
-    isPttLoading.value = false;
     return;
   }
   const symbol = String(symbolParam);
   activeSymbol.value = symbol;
   syncStockFollowState(symbol);
   isLoading.value = true;
-  const [stockInfo, prices, linkedMopsNews, financeNews] = await Promise.all([
+  const [stockInfo, prices, linkedMopsNews] = await Promise.all([
     fetchStockByIdSupabase(symbol),
     fetchStockPricesSupabase(symbol),
     fetchStockNewsSupabase(symbol, 5, { sourceId: "mops" }),
-    fetchStockNewsSupabase(symbol, 5, { excludeSourceId: "mops" }),
   ]);
   const stockName = stockInfo?.name || symbol;
   let mopsNews = linkedMopsNews || [];
@@ -1125,8 +1036,6 @@ const loadData = async () => {
     });
   }
   mopsNewsItems.value = mopsNews || [];
-  financeNewsItems.value = financeNews || [];
-  const externalPromise = loadExternalArticles(stockName);
   priceSeries.value = prices;
   selectedPrice.value = null;
   await loadFeeds();
@@ -1148,7 +1057,6 @@ const loadData = async () => {
   applyShareMeta({ name: stock.value.name, url: window.location.href });
   isLoading.value = false;
   activeMenuId.value = null;
-  await externalPromise;
 };
 
 const loadMore = async () => {
