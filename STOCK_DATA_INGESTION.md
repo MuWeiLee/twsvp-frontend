@@ -104,15 +104,13 @@
   - 支持热度更新（`net_push`, `net_push_peak`, `last_seen_at`）
 
 **9) `/api/sync-ptt-stock-links`（PTT 标题绑定股票）**
-- 功能：读取 `ptt_articles` 热门文，按标题中的股票代码/名称匹配写入 `ptt_stock_links`。
+- 功能：读取 `ptt_articles` 热门文，按标题中的股票名称匹配写入 `ptt_stock_links`。
 - 支持：
   - `since_hours`（默认 24）
   - `min_net_push`（默认 20）
   - `article_limit`
-  - `title_only=1`
   - `dry_run=1`
 - 绑定规则：
-  - `title_stock_id`：标题出现 4 位股票代码
   - `title_stock_name`：标题出现股票名称（去空白后比对）
 - 去重键：
   - `board, article_id, stock_id, match_method`

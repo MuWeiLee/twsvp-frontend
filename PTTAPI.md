@@ -3,7 +3,7 @@
 ## 设计结论
 - 以 `Stock` 板为来源，每 4 小时抓近 24 小时文章。
 - 对 `net_push >= 20` 且有内文的文章写入 `ptt_articles`。
-- 再以标题中的股票代码/名称绑定到 `ptt_stock_links`。
+- 再以标题中的股票名称绑定到 `ptt_stock_links`（不使用代码匹配，避免日期数字误绑）。
 - 流程对齐 NewsData：`抓原文 -> 入文章表 -> 建股票关联表`。
 
 ## 你已完成的表（A/B/C）
@@ -37,7 +37,6 @@ curl "https://<your-domain>/api/sync-ptt-stock-board?since_hours=24&min_net_push
 用途：
 - 读取 `ptt_articles`（近 24 小时、net_push 达阈值、有内文）
 - 标题匹配股票：
-  - `title_stock_id`：标题中出现 4 位股票代码
   - `title_stock_name`：标题中出现股票名称（去空白后比对）
 - upsert 到 `ptt_stock_links`
 
@@ -45,12 +44,11 @@ curl "https://<your-domain>/api/sync-ptt-stock-board?since_hours=24&min_net_push
 - `since_hours`：默认 `24`
 - `min_net_push`：默认 `20`
 - `article_limit`：默认 `1200`
-- `title_only`：默认 `1`
 - `dry_run`：`1` 时只匹配不写
 
 示例：
 ```bash
-curl "https://<your-domain>/api/sync-ptt-stock-links?since_hours=24&min_net_push=20&title_only=1&secret=<CRON_SECRET>"
+curl "https://<your-domain>/api/sync-ptt-stock-links?since_hours=24&min_net_push=20&secret=<CRON_SECRET>"
 ```
 
 ### 3) `GET /api/ptt/hot`（读取）
@@ -73,7 +71,7 @@ curl "https://<your-domain>/api/ptt/hot?stock_id=2330&limit=3&since_hours=24&min
 - `5 */4 * * *`  
   `/api/sync-ptt-stock-board?since_hours=24&min_net_push=20&require_content=1`
 - `20 */4 * * *`  
-  `/api/sync-ptt-stock-links?since_hours=24&min_net_push=20&title_only=1`
+  `/api/sync-ptt-stock-links?since_hours=24&min_net_push=20`
 
 ## RLS
 - `ptt_articles`：执行 `sql/ptt_articles_rls.sql`（前端只读，后端 service role 写）

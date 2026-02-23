@@ -130,7 +130,6 @@ export default async function handler(req, res) {
       { min: 1, max: 5000 }
     );
     const dryRun = `${params.dry_run || ""}` === "1";
-    const titleOnly = `${params.title_only ?? "1"}` !== "0";
 
     runId = await createRun(supabase);
 
@@ -150,7 +149,6 @@ export default async function handler(req, res) {
     }
 
     const stocks = await loadActiveStocks(supabase, { batchSize: 2000 });
-    const stockIdMap = new Map(stocks.map((row) => [`${row.stock_id}`.toUpperCase(), row]));
     const stockNames = stocks
       .map((row) => ({
         stock_id: `${row.stock_id}`,
@@ -167,38 +165,19 @@ export default async function handler(req, res) {
       const normalizedTitle = normalizeTitle(title);
       if (!normalizedTitle) continue;
 
-      const codeTokens = title.toUpperCase().match(/[0-9A-Z]{4,8}/g) || [];
-      for (const token of codeTokens) {
-        const stock = stockIdMap.get(token);
-        if (!stock) continue;
-        const code = `${stock.stock_id}`;
-        const key = `Stock|${article.article_id}|${code}|title_stock_id`;
+      for (const stock of stockNames) {
+        if (!stock.normalizedName) continue;
+        if (!normalizedTitle.includes(stock.normalizedName)) continue;
+        const key = `Stock|${article.article_id}|${stock.stock_id}|title_stock_name`;
         if (dedup.has(key)) continue;
         dedup.add(key);
         links.push({
           board: "Stock",
           article_id: article.article_id,
-          stock_id: code,
-          matched_text: token,
-          match_method: "title_stock_id",
+          stock_id: stock.stock_id,
+          matched_text: stock.name,
+          match_method: "title_stock_name",
         });
-      }
-
-      if (titleOnly) {
-        for (const stock of stockNames) {
-          if (!stock.normalizedName) continue;
-          if (!normalizedTitle.includes(stock.normalizedName)) continue;
-          const key = `Stock|${article.article_id}|${stock.stock_id}|title_stock_name`;
-          if (dedup.has(key)) continue;
-          dedup.add(key);
-          links.push({
-            board: "Stock",
-            article_id: article.article_id,
-            stock_id: stock.stock_id,
-            matched_text: stock.name,
-            match_method: "title_stock_name",
-          });
-        }
       }
     }
 
@@ -234,7 +213,8 @@ export default async function handler(req, res) {
       matched_links: links.length,
       linked: dryRun ? 0 : linked,
       dryRun,
-      title_only: titleOnly,
+      title_only: true,
+      code_match_enabled: false,
     });
   } catch (error) {
     await finishRun(supabase, runId, {
