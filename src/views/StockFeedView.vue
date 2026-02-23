@@ -23,6 +23,18 @@
         </button>
       </nav>
 
+      <section v-if="mopsNewsItems.length" class="stock-news-marquee" aria-label="个股公告">
+        <div class="marquee-track" :style="{ animationDuration: marqueeDuration }">
+          <span
+            v-for="(item, index) in marqueeItems"
+            :key="`${item.article_id}-${index}`"
+            class="marquee-item"
+          >
+            {{ formatNewsItem(item) }}
+          </span>
+        </div>
+      </section>
+
       <section class="chart-card">
         <div class="chart-header">
           <div class="chart-title">{{ t("日K行情") }}</div>
@@ -110,19 +122,31 @@
         </div>
       </section>
 
-      <section v-if="mopsNewsItems.length" class="stock-news-marquee" aria-label="个股公告">
-        <div class="marquee-track" :style="{ animationDuration: marqueeDuration }">
-          <span
-            v-for="(item, index) in marqueeItems"
-            :key="`${item.article_id}-${index}`"
-            class="marquee-item"
-          >
-            {{ formatNewsItem(item) }}
-          </span>
+      <div class="list-title">{{ t("财经资讯") }}</div>
+      <section class="external-list">
+        <a
+          v-for="item in financeNewsItems"
+          :key="`finance-${item.article_id}`"
+          class="external-card"
+          :href="item.link"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <div class="external-meta">
+            <span class="external-source">{{ formatFinanceSource(item) }}</span>
+            <span class="external-time">{{ formatExternalTime(item.pub_date) }}</span>
+          </div>
+          <div class="external-title">{{ item.title || t("无标题") }}</div>
+          <div v-if="item.description || item.content" class="external-snippet">
+            {{ item.description || item.content }}
+          </div>
+        </a>
+        <div v-if="!financeNewsItems.length" class="empty">
+          {{ t("暂无资讯") }}
         </div>
       </section>
 
-      <div class="list-title list-title-spaced">{{ t("PTT最新文章") }}</div>
+      <div class="list-title">{{ t("PTT最新文章") }}</div>
       <section class="external-list">
         <div v-if="isPttLoading" class="empty">{{ t("加载中...") }}</div>
         <a
@@ -389,7 +413,7 @@ import {
 } from "../services/feeds.js";
 import { supabase } from "../services/supabase.js";
 import { fetchStockByIdSupabase, fetchStockPricesSupabase } from "../services/stocks.js";
-import { fetchStockNewsSupabase } from "../services/news.js";
+import { fetchMopsNewsByStockSupabase, fetchStockNewsSupabase } from "../services/news.js";
 import { t } from "../services/i18n.js";
 import { applyShareMeta } from "../services/shareMeta.js";
 import { fetchPttStockByKeyword } from "../services/socialFeeds.js";
@@ -441,6 +465,7 @@ const activeSymbol = ref("");
 const brokerId = ref("");
 const showShareToast = ref(false);
 const mopsNewsItems = ref([]);
+const financeNewsItems = ref([]);
 const pttItems = ref([]);
 const isPttLoading = ref(false);
 let externalQuerySeq = 0;
@@ -1027,6 +1052,15 @@ const formatExternalTime = (value) => {
   return formatFeedTimestamp(date.toISOString());
 };
 
+const formatFinanceSource = (item) => {
+  if (item?.source_id) return `${item.source_id}`;
+  const creator = item?.creator;
+  if (Array.isArray(creator)) {
+    return creator.filter(Boolean).join(" ");
+  }
+  return creator ? `${creator}` : "News";
+};
+
 const loadExternalArticles = async (stockName) => {
   const keyword = `${stockName || ""}`.trim();
   const currentSeq = ++externalQuerySeq;
@@ -1066,6 +1100,7 @@ const loadData = async () => {
   const symbolParam = route.params.symbol;
   if (!symbolParam || Array.isArray(symbolParam)) {
     mopsNewsItems.value = [];
+    financeNewsItems.value = [];
     pttItems.value = [];
     isPttLoading.value = false;
     return;
@@ -1074,13 +1109,23 @@ const loadData = async () => {
   activeSymbol.value = symbol;
   syncStockFollowState(symbol);
   isLoading.value = true;
-  const [stockInfo, prices, mopsNews] = await Promise.all([
+  const [stockInfo, prices, linkedMopsNews, financeNews] = await Promise.all([
     fetchStockByIdSupabase(symbol),
     fetchStockPricesSupabase(symbol),
     fetchStockNewsSupabase(symbol, 5, { sourceId: "mops" }),
+    fetchStockNewsSupabase(symbol, 5, { excludeSourceId: "mops" }),
   ]);
-  mopsNewsItems.value = mopsNews || [];
   const stockName = stockInfo?.name || symbol;
+  let mopsNews = linkedMopsNews || [];
+  if (!mopsNews.length) {
+    mopsNews = await fetchMopsNewsByStockSupabase({
+      stockId: symbol,
+      stockName,
+      limit: 5,
+    });
+  }
+  mopsNewsItems.value = mopsNews || [];
+  financeNewsItems.value = financeNews || [];
   const externalPromise = loadExternalArticles(stockName);
   priceSeries.value = prices;
   selectedPrice.value = null;
@@ -1820,11 +1865,6 @@ watch(isCreateOpen, (value) => {
   font-size: 14px;
   font-weight: 600;
   color: var(--ink);
-}
-
-.list-title-spaced {
-  margin-top: 20px;
-  margin-bottom: 10px;
 }
 
 .tabs {

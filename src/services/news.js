@@ -81,20 +81,27 @@ export const searchNewsSupabase = async (query, limitOrOptions = {}) => {
   return data || [];
 };
 
-export const fetchStockNewsSupabase = async (stockId, limit = 5, { sourceId } = {}) => {
+export const fetchStockNewsSupabase = async (
+  stockId,
+  limit = 5,
+  { sourceId, excludeSourceId } = {}
+) => {
   const symbol = `${stockId || ""}`.trim();
   if (!symbol) return [];
   const safeLimit = Math.max(1, Math.min(20, Number(limit) || 5));
   let query = supabase
     .from("news_stock_links")
     .select(
-      "news_articles:news_articles(article_id,title,link,description,content,pub_date,source_id,source_url,source_icon)"
+      "news_articles:news_articles(article_id,title,link,description,content,pub_date,creator,source_id,source_url,source_icon)"
     )
     .eq("stock_id", symbol)
     .order("pub_date", { ascending: false, nullsFirst: false, foreignTable: "news_articles" });
 
   if (sourceId) {
     query = query.eq("news_articles.source_id", sourceId);
+  }
+  if (excludeSourceId) {
+    query = query.neq("news_articles.source_id", excludeSourceId);
   }
 
   const { data, error } = await query.limit(safeLimit);
@@ -107,4 +114,44 @@ export const fetchStockNewsSupabase = async (stockId, limit = 5, { sourceId } = 
   return (data || [])
     .map((row) => row?.news_articles)
     .filter((item) => item && item.article_id);
+};
+
+export const fetchMopsNewsByStockSupabase = async ({ stockId, stockName, limit = 5 } = {}) => {
+  const symbol = `${stockId || ""}`.trim();
+  const name = `${stockName || ""}`.trim();
+  const safeLimit = Math.max(1, Math.min(20, Number(limit) || 5));
+  if (!symbol && !name) return [];
+
+  const escapedName = name.replace(/,/g, " ");
+  const escapedSymbol = symbol.replace(/,/g, " ");
+  const patterns = [];
+  if (escapedSymbol) {
+    patterns.push(`title.ilike.%${escapedSymbol}%`);
+    patterns.push(`description.ilike.%${escapedSymbol}%`);
+  }
+  if (escapedName) {
+    patterns.push(`title.ilike.%${escapedName}%`);
+    patterns.push(`description.ilike.%${escapedName}%`);
+  }
+
+  let query = supabase
+    .from("news_articles")
+    .select(
+      "article_id,title,link,description,content,pub_date,creator,source_id,source_url,source_icon"
+    )
+    .eq("source_id", "mops")
+    .order("pub_date", { ascending: false, nullsFirst: false })
+    .limit(safeLimit);
+
+  if (patterns.length) {
+    query = query.or(patterns.join(","));
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("读取 MOPS 资讯失败:", error);
+    return [];
+  }
+
+  return (data || []).filter((item) => item && item.article_id);
 };

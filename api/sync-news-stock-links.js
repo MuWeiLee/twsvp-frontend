@@ -28,6 +28,31 @@ const normalizeText = (value) => {
 
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+const loadActiveStocks = async (supabase, { batchSize = 1000 } = {}) => {
+  const safeBatchSize = Math.max(100, Math.min(5000, Number(batchSize) || 1000));
+  const rows = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + safeBatchSize - 1;
+    const { data, error } = await supabase
+      .from("stocks")
+      .select("stock_id,name,is_active")
+      .eq("is_active", true)
+      .order("stock_id", { ascending: true })
+      .range(from, to);
+    if (error) {
+      throw new Error(`Supabase stocks query failed: ${error.message}`);
+    }
+    const chunk = data || [];
+    rows.push(...chunk);
+    if (chunk.length < safeBatchSize) break;
+    from += safeBatchSize;
+  }
+
+  return rows;
+};
+
 export default async function handler(req, res) {
   if (req.method !== "GET" && req.method !== "POST") {
     res.status(405).json({ error: "Method Not Allowed" });
@@ -55,6 +80,7 @@ export default async function handler(req, res) {
     const params = parseParams(req);
     const sinceHours = Number(params.since_hours || params.sinceHours || 24);
     const newsLimit = Number(params.news_limit || params.newsLimit || 200);
+    const stockBatchSize = Number(params.stock_batch_size || params.stockBatchSize || 1000);
     const dryRun = `${params.dry_run || ""}` === "1";
     const minNameMatches = Number(params.min_name_matches || params.minNameMatches || 1);
 
@@ -62,14 +88,7 @@ export default async function handler(req, res) {
       auth: { persistSession: false },
     });
 
-    const { data: stocks, error: stockError } = await supabase
-      .from("stocks")
-      .select("stock_id,name,is_active")
-      .eq("is_active", true);
-    if (stockError) {
-      throw new Error(`Supabase stocks query failed: ${stockError.message}`);
-    }
-
+    const stocks = await loadActiveStocks(supabase, { batchSize: stockBatchSize });
     const activeStocks = (stocks || []).filter((row) => row?.stock_id && row?.name);
     if (!activeStocks.length) {
       res.status(200).json({ status: "ok", matched: 0, saved: 0, reason: "no stocks" });
