@@ -91,6 +91,32 @@
   - `max_ranges` / `max_dates`
   - `max_days_per_range`（避免一次拉取区间过大）
 
+**8) `/api/sync-ptt-stock-board`（PTT Stock 板抓取）**
+- 功能：抓取 `Stock` 板近 `since_hours`（默认 24）内文章，筛 `net_push >= min_net_push`（默认 20），并写入 `ptt_articles`。
+- 支持：
+  - `since_hours`（默认 24）
+  - `max_pages` / `max_articles`
+  - `min_net_push`（默认 20）
+  - `require_content=1`（默认，只写有内文文章）
+  - `dry_run=1`（只抓不写）
+- 去重与增量：
+  - `on conflict (board, article_id)` upsert
+  - 支持热度更新（`net_push`, `net_push_peak`, `last_seen_at`）
+
+**9) `/api/sync-ptt-stock-links`（PTT 标题绑定股票）**
+- 功能：读取 `ptt_articles` 热门文，按标题中的股票代码/名称匹配写入 `ptt_stock_links`。
+- 支持：
+  - `since_hours`（默认 24）
+  - `min_net_push`（默认 20）
+  - `article_limit`
+  - `title_only=1`
+  - `dry_run=1`
+- 绑定规则：
+  - `title_stock_id`：标题出现 4 位股票代码
+  - `title_stock_name`：标题出现股票名称（去空白后比对）
+- 去重键：
+  - `board, article_id, stock_id, match_method`
+
 ## 定时任务（Vercel Cron）
 
 来源：Vercel Cron（生产环境配置）
@@ -115,6 +141,10 @@
   `*/30 * * * *`（每 30 分钟）
 - `/api/sync-news-stock-links`  
   `*/10 * * * *`（每 10 分钟）
+- `/api/sync-ptt-stock-board`  
+  `5 */4 * * *`（每 4 小时，整点后 5 分）
+- `/api/sync-ptt-stock-links`  
+  `20 */4 * * *`（每 4 小时，抓取后 15 分）
 
 ## 关键环境变量
 
