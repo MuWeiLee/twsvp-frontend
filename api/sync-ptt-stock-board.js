@@ -9,17 +9,29 @@ const DEFAULT_MIN_NET_PUSH = 20;
 const DEFAULT_MAX_PAGES = 60;
 const DEFAULT_MAX_ARTICLES = 1000;
 
+const getQueryParams = (req) => {
+  const url = `${req?.url || ""}`;
+  if (!url) return {};
+  try {
+    const parsed = new URL(url, "http://localhost");
+    return Object.fromEntries(parsed.searchParams.entries());
+  } catch {
+    return {};
+  }
+};
+
 const parseParams = (req) => {
-  if (req.method !== "POST") return req.query || {};
-  if (!req.body) return req.query || {};
+  const query = getQueryParams(req);
+  if (req.method !== "POST") return query;
+  if (!req.body) return query;
   if (typeof req.body === "string") {
     try {
-      return { ...(req.query || {}), ...JSON.parse(req.body) };
+      return { ...query, ...JSON.parse(req.body) };
     } catch (error) {
-      return req.query || {};
+      return query;
     }
   }
-  return { ...(req.query || {}), ...(req.body || {}) };
+  return { ...query, ...(req.body || {}) };
 };
 
 const safeNumber = (value, fallback, { min = -Infinity, max = Infinity } = {}) => {
@@ -421,8 +433,9 @@ export default async function handler(req, res) {
   }
 
   const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET } = process.env;
+  const query = getQueryParams(req);
   if (CRON_SECRET) {
-    const secret = req.headers["x-cron-secret"] || req.query?.secret;
+    const secret = req.headers["x-cron-secret"] || query?.secret;
     const userAgent = `${req.headers["user-agent"] || ""}`;
     const isVercelCron =
       req.headers["x-vercel-cron"] === "1" || userAgent.startsWith("vercel-cron/");

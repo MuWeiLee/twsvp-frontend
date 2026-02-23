@@ -18,6 +18,17 @@ const safeMinNetPush = (value, fallback = 20) => {
   return Math.max(-100, Math.min(1000, Math.floor(parsed)));
 };
 
+const getQueryParams = (req) => {
+  const url = `${req?.url || ""}`;
+  if (!url) return {};
+  try {
+    const parsed = new URL(url, "http://localhost");
+    return Object.fromEntries(parsed.searchParams.entries());
+  } catch {
+    return {};
+  }
+};
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     res.status(405).json({ error: "Method Not Allowed" });
@@ -31,16 +42,17 @@ export default async function handler(req, res) {
   }
 
   try {
-    let stockId = `${req.query?.stock_id || req.query?.stockId || ""}`.trim();
-    const stockName = `${req.query?.stock_name || req.query?.stockName || ""}`.trim();
+    const query = getQueryParams(req);
+    let stockId = `${query?.stock_id || query?.stockId || ""}`.trim();
+    const stockName = `${query?.stock_name || query?.stockName || ""}`.trim();
     if (!stockId && !stockName) {
       res.status(400).json({ error: "Missing stock_id or stock_name", items: [] });
       return;
     }
 
-    const limit = safeLimit(req.query?.limit, 3);
-    const sinceHours = safeSinceHours(req.query?.since_hours || req.query?.sinceHours, 24);
-    const minNetPush = safeMinNetPush(req.query?.min_net_push || req.query?.minNetPush, 20);
+    const limit = safeLimit(query?.limit, 3);
+    const sinceHours = safeSinceHours(query?.since_hours || query?.sinceHours, 24);
+    const minNetPush = safeMinNetPush(query?.min_net_push || query?.minNetPush, 20);
     const sinceIso = new Date(Date.now() - sinceHours * 60 * 60 * 1000).toISOString();
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
