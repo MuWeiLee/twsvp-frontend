@@ -122,30 +122,7 @@
         </div>
       </section>
 
-      <div class="list-title list-title-spaced">{{ t("Thread最新文章") }}</div>
-      <section class="external-list">
-        <div v-if="isThreadsLoading" class="empty">{{ t("加载中...") }}</div>
-        <a
-          v-for="item in threadsItems"
-          :key="`threads-${item.id || item.url}`"
-          class="external-card"
-          :href="item.url"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <div class="external-meta">
-            <span class="external-source">Threads</span>
-            <span class="external-time">{{ formatExternalTime(item.published_at) }}</span>
-          </div>
-          <div class="external-title">{{ item.title || t("无标题") }}</div>
-          <div v-if="item.snippet" class="external-snippet">{{ item.snippet }}</div>
-        </a>
-        <div v-if="!isThreadsLoading && !threadsItems.length" class="empty">
-          {{ t("暂无文章") }}
-        </div>
-      </section>
-
-      <div class="list-title">{{ t("PTT最新文章") }}</div>
+      <div class="list-title list-title-spaced">{{ t("PTT最新文章") }}</div>
       <section class="external-list">
         <div v-if="isPttLoading" class="empty">{{ t("加载中...") }}</div>
         <a
@@ -415,7 +392,7 @@ import { fetchStockByIdSupabase, fetchStockPricesSupabase } from "../services/st
 import { fetchStockNewsSupabase } from "../services/news.js";
 import { t } from "../services/i18n.js";
 import { applyShareMeta } from "../services/shareMeta.js";
-import { fetchPttStockByKeyword, fetchThreadsByKeyword } from "../services/socialFeeds.js";
+import { fetchPttStockByKeyword } from "../services/socialFeeds.js";
 import {
   fetchBrokerPreferenceSupabase,
   getAppStoreDeepLink,
@@ -464,9 +441,7 @@ const activeSymbol = ref("");
 const brokerId = ref("");
 const showShareToast = ref(false);
 const mopsNewsItems = ref([]);
-const threadsItems = ref([]);
 const pttItems = ref([]);
-const isThreadsLoading = ref(false);
 const isPttLoading = ref(false);
 let externalQuerySeq = 0;
 let shareToastTimer;
@@ -1056,24 +1031,16 @@ const loadExternalArticles = async (stockName) => {
   const keyword = `${stockName || ""}`.trim();
   const currentSeq = ++externalQuerySeq;
   if (!keyword) {
-    threadsItems.value = [];
     pttItems.value = [];
-    isThreadsLoading.value = false;
     isPttLoading.value = false;
     return;
   }
 
-  isThreadsLoading.value = true;
   isPttLoading.value = true;
-  const [threads, ptt] = await Promise.all([
-    fetchThreadsByKeyword(keyword, 5),
-    fetchPttStockByKeyword(keyword, 5),
-  ]);
+  const ptt = await fetchPttStockByKeyword(keyword, 5);
 
   if (currentSeq !== externalQuerySeq) return;
-  threadsItems.value = threads || [];
   pttItems.value = ptt || [];
-  isThreadsLoading.value = false;
   isPttLoading.value = false;
 };
 
@@ -1099,9 +1066,7 @@ const loadData = async () => {
   const symbolParam = route.params.symbol;
   if (!symbolParam || Array.isArray(symbolParam)) {
     mopsNewsItems.value = [];
-    threadsItems.value = [];
     pttItems.value = [];
-    isThreadsLoading.value = false;
     isPttLoading.value = false;
     return;
   }
