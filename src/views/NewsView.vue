@@ -109,7 +109,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
-import { fetchNewsSupabase } from "../services/news.js";
+import { fetchNewsDataSupabase } from "../services/news.js";
 import { formatFeedTimestamp } from "../services/feeds.js";
 import { t } from "../services/i18n.js";
  
@@ -162,7 +162,7 @@ const loadNews = async ({ append = false } = {}) => {
     loading.value = true;
   }
   try {
-    const rows = await fetchNewsSupabase({ page: page.value, pageSize: PAGE_SIZE });
+    const rows = await fetchNewsDataSupabase({ page: page.value, pageSize: PAGE_SIZE });
     items.value = append ? [...items.value, ...rows] : rows;
     hasMore.value = rows.length === PAGE_SIZE;
   } catch (error) {

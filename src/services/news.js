@@ -31,6 +31,30 @@ export const fetchNewsSupabase = async (optionsOrLimit = 20) => {
   return data || [];
 };
 
+export const fetchNewsDataSupabase = async (optionsOrLimit = 20) => {
+  const options =
+    typeof optionsOrLimit === "number" ? { page: 1, pageSize: optionsOrLimit } : optionsOrLimit;
+  const page = Math.max(1, Number(options?.page || 1));
+  const pageSize = Math.max(1, Number(options?.pageSize || options?.limit || 20));
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  const { data, error } = await supabase
+    .from("news_articles")
+    .select(
+      "article_id,title,link,description,content,pub_date,pub_date_tz,creator,source_id,source_url,source_icon"
+    )
+    .neq("source_id", "mops")
+    .order("pub_date", { ascending: false, nullsFirst: false })
+    .range(from, to);
+
+  if (error) {
+    throw new Error(error.message || "Failed to fetch news");
+  }
+
+  return data || [];
+};
+
 export const searchNewsSupabase = async (query, limitOrOptions = {}) => {
   const q = query.trim();
   if (!q) return [];
@@ -57,18 +81,23 @@ export const searchNewsSupabase = async (query, limitOrOptions = {}) => {
   return data || [];
 };
 
-export const fetchStockNewsSupabase = async (stockId, limit = 5) => {
+export const fetchStockNewsSupabase = async (stockId, limit = 5, { sourceId } = {}) => {
   const symbol = `${stockId || ""}`.trim();
   if (!symbol) return [];
   const safeLimit = Math.max(1, Math.min(20, Number(limit) || 5));
-  const { data, error } = await supabase
+  let query = supabase
     .from("news_stock_links")
     .select(
       "news_articles:news_articles(article_id,title,link,description,content,pub_date,source_id,source_url,source_icon)"
     )
     .eq("stock_id", symbol)
-    .order("pub_date", { ascending: false, nullsFirst: false, foreignTable: "news_articles" })
-    .limit(safeLimit);
+    .order("pub_date", { ascending: false, nullsFirst: false, foreignTable: "news_articles" });
+
+  if (sourceId) {
+    query = query.eq("news_articles.source_id", sourceId);
+  }
+
+  const { data, error } = await query.limit(safeLimit);
 
   if (error) {
     console.error("读取个股资讯失败:", error);

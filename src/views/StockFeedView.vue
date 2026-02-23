@@ -110,7 +110,7 @@
         </div>
       </section>
 
-      <section v-if="newsItems.length" class="stock-news-marquee" aria-label="个股公告">
+      <section v-if="mopsNewsItems.length" class="stock-news-marquee" aria-label="个股公告">
         <div class="marquee-track" :style="{ animationDuration: marqueeDuration }">
           <span
             v-for="(item, index) in marqueeItems"
@@ -122,20 +122,49 @@
         </div>
       </section>
 
-      <div class="list-title list-title-spaced">{{ t("近 7 日观点统计") }}</div>
-      <section class="sentiment-card">
-        <div class="sentiment-row">
-          <span>{{ t("看多") }} {{ sevenDayStats.longPct }}%</span>
-          <span>{{ t("中性") }} {{ sevenDayStats.neutralPct }}%</span>
-          <span>{{ t("看空") }} {{ sevenDayStats.shortPct }}%</span>
+      <div class="list-title list-title-spaced">{{ t("Thread最新文章") }}</div>
+      <section class="external-list">
+        <div v-if="isThreadsLoading" class="empty">{{ t("加载中...") }}</div>
+        <a
+          v-for="item in threadsItems"
+          :key="`threads-${item.id || item.url}`"
+          class="external-card"
+          :href="item.url"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <div class="external-meta">
+            <span class="external-source">Threads</span>
+            <span class="external-time">{{ formatExternalTime(item.published_at) }}</span>
+          </div>
+          <div class="external-title">{{ item.title || t("无标题") }}</div>
+          <div v-if="item.snippet" class="external-snippet">{{ item.snippet }}</div>
+        </a>
+        <div v-if="!isThreadsLoading && !threadsItems.length" class="empty">
+          {{ t("暂无文章") }}
         </div>
-        <div class="sentiment-bar" aria-hidden="true">
-          <span class="segment long" :style="{ width: `${sevenDayStats.longPct}%` }"></span>
-          <span
-            class="segment neutral"
-            :style="{ width: `${sevenDayStats.neutralPct}%` }"
-          ></span>
-          <span class="segment short" :style="{ width: `${sevenDayStats.shortPct}%` }"></span>
+      </section>
+
+      <div class="list-title">{{ t("PTT最新文章") }}</div>
+      <section class="external-list">
+        <div v-if="isPttLoading" class="empty">{{ t("加载中...") }}</div>
+        <a
+          v-for="item in pttItems"
+          :key="`ptt-${item.id || item.url}`"
+          class="external-card"
+          :href="item.url"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <div class="external-meta">
+            <span class="external-source">PTT Stock</span>
+            <span class="external-time">{{ formatExternalTime(item.published_at) }}</span>
+          </div>
+          <div class="external-title">{{ item.title || t("无标题") }}</div>
+          <div v-if="item.author" class="external-snippet">{{ t("作者：{name}", { name: item.author }) }}</div>
+        </a>
+        <div v-if="!isPttLoading && !pttItems.length" class="empty">
+          {{ t("暂无文章") }}
         </div>
       </section>
 
@@ -372,7 +401,6 @@ import {
   formatFeedPercent,
   formatFeedTimestamp,
   getReplyCount,
-  getElapsedDays,
   getRemainingDays,
   getStatusDisplay,
   getStatusLabel,
@@ -387,6 +415,7 @@ import { fetchStockByIdSupabase, fetchStockPricesSupabase } from "../services/st
 import { fetchStockNewsSupabase } from "../services/news.js";
 import { t } from "../services/i18n.js";
 import { applyShareMeta } from "../services/shareMeta.js";
+import { fetchPttStockByKeyword, fetchThreadsByKeyword } from "../services/socialFeeds.js";
 import {
   fetchBrokerPreferenceSupabase,
   getAppStoreDeepLink,
@@ -434,7 +463,12 @@ const selectedRange = ref(20);
 const activeSymbol = ref("");
 const brokerId = ref("");
 const showShareToast = ref(false);
-const newsItems = ref([]);
+const mopsNewsItems = ref([]);
+const threadsItems = ref([]);
+const pttItems = ref([]);
+const isThreadsLoading = ref(false);
+const isPttLoading = ref(false);
+let externalQuerySeq = 0;
 let shareToastTimer;
 
 const stockFollowLabel = computed(() => (isStockFollowed.value ? t("已关注") : t("+关注")));
@@ -982,22 +1016,6 @@ const buildViews = (list) =>
     };
   });
 
-const sevenDayStats = computed(() => {
-  const counts = { long: 0, neutral: 0, short: 0 };
-  feedRows.value.forEach((feed) => {
-    if (getElapsedDays(feed.created_at) > 7) return;
-    if (feed.direction === "long") counts.long += 1;
-    else if (feed.direction === "short") counts.short += 1;
-    else counts.neutral += 1;
-  });
-  const total = counts.long + counts.neutral + counts.short || 1;
-  return {
-    longPct: ((counts.long / total) * 100).toFixed(1),
-    neutralPct: ((counts.neutral / total) * 100).toFixed(1),
-    shortPct: ((counts.short / total) * 100).toFixed(1),
-  };
-});
-
 const filteredViews = computed(() => {
   let list = views.value.filter((view) => !hiddenIds.value.has(view.feed_id));
   if (filter.value !== "all") {
@@ -1007,13 +1025,13 @@ const filteredViews = computed(() => {
 });
 
 const marqueeItems = computed(() => {
-  const list = newsItems.value || [];
+  const list = mopsNewsItems.value || [];
   if (!list.length) return [];
   return list.concat(list);
 });
 
 const marqueeDuration = computed(() => {
-  const count = Math.max(1, newsItems.value.length || 1);
+  const count = Math.max(1, mopsNewsItems.value.length || 1);
   const seconds = Math.max(18, Math.min(48, count * 8));
   return `${seconds}s`;
 });
@@ -1025,6 +1043,38 @@ const formatNewsItem = (item) => {
   if (title) return `【${title}】`;
   if (description) return `【${description}】`;
   return "【—】";
+};
+
+const formatExternalTime = (value) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return formatFeedTimestamp(date.toISOString());
+};
+
+const loadExternalArticles = async (stockName) => {
+  const keyword = `${stockName || ""}`.trim();
+  const currentSeq = ++externalQuerySeq;
+  if (!keyword) {
+    threadsItems.value = [];
+    pttItems.value = [];
+    isThreadsLoading.value = false;
+    isPttLoading.value = false;
+    return;
+  }
+
+  isThreadsLoading.value = true;
+  isPttLoading.value = true;
+  const [threads, ptt] = await Promise.all([
+    fetchThreadsByKeyword(keyword, 5),
+    fetchPttStockByKeyword(keyword, 5),
+  ]);
+
+  if (currentSeq !== externalQuerySeq) return;
+  threadsItems.value = threads || [];
+  pttItems.value = ptt || [];
+  isThreadsLoading.value = false;
+  isPttLoading.value = false;
 };
 
 const loadFeeds = async ({ append = false } = {}) => {
@@ -1048,19 +1098,25 @@ const loadFeeds = async ({ append = false } = {}) => {
 const loadData = async () => {
   const symbolParam = route.params.symbol;
   if (!symbolParam || Array.isArray(symbolParam)) {
-    newsItems.value = [];
+    mopsNewsItems.value = [];
+    threadsItems.value = [];
+    pttItems.value = [];
+    isThreadsLoading.value = false;
+    isPttLoading.value = false;
     return;
   }
   const symbol = String(symbolParam);
   activeSymbol.value = symbol;
   syncStockFollowState(symbol);
   isLoading.value = true;
-  const [stockInfo, prices, news] = await Promise.all([
+  const [stockInfo, prices, mopsNews] = await Promise.all([
     fetchStockByIdSupabase(symbol),
     fetchStockPricesSupabase(symbol),
-    fetchStockNewsSupabase(symbol, 5),
+    fetchStockNewsSupabase(symbol, 5, { sourceId: "mops" }),
   ]);
-  newsItems.value = news || [];
+  mopsNewsItems.value = mopsNews || [];
+  const stockName = stockInfo?.name || symbol;
+  const externalPromise = loadExternalArticles(stockName);
   priceSeries.value = prices;
   selectedPrice.value = null;
   await loadFeeds();
@@ -1075,13 +1131,14 @@ const loadData = async () => {
   );
   stock.value = {
     symbol,
-    name: stockInfo?.name || symbol,
+    name: stockName,
     market: stockInfo?.market || "",
     ...counts,
   };
   applyShareMeta({ name: stock.value.name, url: window.location.href });
   isLoading.value = false;
   activeMenuId.value = null;
+  await externalPromise;
 };
 
 const loadMore = async () => {
@@ -1739,46 +1796,58 @@ watch(isCreateOpen, (value) => {
   }
 }
 
-
-.sentiment-card {
+.external-list {
   background: var(--surface);
   border-radius: var(--radius-card);
-  padding: 14px 16px;
+  padding: 10px;
   border: 1px solid var(--border);
   display: grid;
   gap: 10px;
 }
 
-.sentiment-row {
+.external-card {
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.external-meta {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
 }
 
-.sentiment-bar {
-  height: 8px;
-  background: var(--panel);
-  border-radius: 999px;
+.external-source {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.external-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.external-title {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.external-snippet {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  display: flex;
-}
-
-.segment {
-  height: 100%;
-}
-
-.segment.long {
-  background: var(--price-up);
-}
-
-.segment.neutral {
-  background: var(--border);
-}
-
-.segment.short {
-  background: var(--price-down);
 }
 
 .list-title {
