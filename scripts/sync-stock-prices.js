@@ -1,8 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import {
-  formatDate,
   getDateRange,
   getDefaultStartDate,
+  getTaipeiDateString,
   requiredEnv,
   sleep,
 } from "./lib/stock-sync.js";
@@ -56,7 +56,7 @@ const run = async () => {
   const supabaseKey = requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
   const finmindToken = requiredEnv("FINMIND_TOKEN");
   const startDate = process.env.START_DATE || getDefaultStartDate();
-  const endDate = process.env.END_DATE || formatDate(new Date());
+  const endDate = process.env.END_DATE || getTaipeiDateString();
   const chunkSize = Number(process.env.CHUNK_SIZE || 500);
   const sleepMs = Number(process.env.SLEEP_MS || 250);
   const dataset = process.env.FINMIND_DATASET || "TaiwanStockPrice";

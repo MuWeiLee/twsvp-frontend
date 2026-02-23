@@ -1,12 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
+import { formatDate, getTaipeiDateString } from "./_lib/taipei-date.js";
 
-const pad2 = (value) => `${value}`.padStart(2, "0");
-
-const formatDate = (date) => {
-  const year = date.getFullYear();
-  const month = pad2(date.getMonth() + 1);
-  const day = pad2(date.getDate());
-  return `${year}-${month}-${day}`;
+const chunkArray = (arr, size) => {
+  const chunks = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
 };
 
 const parseParams = (req) => {
@@ -22,7 +22,7 @@ const parseParams = (req) => {
   return { ...(req.query || {}), ...(req.body || {}) };
 };
 
-const fetchStockIds = async (supabase, markets, offset, limit, includeInactive) => {
+const fetchStockIdsPage = async (supabase, markets, offset, limit, includeInactive) => {
   let query = supabase
     .from("stocks")
     .select("stock_id")
@@ -39,6 +39,30 @@ const fetchStockIds = async (supabase, markets, offset, limit, includeInactive) 
   return (data || []).map((row) => `${row.stock_id}`.trim()).filter(Boolean);
 };
 
+const fetchStockIds = async (
+  supabase,
+  markets,
+  stockOffset,
+  maxStocks,
+  includeInactive,
+  pageSize = 1000
+) => {
+  if (maxStocks > 0) {
+    return fetchStockIdsPage(supabase, markets, stockOffset, maxStocks, includeInactive);
+  }
+
+  const result = [];
+  let offset = stockOffset;
+  while (true) {
+    const page = await fetchStockIdsPage(supabase, markets, offset, pageSize, includeInactive);
+    if (!page.length) break;
+    result.push(...page);
+    if (page.length < pageSize) break;
+    offset += page.length;
+  }
+  return result;
+};
+
 const fetchTradingDates = async (supabase, startDate, endDate) => {
   const { data, error } = await supabase
     .from("trading_calendar")
@@ -50,6 +74,19 @@ const fetchTradingDates = async (supabase, startDate, endDate) => {
     throw new Error(`Trading calendar query failed: ${error.message}`);
   }
   return (data || []).map((row) => row.trade_date);
+};
+
+const isTradingDay = async (supabase, tradeDate) => {
+  const { data, error } = await supabase
+    .from("trading_calendar")
+    .select("trade_date")
+    .eq("trade_date", tradeDate)
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`Trading calendar query failed: ${error.message}`);
+  }
+  return Boolean(data?.trade_date);
 };
 
 const fetchExistingDates = async (supabase, stockId, startDate, endDate) => {
@@ -90,6 +127,28 @@ const buildRanges = (dates) => {
   return ranges;
 };
 
+const upsertMissingRows = async (supabase, rows) => {
+  for (const chunk of chunkArray(rows, 1000)) {
+    const { error } = await supabase.from("stock_price_missing").upsert(chunk, {
+      onConflict: "stock_id,trade_date",
+    });
+    if (error) {
+      throw new Error(`Missing rows upsert failed: ${error.message}`);
+    }
+  }
+};
+
+const upsertMissingRanges = async (supabase, rows) => {
+  for (const chunk of chunkArray(rows, 1000)) {
+    const { error } = await supabase.from("stock_price_missing_ranges").upsert(chunk, {
+      onConflict: "stock_id,start_date,end_date",
+    });
+    if (error) {
+      throw new Error(`Missing ranges upsert failed: ${error.message}`);
+    }
+  }
+};
+
 export default async function handler(req, res) {
   if (req.method !== "GET" && req.method !== "POST") {
     res.status(405).json({ error: "Method Not Allowed" });
@@ -114,6 +173,10 @@ export default async function handler(req, res) {
   }
 
   const params = parseParams(req);
+  const modeRaw = `${params.mode || params.scan_mode || "scan"}`.trim().toLowerCase();
+  const mode = ["trade_date", "daily_init", "daily_pending"].includes(modeRaw)
+    ? "trade_date"
+    : "scan";
   const startDate =
     params.start_date ||
     params.startDate ||
@@ -121,9 +184,19 @@ export default async function handler(req, res) {
     process.env.STOCK_PRICE_MIN_START_DATE ||
     "2025-01-01";
   const endDate =
-    params.end_date || params.endDate || process.env.BACKFILL_END_DATE || formatDate(new Date());
-  const stockOffset = Number(params.stock_offset || params.stockOffset || 0);
-  const maxStocks = Number(params.max_stocks || params.maxStocks || 100);
+    params.end_date ||
+    params.endDate ||
+    process.env.BACKFILL_END_DATE ||
+    getTaipeiDateString();
+  const tradeDate = `${params.trade_date || params.tradeDate || getTaipeiDateString()}`;
+  const stockOffset = Math.max(0, Number(params.stock_offset || params.stockOffset || 0));
+  const requestedMaxStocks = Number(
+    params.max_stocks ||
+      params.maxStocks ||
+      process.env.STOCK_PRICE_MISSING_SCAN_MAX_STOCKS ||
+      0
+  );
+  const maxStocks = Number.isFinite(requestedMaxStocks) ? requestedMaxStocks : 0;
   const includeInactive =
     `${params.include_inactive || process.env.BACKFILL_INCLUDE_INACTIVE || "1"}` === "1";
   const markets = (params.markets || process.env.BACKFILL_MARKETS || "上市,上櫃,興櫃")
@@ -139,12 +212,6 @@ export default async function handler(req, res) {
       auth: { persistSession: false },
     });
 
-    const tradingDates = await fetchTradingDates(supabase, startDate, endDate);
-    if (!tradingDates.length) {
-      res.status(200).json({ status: "ok", reason: "no trading dates", startDate, endDate });
-      return;
-    }
-
     const stockIds = await fetchStockIds(
       supabase,
       markets,
@@ -153,7 +220,52 @@ export default async function handler(req, res) {
       includeInactive
     );
     if (!stockIds.length) {
-      res.status(200).json({ status: "ok", reason: "no stocks", stockOffset, maxStocks });
+      res.status(200).json({
+        status: "ok",
+        reason: "no stocks",
+        mode,
+        stockOffset,
+        maxStocks,
+      });
+      return;
+    }
+
+    if (mode === "trade_date") {
+      const isTradeDay = await isTradingDay(supabase, tradeDate);
+      if (!isTradeDay) {
+        res.status(200).json({
+          status: "skip",
+          reason: "non-trading-day",
+          mode,
+          tradeDate,
+        });
+        return;
+      }
+
+      if (!dryRun) {
+        const payload = stockIds.map((stockId) => ({
+          stock_id: stockId,
+          trade_date: tradeDate,
+          status: "pending",
+        }));
+        await upsertMissingRows(supabase, payload);
+      }
+
+      res.status(200).json({
+        status: "ok",
+        mode,
+        tradeDate,
+        stockOffset,
+        maxStocks,
+        seedRows: stockIds.length,
+        dryRun,
+      });
+      return;
+    }
+
+    const tradingDates = await fetchTradingDates(supabase, startDate, endDate);
+    if (!tradingDates.length) {
+      res.status(200).json({ status: "ok", reason: "no trading dates", startDate, endDate });
       return;
     }
 
@@ -171,12 +283,7 @@ export default async function handler(req, res) {
           trade_date: date,
           status: "pending",
         }));
-        const { error } = await supabase
-          .from("stock_price_missing")
-          .upsert(missingPayload, { onConflict: "stock_id,trade_date" });
-        if (error) {
-          throw new Error(`Missing rows upsert failed: ${error.message}`);
-        }
+        await upsertMissingRows(supabase, missingPayload);
         missingRows += missingPayload.length;
 
         const ranges = buildRanges(missingDates);
@@ -188,14 +295,7 @@ export default async function handler(req, res) {
             status: "pending",
             total_rows: 0,
           }));
-          const { error: rangeError } = await supabase
-            .from("stock_price_missing_ranges")
-            .upsert(rangePayload, {
-              onConflict: "stock_id,start_date,end_date",
-            });
-          if (rangeError) {
-            throw new Error(`Missing ranges upsert failed: ${rangeError.message}`);
-          }
+          await upsertMissingRanges(supabase, rangePayload);
           missingRangeRows += rangePayload.length;
         }
       }
@@ -203,10 +303,12 @@ export default async function handler(req, res) {
 
     res.status(200).json({
       status: "ok",
+      mode,
       startDate,
       endDate,
       stockOffset,
       maxStocks,
+      scannedStocks: stockIds.length,
       missingRows,
       missingRangeRows,
       dryRun,

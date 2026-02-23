@@ -15,6 +15,20 @@ export const formatDate = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+export const getTaipeiDateString = (date = new Date()) => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  if (!year || !month || !day) return formatDate(date);
+  return `${year}-${month}-${day}`;
+};
+
 export const formatDateParam = (date) => {
   const year = date.getFullYear();
   const month = pad2(date.getMonth() + 1);

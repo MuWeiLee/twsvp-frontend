@@ -57,6 +57,7 @@
   - 检查 `trading_calendar`，非交易日跳过。
   - 以 `stock_price_backfill_state` 维护当日 `stock_offset`。
   - 每次取 `max_stocks` 个股票逐一拉取并 upsert。
+  - 成功写入后会把 `stock_price_missing` 对应记录更新为 `done`，未写入则保留/写回 `pending`。
   - 支持 rate-limit，遇到限速写入 `rate_limited` 状态并停止。
 
 **4) `/api/sync-stock-prices-history`（历史区间）**
@@ -80,6 +81,8 @@
 
 **6) `/api/sync-stock-prices-missing-scan`（缺口扫描）**
 - 功能：对指定股票批次扫描 `trading_calendar` 与 `stock_prices`，生成缺口记录。
+- 新增模式：
+  - `mode=trade_date`：按单一交易日批量种下 `pending`（适合交易日 10:00 初始化）。
 - 写入：
   - `stock_price_missing`
   - `stock_price_missing_ranges`
@@ -90,6 +93,8 @@
   - `mode=range|date|auto`（默认 `auto`）
   - `max_ranges` / `max_dates`
   - `max_days_per_range`（避免一次拉取区间过大）
+  - `trade_date` / `start_date` / `end_date`（限定待补范围）
+  - `retry_failed=1`（默认开启，把 failed 也纳入重试）
 
 **8) `/api/sync-ptt-stock-board`（PTT Stock 板抓取）**
 - 功能：抓取 `Stock` 板近 `since_hours`（默认 24）内文章，筛 `net_push >= min_net_push`（默认 20），并写入 `ptt_articles`。
@@ -120,15 +125,17 @@
 来源：Vercel Cron（生产环境配置）
 
 - `/api/sync-trading-calendar`  
-  `5 18 * * 1-5`（每周一至周五 18:05）
+  `45 1 * * 1-5`（台北周一至周五 09:45）
 - `/api/sync-stock-prices-daily`  
-  `10,30,50 18-23 * * 1-5`（周一至周五 18:10 / 18:30 / 18:50 到 23:50）
+  `0 4 * * 6,0`（周末巡检补跑）
 - `/api/sync-stock-prices-backfill?mode=stock`  
-  `*/10 0-18 * * 1-5`（周一至周五 00:00-18:59 每 10 分钟）
-- `/api/sync-stock-prices-backfill?mode=stock`  
-  `0 0 * * *`（每天 00:00）
+  `0 18 * * 6,0`（台北周末 02:00 历史回补）
 - `/api/sync-stock-prices-history`  
   `*/20 * * * 6,0`（周六、周日每 20 分钟）
+- `/api/sync-stock-prices-missing-scan?mode=trade_date&max_stocks=0&include_inactive=1`  
+  `0 2 * * 1-5`（台北交易日 10:00，按交易日初始化 pending）
+- `/api/sync-stock-prices-missing?mode=date&max_dates=500&retry_failed=1&max_runtime_ms=240000`  
+  `*/5 7-15 * * 1-5`（台北交易日 15:00-23:59，持续补录 pending）
 - `/api/sync-feed-expiry-notifications`  
   `0 16 * * *`（每天 16:00）
 - `/api/sync-feed-performance`  
@@ -189,6 +196,7 @@
 - `BACKFILL_INCLUDE_INACTIVE`
 - `BACKFILL_USE_MISSING`
 - `BACKFILL_MISSING_LIMIT`
+- `STOCK_PRICE_MISSING_SCAN_MAX_STOCKS`
 
 **Newsdata**
 - `NEWSDATA_API_KEY`

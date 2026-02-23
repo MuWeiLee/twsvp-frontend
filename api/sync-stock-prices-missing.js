@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { formatDate } from "./_lib/taipei-date.js";
 
 const FINMIND_ENDPOINT =
   process.env.FINMIND_ENDPOINT || "https://api.finmindtrade.com/api/v4/data";
@@ -9,15 +10,6 @@ const requiredEnv = (key) => {
     throw new Error(`Missing env: ${key}`);
   }
   return value;
-};
-
-const pad2 = (value) => `${value}`.padStart(2, "0");
-
-const formatDate = (date) => {
-  const year = date.getFullYear();
-  const month = pad2(date.getMonth() + 1);
-  const day = pad2(date.getDate());
-  return `${year}-${month}-${day}`;
 };
 
 const normalizeNumber = (value) => {
@@ -159,6 +151,16 @@ const addDays = (dateString, days) => {
   return formatDate(date);
 };
 
+const parseStatusList = (value, fallback = ["pending"]) => {
+  if (!value) return fallback;
+  const list = `${value}`
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+  if (!list.length) return fallback;
+  return [...new Set(list)];
+};
+
 export default async function handler(req, res) {
   if (req.method !== "GET" && req.method !== "POST") {
     res.status(405).json({ error: "Method Not Allowed" });
@@ -207,6 +209,14 @@ export default async function handler(req, res) {
     Number(params.max_days_per_range || params.maxDaysPerRange || 90)
   );
   const mode = `${params.mode || "auto"}`.toLowerCase();
+  const tradeDateFilter = `${params.trade_date || params.tradeDate || ""}`.trim();
+  const startDateFilter = `${params.start_date || params.startDate || ""}`.trim();
+  const endDateFilter = `${params.end_date || params.endDate || ""}`.trim();
+  const retryFailed = `${params.retry_failed || params.retryFailed || "1"}` === "1";
+  const statuses = parseStatusList(
+    params.statuses,
+    retryFailed ? ["pending", "failed"] : ["pending"]
+  );
 
   let supabase = null;
 
@@ -238,12 +248,23 @@ export default async function handler(req, res) {
     const shouldUseDates = mode === "date" || mode === "auto";
 
     if (shouldUseRanges) {
-      const { data: ranges, error } = await supabase
+      let rangeQuery = supabase
         .from("stock_price_missing_ranges")
         .select("*")
-        .eq("status", "pending")
         .order("start_date", { ascending: false })
         .limit(effectiveMaxRanges);
+      if (statuses.length === 1) {
+        rangeQuery = rangeQuery.eq("status", statuses[0]);
+      } else {
+        rangeQuery = rangeQuery.in("status", statuses);
+      }
+      if (startDateFilter) {
+        rangeQuery = rangeQuery.gte("end_date", startDateFilter);
+      }
+      if (endDateFilter) {
+        rangeQuery = rangeQuery.lte("start_date", endDateFilter);
+      }
+      const { data: ranges, error } = await rangeQuery;
       if (error) {
         throw new Error(`Missing ranges query failed: ${error.message}`);
       }
@@ -305,7 +326,7 @@ export default async function handler(req, res) {
           }
           await supabase
             .from("stock_price_missing_ranges")
-            .update({ status: "failed", last_error: message })
+            .update({ status: "pending", last_error: message })
             .eq("range_id", range.range_id);
           summary.push({
             type: "range",
@@ -323,12 +344,27 @@ export default async function handler(req, res) {
     }
 
     if (!rateLimited && shouldUseDates) {
-      const { data: misses, error } = await supabase
+      let dateQuery = supabase
         .from("stock_price_missing")
         .select("*")
-        .eq("status", "pending")
         .order("trade_date", { ascending: false })
         .limit(effectiveMaxDates);
+      if (statuses.length === 1) {
+        dateQuery = dateQuery.eq("status", statuses[0]);
+      } else {
+        dateQuery = dateQuery.in("status", statuses);
+      }
+      if (tradeDateFilter) {
+        dateQuery = dateQuery.eq("trade_date", tradeDateFilter);
+      } else {
+        if (startDateFilter) {
+          dateQuery = dateQuery.gte("trade_date", startDateFilter);
+        }
+        if (endDateFilter) {
+          dateQuery = dateQuery.lte("trade_date", endDateFilter);
+        }
+      }
+      const { data: misses, error } = await dateQuery;
       if (error) {
         throw new Error(`Missing dates query failed: ${error.message}`);
       }
@@ -375,7 +411,7 @@ export default async function handler(req, res) {
           }
           await supabase
             .from("stock_price_missing")
-            .update({ status: "failed" })
+            .update({ status: "pending" })
             .eq("stock_id", miss.stock_id)
             .eq("trade_date", miss.trade_date);
           summary.push({
@@ -395,6 +431,11 @@ export default async function handler(req, res) {
     res.status(200).json({
       status: rateLimited ? "rate_limited" : "ok",
       dataset,
+      mode,
+      tradeDateFilter: tradeDateFilter || null,
+      startDateFilter: startDateFilter || null,
+      endDateFilter: endDateFilter || null,
+      statuses,
       processed,
       totalRows,
       summary,

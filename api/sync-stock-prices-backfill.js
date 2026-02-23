@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { getTaipeiDateString } from "./_lib/taipei-date.js";
 
 const FINMIND_ENDPOINT =
   process.env.FINMIND_ENDPOINT || "https://api.finmindtrade.com/api/v4/data";
@@ -504,8 +505,7 @@ export default async function handler(req, res) {
     });
 
     const latestTradeDate = await fetchLatestTradeDate(supabase);
-    const latestAvailableDate =
-      explicitEndDate || latestTradeDate || formatDate(new Date());
+    const latestAvailableDate = explicitEndDate || latestTradeDate || getTaipeiDateString();
     const laggedAvailableDate =
       Number.isFinite(endDateLagDays) && endDateLagDays > 0
         ? addDays(latestAvailableDate, -endDateLagDays)

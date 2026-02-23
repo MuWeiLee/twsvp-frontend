@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { getTaipeiDateString } from "./_lib/taipei-date.js";
 
 const FINMIND_ENDPOINT =
   process.env.FINMIND_ENDPOINT || "https://api.finmindtrade.com/api/v4/data";
@@ -9,15 +10,6 @@ const requiredEnv = (key) => {
     throw new Error(`Missing env: ${key}`);
   }
   return value;
-};
-
-const pad2 = (value) => `${value}`.padStart(2, "0");
-
-const formatDate = (date) => {
-  const year = date.getFullYear();
-  const month = pad2(date.getMonth() + 1);
-  const day = pad2(date.getDate());
-  return `${year}-${month}-${day}`;
 };
 
 const normalizeNumber = (value) => {
@@ -310,20 +302,46 @@ const recordMissingDaily = async (
   errorMessage = null
 ) => {
   const payload = {
-    source: "finmind",
-    dataset: "TaiwanStockPrice",
     stock_id: stockId,
     trade_date: tradeDate,
-    reason: errorMessage || "empty_response",
-    detail: {
-      mode: "daily",
-      error: errorMessage,
-    },
+    status: "pending",
   };
   try {
     await supabase.from("stock_price_missing").upsert(payload, {
-      onConflict: "source,dataset,stock_id,trade_date",
+      onConflict: "stock_id,trade_date",
     });
+  } catch (_) {
+    try {
+      await supabase.from("stock_price_missing").upsert(
+        {
+          source: "finmind",
+          dataset: "TaiwanStockPrice",
+          stock_id: stockId,
+          trade_date: tradeDate,
+          status: "pending",
+          reason: errorMessage || "empty_response",
+          detail: {
+            mode: "daily",
+            error: errorMessage,
+          },
+        },
+        {
+          onConflict: "source,dataset,stock_id,trade_date",
+        }
+      );
+    } catch (__unused) {
+      return;
+    }
+  }
+};
+
+const markMissingDailyDone = async (supabase, stockId, tradeDate) => {
+  try {
+    await supabase
+      .from("stock_price_missing")
+      .update({ status: "done" })
+      .eq("stock_id", stockId)
+      .eq("trade_date", tradeDate);
   } catch (_) {
     return;
   }
@@ -366,7 +384,7 @@ export default async function handler(req, res) {
   }
 
   const params = parseParams(req);
-  const tradeDate = `${params.trade_date || params.tradeDate || formatDate(new Date())}`;
+  const tradeDate = `${params.trade_date || params.tradeDate || getTaipeiDateString()}`;
   const chunkSize = Number(params.chunk_size || params.chunkSize || 500);
   const rateLimitPerHour =
     params.rate_limit_per_hour || process.env.STOCK_PRICE_SYNC_RATE_LIMIT_PER_HOUR || 600;
@@ -512,8 +530,12 @@ export default async function handler(req, res) {
         }
       }
       summary.push({ stock_id: stockId, rows: rows.length, error: errorMessage });
-      if (!dryRun && (!rows.length || errorMessage)) {
-        await recordMissingDaily(supabase, stockId, tradeDate, errorMessage);
+      if (!dryRun) {
+        if (rows.length > 0 && !errorMessage) {
+          await markMissingDailyDone(supabase, stockId, tradeDate);
+        } else {
+          await recordMissingDaily(supabase, stockId, tradeDate, errorMessage);
+        }
       }
       if (rateLimited) break;
       if (sleepMs > 0) {

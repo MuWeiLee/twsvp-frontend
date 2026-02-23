@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { getTaipeiDateString } from "./_lib/taipei-date.js";
 
 const FINMIND_ENDPOINT =
   process.env.FINMIND_ENDPOINT || "https://api.finmindtrade.com/api/v4/data";
@@ -267,7 +268,7 @@ export default async function handler(req, res) {
   const params = parseParams(req);
   const source = `${params.source || "finmind"}`.toLowerCase();
   const explicitStartDate = params.start_date || params.startDate || null;
-  const rawEndDate = params.end_date || params.endDate || formatDate(new Date());
+  const rawEndDate = params.end_date || params.endDate || getTaipeiDateString();
   const chunkSize = Number(params.chunk_size || params.chunkSize || 500);
   const rateLimitPerHour =
     params.rate_limit_per_hour || process.env.STOCK_PRICE_SYNC_RATE_LIMIT_PER_HOUR || null;

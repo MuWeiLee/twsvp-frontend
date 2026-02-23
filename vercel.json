@@ -2,15 +2,15 @@
   "crons": [
     {
       "path": "/api/sync-trading-calendar",
-      "schedule": "5 18 * * 1-5"
+      "schedule": "45 1 * * 1-5"
     },
     {
       "path": "/api/sync-stock-prices-daily",
-      "schedule": "10,30,50 18-23 * * 1-5"
+      "schedule": "0 4 * * 6,0"
     },
     {
       "path": "/api/sync-stock-prices-backfill?mode=stock&start_date=2025-01-01",
-      "schedule": "0 2 * * *"
+      "schedule": "0 18 * * 6,0"
     },
     {
       "path": "/api/sync-stock-prices-history?start_date=2025-01-01",
@@ -41,12 +41,12 @@
       "schedule": "*/10 * * * *"
     },
     {
-      "path": "/api/sync-stock-prices-missing-scan?start_date=2025-01-01",
-      "schedule": "10 1 * * *"
+      "path": "/api/sync-stock-prices-missing-scan?mode=trade_date&max_stocks=0&include_inactive=1",
+      "schedule": "0 2 * * 1-5"
     },
     {
-      "path": "/api/sync-stock-prices-missing",
-      "schedule": "*/30 * * * *"
+      "path": "/api/sync-stock-prices-missing?mode=date&max_dates=500&retry_failed=1&max_runtime_ms=240000",
+      "schedule": "*/5 7-15 * * 1-5"
     },
     {
       "path": "/api/sync-quant-runs",
