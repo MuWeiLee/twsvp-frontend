@@ -272,16 +272,23 @@ export default async function handler(req, res) {
           }
           totalRows += rows.length;
           processed += 1;
-          const finished = endDate >= range.end_date;
-          if (finished) {
-            await supabase
-              .from("stock_price_missing_ranges")
-              .update({ status: "done", total_rows: rows.length, last_error: null })
-              .eq("range_id", range.range_id);
+          if (rows.length > 0) {
+            const finished = endDate >= range.end_date;
+            if (finished) {
+              await supabase
+                .from("stock_price_missing_ranges")
+                .update({ status: "done", total_rows: rows.length, last_error: null })
+                .eq("range_id", range.range_id);
+            } else {
+              await supabase
+                .from("stock_price_missing_ranges")
+                .update({ start_date: addDays(endDate, 1), total_rows: 0, last_error: null })
+                .eq("range_id", range.range_id);
+            }
           } else {
             await supabase
               .from("stock_price_missing_ranges")
-              .update({ start_date: addDays(endDate, 1), total_rows: 0, last_error: null })
+              .update({ status: "pending", total_rows: 0, last_error: "empty_response" })
               .eq("range_id", range.range_id);
           }
           summary.push({
@@ -342,11 +349,19 @@ export default async function handler(req, res) {
           }
           totalRows += rows.length;
           processed += 1;
-          await supabase
-            .from("stock_price_missing")
-            .update({ status: "done" })
-            .eq("stock_id", miss.stock_id)
-            .eq("trade_date", miss.trade_date);
+          if (rows.length > 0) {
+            await supabase
+              .from("stock_price_missing")
+              .update({ status: "done" })
+              .eq("stock_id", miss.stock_id)
+              .eq("trade_date", miss.trade_date);
+          } else {
+            await supabase
+              .from("stock_price_missing")
+              .update({ status: "pending" })
+              .eq("stock_id", miss.stock_id)
+              .eq("trade_date", miss.trade_date);
+          }
           summary.push({
             type: "date",
             stock_id: miss.stock_id,

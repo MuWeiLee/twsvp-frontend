@@ -385,6 +385,7 @@ export default async function handler(req, res) {
   const maxStocks = Number(
     params.max_stocks || params.maxStocks || process.env.STOCK_PRICE_DAILY_MAX_STOCKS || 200
   );
+  const dryRun = `${params.dry_run || params.dryRun || "0"}` === "1";
   const reset = `${params.reset || ""}` === "1";
   const maxRuntimeMs = resolveMaxRuntimeMs(
     params.max_runtime_ms || process.env.STOCK_PRICE_DAILY_MAX_RUNTIME_MS,
@@ -497,7 +498,7 @@ export default async function handler(req, res) {
       try {
         const raw = await fetchFinmindPrices(token, stockId, tradeDate);
         rows = parseFinmindRows(raw, stockId);
-        if (rows.length) {
+        if (!dryRun && rows.length) {
           await upsertRows(supabase, rows, chunkSize);
         }
         totalRows += rows.length;
