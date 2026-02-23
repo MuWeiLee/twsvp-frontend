@@ -73,6 +73,20 @@ curl "https://<your-domain>/api/ptt/hot?stock_id=2330&limit=3&since_hours=24&min
 - `20 */4 * * *`  
   `/api/sync-ptt-stock-links?since_hours=24&min_net_push=20`
 
+## GitHub Actions（替代 Vercel 抓取）
+- 工作流文件：`.github/workflows/ptt-sync.yml`
+- 触发方式：
+  - 定时：每 4 小时一次
+  - 手动：Actions 页 `Run workflow`
+- 执行流程：
+  - `npm run sync:ptt:health`
+  - `npm run sync:ptt:crawl`（失败自动重试 3 次）
+  - `npm run sync:ptt:link`
+- 需要在 GitHub Repository Secrets 设置：
+  - `SUPABASE_URL`
+  - `SUPABASE_SERVICE_ROLE_KEY`
+  - `CRON_SECRET`
+
 ## RLS
 - `ptt_articles`：执行 `sql/ptt_articles_rls.sql`（前端只读，后端 service role 写）
 - `ptt_stock_links`：建议同样策略（前端只读）
