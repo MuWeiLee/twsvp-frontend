@@ -1,6 +1,6 @@
 <template>
   <div class="app-shell">
-    <div class="phone-frame">
+    <div class="phone-frame" :class="{ 'with-marquee': mopsNewsItems.length }">
       <nav class="nav">
         <button class="nav-btn" type="button" :aria-label="t('返回')" @click="handleBack">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -1342,9 +1342,15 @@ watch(isCreateOpen, (value) => {
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
+  --stock-nav-height: 64px;
+  --stock-marquee-height: 24px;
   --stock-tabbar-height: 64px;
-  padding: 76px 16px calc(var(--stock-tabbar-height) + 20px);
+  padding: calc(var(--stock-nav-height) + 12px) 16px calc(var(--stock-tabbar-height) + 20px);
   position: relative;
+}
+
+.phone-frame.with-marquee {
+  padding-top: calc(var(--stock-nav-height) + var(--stock-marquee-height) + 12px);
 }
 
 .nav {
@@ -1684,11 +1690,20 @@ watch(isCreateOpen, (value) => {
 }
 
 .stock-news-marquee {
-  margin-top: 12px;
+  position: fixed;
+  top: var(--stock-nav-height);
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  z-index: 4;
   background: #000;
   color: #fff;
-  border-radius: 10px;
-  padding: 8px 0;
+  border-radius: 0;
+  padding: 5px 0;
+  height: var(--stock-marquee-height);
+  box-sizing: border-box;
   overflow: hidden;
 }
 
@@ -1702,7 +1717,7 @@ watch(isCreateOpen, (value) => {
 }
 
 .marquee-item {
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 600;
 }
 
