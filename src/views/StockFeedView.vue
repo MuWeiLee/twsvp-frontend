@@ -1343,7 +1343,7 @@ watch(isCreateOpen, (value) => {
   border-radius: 0;
   box-shadow: none;
   --stock-nav-height: 64px;
-  --stock-marquee-height: 24px;
+  --stock-marquee-height: 28px;
   --stock-tabbar-height: 64px;
   padding: calc(var(--stock-nav-height) + 12px) 16px calc(var(--stock-tabbar-height) + 20px);
   position: relative;
@@ -1701,7 +1701,9 @@ watch(isCreateOpen, (value) => {
   background: #000;
   color: #fff;
   border-radius: 0;
-  padding: 5px 0;
+  display: flex;
+  align-items: center;
+  padding: 0;
   height: var(--stock-marquee-height);
   box-sizing: border-box;
   overflow: hidden;
@@ -1710,6 +1712,7 @@ watch(isCreateOpen, (value) => {
 .marquee-track {
   display: inline-flex;
   align-items: center;
+  height: 100%;
   gap: 28px;
   white-space: nowrap;
   padding-left: 100%;
@@ -1717,8 +1720,12 @@ watch(isCreateOpen, (value) => {
 }
 
 .marquee-item {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
   font-size: 8px;
   font-weight: 600;
+  line-height: 1;
 }
 
 @keyframes stock-marquee {
