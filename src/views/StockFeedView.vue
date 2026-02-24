@@ -981,7 +981,8 @@ const marqueeItems = computed(() => {
 const marqueeDuration = computed(() => {
   const count = Math.max(1, mopsNewsItems.value.length || 1);
   const seconds = Math.max(18, Math.min(48, count * 8));
-  return `${seconds}s`;
+  const slowedSeconds = seconds / 0.3;
+  return `${slowedSeconds}s`;
 });
 
 const formatNewsItem = (item) => {
@@ -1701,7 +1702,7 @@ watch(isCreateOpen, (value) => {
 }
 
 .marquee-item {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
 }
 
