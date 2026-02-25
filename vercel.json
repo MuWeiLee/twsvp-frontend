@@ -60,5 +60,11 @@
       "path": "/api/sync-ptt-stock-links?since_hours=24&min_net_push=20",
       "schedule": "20 */4 * * *"
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/"
+    }
   ]
 }

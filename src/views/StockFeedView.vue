@@ -1723,7 +1723,7 @@ watch(isCreateOpen, (value) => {
   display: inline-flex;
   align-items: center;
   height: 100%;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 600;
   line-height: 1;
 }
