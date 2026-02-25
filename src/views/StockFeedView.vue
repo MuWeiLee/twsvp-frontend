@@ -1343,7 +1343,7 @@ watch(isCreateOpen, (value) => {
   border-radius: 0;
   box-shadow: none;
   --stock-nav-height: 64px;
-  --stock-marquee-height: 28px;
+  --stock-marquee-height: 32px;
   --stock-tabbar-height: 64px;
   padding: calc(var(--stock-nav-height) + 12px) 16px calc(var(--stock-tabbar-height) + 20px);
   position: relative;
@@ -1723,9 +1723,9 @@ watch(isCreateOpen, (value) => {
   display: inline-flex;
   align-items: center;
   height: 100%;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.2;
 }
 
 @keyframes stock-marquee {
