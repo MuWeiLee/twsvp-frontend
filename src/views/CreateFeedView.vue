@@ -2,14 +2,12 @@
   <div class="app-shell">
     <div class="phone-frame">
       <CreateFeedPanel @close="handleClose" @published="handlePublished" />
-      <BottomTabbar />
     </div>
   </div>
 </template>
 
 <script setup>
 import { useRouter } from "vue-router";
-import BottomTabbar from "../components/BottomTabbar.vue";
 import CreateFeedPanel from "../components/CreateFeedPanel.vue";
 
 const router = useRouter();

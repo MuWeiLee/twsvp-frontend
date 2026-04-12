@@ -188,9 +188,12 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
+import { showConfirm } from "../services/confirm.js";
 import { t } from "../services/i18n.js";
+import { addNotificationSupabase } from "../services/notifications.js";
 import { applyShareMeta } from "../services/shareMeta.js";
 import { supabase } from "../services/supabase.js";
+import { showToast } from "../services/toast.js";
 import {
   addFeedLikeSupabase,
   addFeedReplySupabase,
@@ -304,7 +307,7 @@ const handleEditFeed = async () => {
 
 const handleEndFeed = async () => {
   if (!feed.value) return;
-  const confirmed = window.confirm(t("确定结束这条观点吗？"));
+  const confirmed = await showConfirm(t("确定结束这条观点吗？"));
   if (!confirmed) return;
   await supabase
     .from("feeds")
@@ -316,7 +319,7 @@ const handleEndFeed = async () => {
 
 const handleDeleteFeed = async () => {
   if (!feed.value) return;
-  const confirmed = window.confirm(t("确定删除这条观点吗？"));
+  const confirmed = await showConfirm(t("确定删除这条观点吗？"));
   if (!confirmed) return;
   await supabase
     .from("feeds")
@@ -521,7 +524,7 @@ const submitReply = async () => {
     if (error) {
       console.error("留言失败:", error);
     }
-    window.alert(t("留言失败，请稍后重试。"));
+    showToast(t("留言失败，请稍后重试。"), "error");
     return;
   }
   replies.value = [
@@ -536,6 +539,15 @@ const submitReply = async () => {
     },
   ];
   replyContent.value = "";
+  const feedAuthorId = feed.value?.user_id;
+  if (feedAuthorId && feedAuthorId !== currentUserId.value) {
+    addNotificationSupabase({
+      user_id: feedAuthorId,
+      type: "comment",
+      actor_user_id: currentUserId.value,
+      ref_feed_id: feed.value.feed_id,
+    });
+  }
 };
 
 const goLogin = () => {

@@ -237,9 +237,11 @@ import BottomTabbar from "../components/BottomTabbar.vue";
 import FeedEditSheet from "../components/FeedEditSheet.vue";
 import { useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
+import { showConfirm } from "../services/confirm.js";
 import { getProfileSupabase } from "../services/profile.js";
 import { t } from "../services/i18n.js";
 import { getFollowErrorMessage } from "../services/followErrors.js";
+import { showToast } from "../services/toast.js";
 import {
   addFeedLikeSupabase,
   attachFeedPerformance,
@@ -549,7 +551,7 @@ const handleQuickFollow = async () => {
   const authUserId = supabaseUser?.id || "";
   currentUserId.value = authUserId;
   if (!authUserId) {
-    window.alert(t("请重新登录后再关注"));
+    showToast(t("请重新登录后再关注"), "error");
     router.push("/login");
     return;
   }
@@ -582,7 +584,7 @@ const handleQuickFollow = async () => {
     });
     if (error) {
       console.error("一键关注用户失败:", error);
-      window.alert(getFollowErrorMessage(error, { action: "follow" }));
+      showToast(getFollowErrorMessage(error, { action: "follow" }), "error");
       return;
     }
   }
@@ -592,7 +594,7 @@ const handleQuickFollow = async () => {
     });
     if (error) {
       console.error("一键关注股票失败:", error);
-      window.alert(getFollowErrorMessage(error, { action: "follow" }));
+      showToast(getFollowErrorMessage(error, { action: "follow" }), "error");
       return;
     }
   }
@@ -651,7 +653,7 @@ const handleHideFeed = (view) => {
 };
 
 const handleDeleteFeed = async (view) => {
-  const confirmed = window.confirm(t("确定删除这条观点吗？"));
+  const confirmed = await showConfirm(t("确定删除这条观点吗？"));
   if (!confirmed) return;
   await supabase
     .from("feeds")
@@ -662,7 +664,7 @@ const handleDeleteFeed = async (view) => {
 };
 
 const handleEndFeed = async (view) => {
-  const confirmed = window.confirm(t("确定结束这条观点吗？"));
+  const confirmed = await showConfirm(t("确定结束这条观点吗？"));
   if (!confirmed) return;
   await supabase
     .from("feeds")

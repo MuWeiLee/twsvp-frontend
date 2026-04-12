@@ -192,6 +192,7 @@ import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
 import { useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
+import { showConfirm } from "../services/confirm.js";
 import { getProfileSupabase } from "../services/profile.js";
 import { supabase } from "../services/supabase.js";
 import { t } from "../services/i18n.js";
@@ -459,7 +460,7 @@ const closeMenu = () => {
 };
 
 const handleDeleteFeed = async (view) => {
-  const confirmed = window.confirm(t("确定删除这条观点吗？"));
+  const confirmed = await showConfirm(t("确定删除这条观点吗？"));
   if (!confirmed) return;
   await supabase
     .from("feeds")
@@ -470,7 +471,7 @@ const handleDeleteFeed = async (view) => {
 };
 
 const handleEndFeed = async (view) => {
-  const confirmed = window.confirm(t("确定结束这条观点吗？"));
+  const confirmed = await showConfirm(t("确定结束这条观点吗？"));
   if (!confirmed) return;
   await supabase
     .from("feeds")

@@ -348,6 +348,8 @@ import { useRoute, useRouter } from "vue-router";
 import CreateFeedPanel from "../components/CreateFeedPanel.vue";
 import FeedEditSheet from "../components/FeedEditSheet.vue";
 import { getCurrentUserSupabase } from "../services/auth.js";
+import { showConfirm } from "../services/confirm.js";
+import { showToast } from "../services/toast.js";
 import {
   addFeedLikeSupabase,
   fetchFeedsBySymbolSupabase,
@@ -446,7 +448,7 @@ const toggleStockFollow = async () => {
   const supabaseUser = await getCurrentUserSupabase({ force: true, ensureSession: true });
   currentUserId.value = supabaseUser?.id || "";
   if (!currentUserId.value) {
-    window.alert(t("请重新登录后再关注"));
+    showToast(t("请重新登录后再关注"), "error");
     router.push("/login");
     return;
   }
@@ -461,7 +463,7 @@ const toggleStockFollow = async () => {
       );
     if (error) {
       console.error("关注股票失败:", error);
-      window.alert(getFollowErrorMessage(error, { action: "follow" }));
+      showToast(getFollowErrorMessage(error, { action: "follow" }), "error");
       return;
     }
     list.add(symbol);
@@ -473,7 +475,7 @@ const toggleStockFollow = async () => {
       .eq("stock_symbol", symbol);
     if (error) {
       console.error("取消关注股票失败:", error);
-      window.alert(getFollowErrorMessage(error, { action: "unfollow" }));
+      showToast(getFollowErrorMessage(error, { action: "unfollow" }), "error");
       return;
     }
     list.delete(symbol);
@@ -1111,7 +1113,7 @@ const handleCreatePublished = async () => {
 };
 
 const handleDeleteFeed = async (view) => {
-  const confirmed = window.confirm(t("确定删除这条观点吗？"));
+  const confirmed = await showConfirm(t("确定删除这条观点吗？"));
   if (!confirmed) return;
   await supabase
     .from("feeds")
@@ -1122,7 +1124,7 @@ const handleDeleteFeed = async (view) => {
 };
 
 const handleEndFeed = async (view) => {
-  const confirmed = window.confirm(t("确定结束这条观点吗？"));
+  const confirmed = await showConfirm(t("确定结束这条观点吗？"));
   if (!confirmed) return;
   await supabase
     .from("feeds")
@@ -1225,7 +1227,7 @@ const handleTrade = () => {
   }
   const broker = getBrokerById(brokerId.value);
   if (!broker) {
-    window.alert(t("请前往个人中心 > 设置 > 选择交易券商，完成跳转设置。"));
+    showToast(t("请前往个人中心 > 设置 > 选择交易券商，完成跳转设置。"), "info");
     return;
   }
   const appStoreUrl = getAppStoreUrl(broker);

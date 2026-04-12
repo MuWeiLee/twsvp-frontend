@@ -179,6 +179,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
+import { showToast } from "../services/toast.js";
 import { getProfileSupabase, getUserGroupNamesSupabase } from "../services/profile.js";
 import { t } from "../services/i18n.js";
 import { applyShareMeta } from "../services/shareMeta.js";
@@ -382,7 +383,7 @@ const toggleFollow = async () => {
   const authUserId = supabaseUser?.id || "";
   currentUserId.value = authUserId;
   if (!authUserId) {
-    window.alert(t("请重新登录后再关注"));
+    showToast(t("请重新登录后再关注"), "error");
     router.push("/login");
     return;
   }
@@ -395,7 +396,7 @@ const toggleFollow = async () => {
       .eq("followee_id", userId);
     if (error) {
       console.error("取消关注失败:", error);
-      window.alert(getFollowErrorMessage(error, { action: "unfollow" }));
+      showToast(getFollowErrorMessage(error, { action: "unfollow" }), "error");
       return;
     }
     list.delete(userId);
@@ -412,7 +413,7 @@ const toggleFollow = async () => {
         );
       if (error) {
         console.error("关注失败:", error);
-        window.alert(getFollowErrorMessage(error, { action: "follow" }));
+        showToast(getFollowErrorMessage(error, { action: "follow" }), "error");
         return;
       }
     }

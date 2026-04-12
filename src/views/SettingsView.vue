@@ -222,6 +222,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { getCurrentUserSupabase, signOutSupabase } from "../services/auth.js";
+import { showConfirm } from "../services/confirm.js";
 import { getProfileSupabase, upsertProfileSupabase } from "../services/profile.js";
 import { t } from "../services/i18n.js";
 import {
@@ -288,7 +289,7 @@ const loadAccount = async () => {
 };
 
 const handleLogout = async () => {
-  const confirmed = window.confirm(t("确定要退出登录吗？"));
+  const confirmed = await showConfirm(t("确定要退出登录吗？"));
   if (!confirmed) {
     return;
   }
