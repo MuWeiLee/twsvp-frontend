@@ -343,7 +343,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import CreateFeedPanel from "../components/CreateFeedPanel.vue";
 import FeedEditSheet from "../components/FeedEditSheet.vue";
@@ -1300,14 +1300,22 @@ onMounted(loadUser);
 onMounted(loadHiddenIds);
 onMounted(loadData);
 onMounted(() => {
-  updateChartPlotWidth();
-  if (typeof ResizeObserver !== "undefined") {
-    chartResizeObserver = new ResizeObserver(updateChartPlotWidth);
-    if (chartPlotRef.value) {
-      chartResizeObserver.observe(chartPlotRef.value);
-    }
-  }
   window.addEventListener("resize", updateChartPlotWidth);
+});
+
+watch(chartPlotRef, (el) => {
+  if (chartResizeObserver) {
+    chartResizeObserver.disconnect();
+    chartResizeObserver = null;
+  }
+  if (!el) return;
+  nextTick(() => {
+    updateChartPlotWidth();
+    if (typeof ResizeObserver !== "undefined") {
+      chartResizeObserver = new ResizeObserver(updateChartPlotWidth);
+      chartResizeObserver.observe(el);
+    }
+  });
 });
 onBeforeUnmount(() => {
   if (shareToastTimer) window.clearTimeout(shareToastTimer);
