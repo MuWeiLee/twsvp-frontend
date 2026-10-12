@@ -1,68 +1,7 @@
 {
-  "crons": [
-    {
-      "path": "/api/sync-trading-calendar",
-      "schedule": "45 1 * * 1-5"
-    },
-    {
-      "path": "/api/sync-stock-prices-daily",
-      "schedule": "0 4 * * 6,0"
-    },
-    {
-      "path": "/api/sync-stock-prices-backfill?mode=stock&start_date=2025-01-01",
-      "schedule": "0 18 * * 6,0"
-    },
-    {
-      "path": "/api/sync-stock-prices-history?start_date=2025-01-01",
-      "schedule": "*/20 * * * 6,0"
-    },
-    {
-      "path": "/api/sync-feed-expiry-notifications",
-      "schedule": "0 16 * * *"
-    },
-    {
-      "path": "/api/sync-feed-performance",
-      "schedule": "0 16 * * *"
-    },
-    {
-      "path": "/api/sync-user-performance",
-      "schedule": "0 17 * * *"
-    },
-    {
-      "path": "/api/sync-newsdata",
-      "schedule": "*/30 * * * *"
-    },
-    {
-      "path": "/api/sync-mops-rss",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/sync-news-stock-links",
-      "schedule": "*/10 * * * *"
-    },
-    {
-      "path": "/api/sync-stock-prices-missing-scan?mode=trade_date&max_stocks=0&include_inactive=1",
-      "schedule": "0 2 * * 1-5"
-    },
-    {
-      "path": "/api/sync-stock-prices-missing?mode=date&max_dates=500&retry_failed=1&max_runtime_ms=240000",
-      "schedule": "*/5 7-15 * * 1-5"
-    },
-    {
-      "path": "/api/sync-quant-runs",
-      "schedule": "*/10 * * * 1-5"
-    },
-    {
-      "path": "/api/sync-short-emotion",
-      "schedule": "0,30 1-7 * * 1-5"
-    }
-  ],
   "functions": {
-    "api/sync-short-emotion.js": {
-      "maxDuration": 300,
-      "regions": [
-        "hkg1"
-      ]
+    "api/router.js": {
+      "maxDuration": 300
     }
   },
   "rewrites": [
@@ -73,6 +12,10 @@
     {
       "source": "/short-emotion/",
       "destination": "/short-emotion/index.html"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/router?__route=:path*"
     },
     {
       "source": "/((?!api/).*)",

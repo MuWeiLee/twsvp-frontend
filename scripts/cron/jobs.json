@@ -1,0 +1,129 @@
+{
+  "$comment": "Vercel 接口定时调用清单（UTC）。paused=true 的任务暂停中（依赖的 Supabase 项目目前已暂停）；恢复时去掉 paused，并在 .github/workflows/scheduled-jobs.yml 加回对应 cron 行（单测会校验两处一致）。短线情绪不在此列，由工作流里单独的 short-emotion 任务运行。",
+  "jobs": [
+    {
+      "schedule": "45 1 * * 1-5",
+      "paused": true,
+      "calls": [
+        {
+          "path": "/api/sync-trading-calendar",
+          "note": "台股交易日历"
+        }
+      ]
+    },
+    {
+      "schedule": "0 4 * * 6,0",
+      "paused": true,
+      "calls": [
+        {
+          "path": "/api/sync-stock-prices-daily",
+          "note": "周末补日线"
+        }
+      ]
+    },
+    {
+      "schedule": "0 18 * * 6,0",
+      "paused": true,
+      "calls": [
+        {
+          "path": "/api/sync-stock-prices-backfill?mode=stock&start_date=2025-01-01",
+          "note": "周末历史回补"
+        }
+      ]
+    },
+    {
+      "schedule": "*/20 * * * 6,0",
+      "paused": true,
+      "calls": [
+        {
+          "path": "/api/sync-stock-prices-history?start_date=2025-01-01",
+          "note": "周末历史行情"
+        }
+      ]
+    },
+    {
+      "schedule": "0 16 * * *",
+      "paused": true,
+      "calls": [
+        {
+          "path": "/api/sync-feed-expiry-notifications",
+          "note": "观点到期通知"
+        },
+        {
+          "path": "/api/sync-feed-performance",
+          "note": "观点绩效结算"
+        }
+      ]
+    },
+    {
+      "schedule": "0 17 * * *",
+      "paused": true,
+      "calls": [
+        {
+          "path": "/api/sync-user-performance",
+          "note": "用户绩效"
+        }
+      ]
+    },
+    {
+      "schedule": "*/30 * * * *",
+      "paused": true,
+      "calls": [
+        {
+          "path": "/api/sync-newsdata",
+          "note": "NewsData 新闻"
+        }
+      ]
+    },
+    {
+      "schedule": "*/15 * * * *",
+      "paused": true,
+      "calls": [
+        {
+          "path": "/api/sync-mops-rss",
+          "note": "公开资讯观测站 RSS"
+        }
+      ]
+    },
+    {
+      "schedule": "*/10 * * * *",
+      "paused": true,
+      "calls": [
+        {
+          "path": "/api/sync-news-stock-links",
+          "note": "新闻与个股关联"
+        }
+      ]
+    },
+    {
+      "schedule": "0 2 * * 1-5",
+      "paused": true,
+      "calls": [
+        {
+          "path": "/api/sync-stock-prices-missing-scan?mode=trade_date&max_stocks=0&include_inactive=1",
+          "note": "缺失行情扫描"
+        }
+      ]
+    },
+    {
+      "schedule": "*/5 7-15 * * 1-5",
+      "paused": true,
+      "calls": [
+        {
+          "path": "/api/sync-stock-prices-missing?mode=date&max_dates=500&retry_failed=1&max_runtime_ms=240000",
+          "note": "缺失行情补录"
+        }
+      ]
+    },
+    {
+      "schedule": "*/10 * * * 1-5",
+      "paused": true,
+      "calls": [
+        {
+          "path": "/api/sync-quant-runs",
+          "note": "量化任务"
+        }
+      ]
+    }
+  ]
+}
