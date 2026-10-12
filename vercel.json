@@ -4,6 +4,88 @@
       "maxDuration": 300
     }
   },
+  "redirects": [
+    {
+      "source": "/shortEmotion",
+      "destination": "/short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/shortEmotion/",
+      "destination": "/short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/shortemotion",
+      "destination": "/short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/shortemotion/",
+      "destination": "/short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/ShortEmotion",
+      "destination": "/short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/ShortEmotion/",
+      "destination": "/short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/Shortemotion",
+      "destination": "/short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/Shortemotion/",
+      "destination": "/short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/SHORTEMOTION",
+      "destination": "/short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/SHORTEMOTION/",
+      "destination": "/short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/short_emotion",
+      "destination": "/short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/short_emotion/",
+      "destination": "/short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/short-Emotion",
+      "destination": "/short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/short-Emotion/",
+      "destination": "/short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/Short-Emotion",
+      "destination": "/short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/Short-Emotion/",
+      "destination": "/short-emotion",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/short-emotion",
