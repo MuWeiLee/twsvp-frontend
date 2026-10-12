@@ -152,28 +152,53 @@
 
     <section class="login-drawer">
       <div class="drawer-content">
-        <div class="drawer-title">{{ t("使用Google账号安全登录") }}</div>
-        <button class="btn btn-google" @click="handleGoogle">
-          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              fill="#EA4335"
-              d="M12 10.2v3.9h5.5c-.2 1.3-1.5 3.9-5.5 3.9A5.9 5.9 0 0 1 6.1 12a5.9 5.9 0 0 1 5.9-5.9c1.7 0 2.9.7 3.5 1.4l2.4-2.3C16.4 3.7 14.4 3 12 3 6.9 3 2.8 7.1 2.8 12S6.9 21 12 21c6.9 0 8.7-4.8 8.7-7.2 0-.5-.1-.9-.1-1.3H12z"
-            />
-            <path
-              fill="#34A853"
-              d="M3.9 7.2l3.2 2.3A5.9 5.9 0 0 1 12 6.1c1.7 0 2.9.7 3.5 1.4l2.4-2.3C16.4 3.7 14.4 3 12 3c-3.5 0-6.6 2-8.1 4.9z"
-            />
-            <path
-              fill="#FBBC05"
-              d="M12 21c2.3 0 4.3-.8 5.7-2.1l-2.7-2.1c-.7.5-1.7.8-3 .8a5.9 5.9 0 0 1-5.6-4H3.2v2.5A9 9 0 0 0 12 21z"
-            />
-            <path
-              fill="#4285F4"
-              d="M20.6 12.5c0-.4-.1-.9-.2-1.3H12v3.9h5.5c-.3 1.2-1.2 2.3-2.5 3.1l2.7 2.1c1.6-1.5 2.9-3.8 2.9-7.8z"
-            />
-          </svg>
-          {{ t("使用Google登录") }}
-        </button>
+        <div class="drawer-head">
+          <div class="drawer-title">{{ t("登录 TWSVP") }}</div>
+          <router-link class="browse-link" to="/feed">{{ t("先逛逛，不登录") }} →</router-link>
+        </div>
+        <!-- Google 登录已暂停：入口移除，signInWithGoogleSupabase 仍保留在 services/auth.js，恢复时加回按钮即可。 -->
+        <p class="drawer-sub">{{ t("使用邮箱验证码登录，无需密码") }}</p>
+
+        <form v-if="!codeSentTo" class="email-row" novalidate @submit.prevent="handleSendCode">
+          <input
+            v-model="email"
+            class="field"
+            type="email"
+            inputmode="email"
+            autocomplete="email"
+            :placeholder="t('输入邮箱')"
+            :aria-label="t('输入邮箱')"
+          />
+          <button class="btn btn-dark" type="submit" :disabled="sending">
+            {{ sending ? t("发送中...") : t("获取验证码") }}
+          </button>
+        </form>
+
+        <form v-else class="email-row" novalidate @submit.prevent="handleVerifyCode">
+          <input
+            v-model="code"
+            class="field code-field"
+            type="text"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            maxlength="10"
+            :placeholder="t('邮件中的验证码')"
+            :aria-label="t('邮件中的验证码')"
+          />
+          <button class="btn btn-dark" type="submit" :disabled="verifying">
+            {{ verifying ? t("登录中...") : t("登录") }}
+          </button>
+        </form>
+
+        <p v-if="codeSentTo" class="email-note">
+          {{ t("验证码已发送至 {email}，也可直接点击邮件中的登录链接。", { email: codeSentTo }) }}
+          <button class="text-link" type="button" :disabled="cooldown > 0 || sending" @click="handleResend">
+            {{ cooldown > 0 ? t("{s} 秒后可重发", { s: cooldown }) : t("重新发送") }}
+          </button>
+          <button class="text-link" type="button" @click="resetEmail">{{ t("更换邮箱") }}</button>
+        </p>
+        <p v-else class="email-note">{{ t("老用户请填写原 Google 账号的邮箱，登录后观点与资料保持不变。") }}</p>
+        <p v-if="emailError" class="email-error" role="alert">{{ emailError }}</p>
 
         <p class="legal">
           {{ t("继续即表示你同意") }}
@@ -197,10 +222,12 @@ import logoUrl from "../assets/logo.png";
 import { useRouter } from "vue-router";
 import { t } from "../services/i18n.js";
 import {
+  consumeLoginRedirect,
   ensureProfileSupabase,
   getCurrentUserSupabase,
   getProfileCompletionSupabase,
-  signInWithGoogleSupabase,
+  sendEmailLoginCode,
+  verifyEmailLoginCode,
 } from "../services/auth.js";
 import {
   applyLanguagePreference,
@@ -217,6 +244,63 @@ const heroWordIndex = ref(0);
 const heroWord = computed(() => heroWords.value[heroWordIndex.value]);
 
 let heroTimer;
+
+// 邮箱验证码登录
+const email = ref("");
+const code = ref("");
+const codeSentTo = ref("");
+const sending = ref(false);
+const verifying = ref(false);
+const emailError = ref("");
+const cooldown = ref(0);
+let cooldownTimer;
+
+const startCooldown = () => {
+  cooldown.value = 60;
+  clearInterval(cooldownTimer);
+  cooldownTimer = setInterval(() => {
+    cooldown.value -= 1;
+    if (cooldown.value <= 0) clearInterval(cooldownTimer);
+  }, 1000);
+};
+
+const sendCode = async (address) => {
+  emailError.value = "";
+  sending.value = true;
+  try {
+    codeSentTo.value = await sendEmailLoginCode(address);
+    startCooldown();
+  } catch (error) {
+    emailError.value = error.message;
+  } finally {
+    sending.value = false;
+  }
+};
+
+const handleSendCode = () => sendCode(email.value);
+const handleResend = () => sendCode(codeSentTo.value);
+
+const resetEmail = () => {
+  codeSentTo.value = "";
+  code.value = "";
+  emailError.value = "";
+};
+
+const handleVerifyCode = async () => {
+  emailError.value = "";
+  verifying.value = true;
+  try {
+    const user = await verifyEmailLoginCode(codeSentTo.value, code.value);
+    if (!user) throw new Error(t("登录失败，请稍后重试"));
+    await ensureProfileSupabase(user);
+    const completed = await getProfileCompletionSupabase(user.id);
+    router.replace(completed ? consumeLoginRedirect() || "/feed" : "/personal-setting");
+  } catch (error) {
+    emailError.value = error.message;
+  } finally {
+    verifying.value = false;
+  }
+};
 
 onMounted(async () => {
   // 优先检查 Supabase 会话，同时兼容旧 token
@@ -240,24 +324,13 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (heroTimer) clearInterval(heroTimer);
+  clearInterval(cooldownTimer);
 });
-
-const handleGoogle = () => {
-  handleGoogleSupabase();
-};
 
 const setLanguage = (value) => {
   language.value = applyLanguagePreference(value);
 };
 
-const handleGoogleSupabase = async () => {
-  try {
-    await signInWithGoogleSupabase();
-    console.log('Supabase Google登录请求已发送');
-  } catch (error) {
-    console.error('Supabase登录失败:', error);
-  }
-};
 </script>
 
 <style scoped>
@@ -267,7 +340,7 @@ const handleGoogleSupabase = async () => {
   background: var(--bg);
   border-radius: 0;
   box-shadow: none;
-  padding: 76px 22px 220px;
+  padding: 76px 22px 300px;
   position: relative;
   max-width: 600px;
   margin: 0 auto;
@@ -564,16 +637,6 @@ const handleGoogleSupabase = async () => {
   background: var(--surface);
 }
 
-.btn-google {
-  width: 100%;
-  margin-top: 8px;
-  color: var(--ink);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-
 .btn:hover {
   background: var(--panel);
 }
@@ -645,6 +708,119 @@ const handleGoogleSupabase = async () => {
 .drawer-title {
   font-weight: 600;
   font-size: 14px;
+}
+
+.drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.browse-link {
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 6px 0;
+}
+
+.drawer-sub {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.email-row {
+  display: flex;
+  gap: 8px;
+}
+
+.field {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  padding: 12px 12px;
+  font: inherit;
+  font-size: 16px; /* ≥16px 避免 iOS 聚焦时页面缩放 */
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.field:focus {
+  outline: none;
+  border-color: var(--ink);
+}
+
+.code-field {
+  letter-spacing: 0.2em;
+}
+
+.btn-dark {
+  flex: none;
+  background: var(--ink);
+  color: var(--surface);
+  border-color: var(--ink);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.btn-dark:hover {
+  background: var(--ink);
+  opacity: 0.9;
+}
+
+.btn-dark:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.email-note {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.email-error {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #c0392b;
+}
+
+.text-link {
+  border: 0;
+  background: none;
+  padding: 0 0 0 6px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.text-link:disabled {
+  color: var(--muted);
+  text-decoration: none;
+  cursor: default;
 }
 
 .hero-swap-enter-active,

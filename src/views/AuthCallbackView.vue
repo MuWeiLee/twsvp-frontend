@@ -8,6 +8,7 @@ import { useRoute, useRouter } from "vue-router";
 import { t } from "../services/i18n.js";
 import {
   clearAuthCache,
+  consumeLoginRedirect,
   ensureProfileSupabase,
   getCurrentUserSupabase,
   getProfileCompletionSupabase,
@@ -41,7 +42,7 @@ onMounted(async () => {
     if (supabaseUser) {
       await ensureProfileSupabase(supabaseUser);
       const completed = await getProfileCompletionSupabase(supabaseUser.id);
-      router.replace(completed ? "/feed" : "/personal-setting");
+      router.replace(completed ? consumeLoginRedirect() || "/feed" : "/personal-setting");
       return;
     }
 
