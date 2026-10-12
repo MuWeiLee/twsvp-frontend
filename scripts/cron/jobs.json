@@ -1,0 +1,126 @@
+{
+  "$comment": "定时任务清单（UTC）。由 .github/workflows/scheduled-jobs.yml 触发；新增或修改 schedule 时两处需同步（src/__tests__/cron-jobs.test.js 会校验）。",
+  "jobs": [
+    {
+      "schedule": "45 1 * * 1-5",
+      "calls": [
+        {
+          "path": "/api/sync-trading-calendar",
+          "note": "台股交易日历"
+        }
+      ]
+    },
+    {
+      "schedule": "0 4 * * 6,0",
+      "calls": [
+        {
+          "path": "/api/sync-stock-prices-daily",
+          "note": "周末补日线"
+        }
+      ]
+    },
+    {
+      "schedule": "0 18 * * 6,0",
+      "calls": [
+        {
+          "path": "/api/sync-stock-prices-backfill?mode=stock&start_date=2025-01-01",
+          "note": "周末历史回补"
+        }
+      ]
+    },
+    {
+      "schedule": "*/20 * * * 6,0",
+      "calls": [
+        {
+          "path": "/api/sync-stock-prices-history?start_date=2025-01-01",
+          "note": "周末历史行情"
+        }
+      ]
+    },
+    {
+      "schedule": "0 16 * * *",
+      "calls": [
+        {
+          "path": "/api/sync-feed-expiry-notifications",
+          "note": "观点到期通知"
+        },
+        {
+          "path": "/api/sync-feed-performance",
+          "note": "观点绩效结算"
+        }
+      ]
+    },
+    {
+      "schedule": "0 17 * * *",
+      "calls": [
+        {
+          "path": "/api/sync-user-performance",
+          "note": "用户绩效"
+        }
+      ]
+    },
+    {
+      "schedule": "*/30 * * * *",
+      "calls": [
+        {
+          "path": "/api/sync-newsdata",
+          "note": "NewsData 新闻"
+        }
+      ]
+    },
+    {
+      "schedule": "*/15 * * * *",
+      "calls": [
+        {
+          "path": "/api/sync-mops-rss",
+          "note": "公开资讯观测站 RSS"
+        }
+      ]
+    },
+    {
+      "schedule": "*/10 * * * *",
+      "calls": [
+        {
+          "path": "/api/sync-news-stock-links",
+          "note": "新闻与个股关联"
+        }
+      ]
+    },
+    {
+      "schedule": "0 2 * * 1-5",
+      "calls": [
+        {
+          "path": "/api/sync-stock-prices-missing-scan?mode=trade_date&max_stocks=0&include_inactive=1",
+          "note": "缺失行情扫描"
+        }
+      ]
+    },
+    {
+      "schedule": "*/5 7-15 * * 1-5",
+      "calls": [
+        {
+          "path": "/api/sync-stock-prices-missing?mode=date&max_dates=500&retry_failed=1&max_runtime_ms=240000",
+          "note": "缺失行情补录"
+        }
+      ]
+    },
+    {
+      "schedule": "*/10 * * * 1-5",
+      "calls": [
+        {
+          "path": "/api/sync-quant-runs",
+          "note": "量化任务"
+        }
+      ]
+    },
+    {
+      "schedule": "0,30 1-7 * * 1-5",
+      "calls": [
+        {
+          "path": "/api/sync-short-emotion",
+          "note": "短线情绪工作台（北京时间 09:00–15:00 每30分钟）"
+        }
+      ]
+    }
+  ]
+}

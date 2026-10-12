@@ -83,12 +83,12 @@ function setText(selector, value) {
 }
 
 function renderHeader() {
-  const quote = data.quoteTime ? String(data.quoteTime).replace(/^(\d{8})\s?/, "$1 ") : null;
-  const stored = shanghaiTimeLabel(data.storedAt || data.capturedAt);
+  const quote = data.quoteTime ? String(data.quoteTime).replace(/^\d{4}(\d{2})(\d{2})\s?(\d{2}:\d{2}).*$/, "$1-$2 $3") : null;
+  const stored = shanghaiTimeLabel(data.storedAt || data.capturedAt)?.split(" ").at(-1);
   const status = data.offSession ? "非交易时段 · 最近一次快照" : data.partial ? "定时快照 · 部分数据可用" : "定时快照";
   $("#connection-dot").className = data.partial ? "" : "ok";
   setText("#connection", status);
-  setText("#quote-time", `${quote ? `行情时间 ${quote}` : "未返回行情时间"}${stored ? ` · ${stored} 更新` : ""}`);
+  setText("#quote-time", `${quote ? `行情时间 ${quote}` : "未返回行情时间"}${stored ? ` · 快照 ${stored}` : ""}`);
   if (data.schedule) setText("#schedule-note", data.schedule);
   reportToolbarState({ connection: status, quoteTime: quote ? `行情时间 ${quote}` : "未返回行情时间", partial: data.partial });
 }
@@ -165,6 +165,19 @@ function renderThemes() {
   $("#theme-list").innerHTML = themes.map((item, index) => `<div class="theme-row"><span class="theme-rank">${String(index + 1).padStart(2, "0")}</span><span class="theme-name"><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.code)}</small></span><span class="theme-bar"><i style="width:${Math.max(4, Math.abs(item.changePct) / max * 100)}%"></i></span><span class="theme-change">${formatPct(item.changePct)}</span></div>`).join("");
 }
 
+// 手机端个股分层默认收起；记住用户展开过的题材，切换筛选后保持展开。
+const compactLayout = window.matchMedia("(max-width: 680px)");
+const openedStockThemes = new Set();
+function stockDetailsOpen(name) {
+  return !compactLayout.matches || openedStockThemes.has(name);
+}
+document.addEventListener("toggle", (event) => {
+  const details = event.target;
+  if (!(details instanceof HTMLDetailsElement) || !details.classList.contains("stock-details") || !compactLayout.matches) return;
+  if (details.open) openedStockThemes.add(details.dataset.theme);
+  else openedStockThemes.delete(details.dataset.theme);
+}, true);
+
 function renderAnomalies() {
   const summary = anomalyData?.summary || {};
   const sourceItems = anomalyData?.items || [];
@@ -233,7 +246,7 @@ function renderAnomalies() {
     const limitChip = (anomalyFilter === "all" || anomalyFilter === "limit") && item.limitStocks?.length ? `<span class="anomaly-chip limit">${item.limitStocks.length}只点火股</span>` : "";
     const highBoardChip = (anomalyFilter === "all" || anomalyFilter === "limit") && item.ladder?.maxStreak >= 3 ? `<span class="anomaly-chip ladder">最高${item.ladder.maxStreak}板 +${item.ladder.highBoardBonus}</span>` : "";
     const fullLadderChip = (anomalyFilter === "all" || anomalyFilter === "limit") && item.ladder?.contiguousDepth >= 3 ? `<span class="anomaly-chip ladder">完整1-${item.ladder.contiguousDepth}板 +${item.ladder.ladderBonus}</span>` : "";
-    return `<article class="anomaly-card filter-${anomalyFilter}${index < 3 ? " primary" : ""}"><div class="anomaly-card-head"><div><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.code || "Wind概念映射")}</small><em class="anomaly-rank-metric">${rankingMetric}</em></div><span class="anomaly-score">${activeScore}</span></div><span class="anomaly-status">${escapeHtml(displayStatus)}</span><div class="anomaly-evidence">${chips}${batchChip}${limitChip}${highBoardChip}${fullLadderChip}</div><p class="anomaly-detail" title="${escapeHtml(detail)}">${escapeHtml(detail)}</p>${newsCards}<div class="stock-layers"><section class="role-section ignition"><h4>点火个股 <small>率先封板</small></h4>${stockItems(item.limitStocks || [], "ignition")}</section><section class="role-section follower"><h4>跟风个股 <small>同步走强未封板</small></h4>${stockItems(item.followers || [], "follower")}</section><section class="role-section ride"><h4>候选上车 <small>需等待触发</small></h4>${stockItems(item.rideable || [], "ride")}</section></div></article>`;
+    return `<article class="anomaly-card filter-${anomalyFilter}${index < 3 ? " primary" : ""}"><div class="anomaly-card-head"><div><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.code || "Wind概念映射")}</small><em class="anomaly-rank-metric">${rankingMetric}</em></div><span class="anomaly-score">${activeScore}</span></div><span class="anomaly-status">${escapeHtml(displayStatus)}</span><div class="anomaly-evidence">${chips}${batchChip}${limitChip}${highBoardChip}${fullLadderChip}</div><p class="anomaly-detail" title="${escapeHtml(detail)}">${escapeHtml(detail)}</p>${newsCards}<details class="stock-details" data-theme="${escapeHtml(item.name)}"${stockDetailsOpen(item.name) ? " open" : ""}><summary>个股分层 <small>点火 ${(item.limitStocks || []).length} · 跟风 ${(item.followers || []).length} · 候选 ${(item.rideable || []).length}</small></summary><div class="stock-layers"><section class="role-section ignition"><h4>点火个股 <small>率先封板</small></h4>${stockItems(item.limitStocks || [], "ignition")}</section><section class="role-section follower"><h4>跟风个股 <small>同步走强未封板</small></h4>${stockItems(item.followers || [], "follower")}</section><section class="role-section ride"><h4>候选上车 <small>需等待触发</small></h4>${stockItems(item.rideable || [], "ride")}</section></div></details></article>`;
   }).join("");
 }
 
@@ -252,8 +265,7 @@ function renderDailyTimeline() {
     $("#timeline-chart").innerHTML = `<div class="empty">\u5df2\u6c89\u6dc0${history.length}\u4e2a\u65e5\u7ebf\u70b9\uff1b\u6bcf\u65e5\u6309\u5f53\u5929 n \u4e2a\u76d8\u4e2d\u5feb\u7167\u7b49\u6743\u5e73\u5747\uff0c\u540e\u7eed\u81ea\u52a8\u7d2f\u8ba1\u3002</div>`;
     return;
   }
-  const width = 1000;
-  const height = 200;
+  const { width, height } = chartSize();
   const pad = 25;
   const xAt = (index) => pad + index / Math.max(1, history.length - 1) * (width - pad * 2);
   const points = history.map((item, index) => ({ ...item, x: xAt(index), y: height - pad - Number(item.score) / 100 * (height - pad * 2) }));
@@ -269,6 +281,12 @@ function renderDailyTimeline() {
     return `<line class="timeline-grid timeline-time-grid" x1="${point.x}" y1="${pad}" x2="${point.x}" y2="${height - pad}"/><text class="timeline-label timeline-time-label" text-anchor="${anchor}" x="${point.x}" y="${height - 5}">${label}</text>`;
   }).join("");
   $("#timeline-chart").innerHTML = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><defs><linearGradient id="areaGradientDaily" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c8f16a" stop-opacity=".48"/><stop offset="1" stop-color="#c8f16a" stop-opacity=".04"/></linearGradient></defs>${grid}${axis}<polygon class="timeline-area daily" points="${area}"/><polyline class="timeline-line" points="${line}"/>${dots}</svg>`;
+}
+
+// 按容器真实尺寸绘制，避免 viewBox 固定 1000×200 在手机上把文字和圆点横向压扁。
+function chartSize() {
+  const box = $("#timeline-chart");
+  return { width: Math.max(280, Math.round(box?.clientWidth || 1000)), height: Math.max(150, Math.round(box?.clientHeight || 200)) };
 }
 
 function renderTimeline() {
@@ -297,11 +315,10 @@ function renderTimeline() {
   const latestLabel = history.at(-1)?.timeLabel;
   setText("#history-count", `${history.length} 个当日快照${latestLabel ? ` · 截至 ${latestLabel}` : ""}`);
   if (history.length < 2) {
-    $("#timeline-chart").innerHTML = '<div class="empty">已写入首个快照；至少两次刷新后形成盘中曲线。</div>';
+    $("#timeline-chart").innerHTML = '<div class="empty">交易时段每 30 分钟生成一个快照，至少两个快照后形成盘中曲线。</div>';
     return;
   }
-  const width = 1000;
-  const height = 200;
+  const { width, height } = chartSize();
   const pad = 25;
   const tradingProgress = (minute) => minute <= 690 ? minute - 565 : 125 + minute - 780;
   const totalTradingMinutes = 245;
@@ -311,7 +328,9 @@ function renderTimeline() {
   const area = `${points[0].x},${height - pad} ${line} ${points.at(-1).x},${height - pad}`;
   const grid = [25, 50, 75].map((score) => { const y = height - pad - score / 100 * (height - pad * 2); return `<line class="timeline-grid" x1="${pad}" y1="${y}" x2="${width - pad}" y2="${y}"/><text class="timeline-label" x="0" y="${y + 3}">${score}</text>`; }).join("");
   const dots = points.map((point, index) => `<circle class="timeline-dot" cx="${point.x}" cy="${point.y}" r="${index === points.length - 1 ? 5 : 3}"><title>${escapeHtml(point.phase)} · ${point.score} · ${escapeHtml(point.timeLabel)}</title></circle>`).join("");
-  const slots = [{ minute: 565, label: "09:25" }, { minute: 600, label: "10:00" }, { minute: 690, label: "11:30" }, { minute: 810, label: "13:30" }, { minute: 870, label: "14:30" }, { minute: 900, label: "15:00" }];
+  const slots = width < 480
+    ? [{ minute: 565, label: "09:25" }, { minute: 630, label: "10:30" }, { minute: 690, label: "11:30" }, { minute: 840, label: "14:00" }, { minute: 900, label: "15:00" }]
+    : [{ minute: 565, label: "09:25" }, { minute: 600, label: "10:00" }, { minute: 690, label: "11:30" }, { minute: 810, label: "13:30" }, { minute: 870, label: "14:30" }, { minute: 900, label: "15:00" }];
   const axis = slots.map((slot, index) => { const x = xAt(slot.minute); const anchor = index === 0 ? "start" : index === slots.length - 1 ? "end" : "middle"; return `<line class="timeline-grid timeline-time-grid" x1="${x}" y1="${pad}" x2="${x}" y2="${height - pad}"/><text class="timeline-label timeline-time-label" text-anchor="${anchor}" x="${x}" y="${height - 5}">${slot.label}</text>`; }).join("");
   $("#timeline-chart").innerHTML = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><defs><linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c8f16a" stop-opacity=".48"/><stop offset="1" stop-color="#c8f16a" stop-opacity=".04"/></linearGradient></defs>${grid}${axis}<polygon class="timeline-area" points="${area}"/><polyline class="timeline-line" points="${line}"/>${dots}</svg>`;
 }
@@ -408,6 +427,7 @@ async function exportEmotionImage() {
       activeFilter.closest(".anomaly-toolbar")?.prepend(marker);
     }
     clone.querySelectorAll("button").forEach((node) => node.remove());
+    clone.querySelectorAll("details").forEach((node) => { node.open = true; });
     clone.querySelectorAll(".news-list").forEach((node) => { node.style.maxHeight = "none"; node.style.overflow = "visible"; });
     const shell = document.createElement("div");
     shell.className = "export-shell";
@@ -435,7 +455,9 @@ async function exportEmotionImage() {
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = fileName;
+      document.body.append(link);
       link.click();
+      link.remove();
       setTimeout(() => URL.revokeObjectURL(link.href), 2000);
     }
     toast("AI短线情绪长图已生成");
@@ -448,6 +470,12 @@ async function exportEmotionImage() {
     reportToolbarState({ exporting: false });
   }
 }
+
+let resizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if (data) renderTimeline(); }, 150);
+});
 
 function bindEvents() {
   $("#refresh").addEventListener("click", () => loadEmotion(true));
