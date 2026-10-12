@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { formatDate, getTaipeiDateString } from "../_lib/taipei-date.js";
+import { clampToPriceWindow } from "../_lib/retention.js";
 
 const chunkArray = (arr, size) => {
   const chunks = [];
@@ -177,12 +178,13 @@ export default async function handler(req, res) {
   const mode = ["trade_date", "daily_init", "daily_pending"].includes(modeRaw)
     ? "trade_date"
     : "scan";
-  const startDate =
+  // 只扫描最近 180 天（数据保留窗口），见 api/_lib/retention.js
+  const startDate = clampToPriceWindow(
     params.start_date ||
-    params.startDate ||
-    process.env.BACKFILL_START_DATE ||
-    process.env.STOCK_PRICE_MIN_START_DATE ||
-    "2025-01-01";
+      params.startDate ||
+      process.env.BACKFILL_START_DATE ||
+      process.env.STOCK_PRICE_MIN_START_DATE
+  );
   const endDate =
     params.end_date ||
     params.endDate ||

@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { formatDate } from "../_lib/taipei-date.js";
+import { clampToPriceWindow } from "../_lib/retention.js";
 
 const FINMIND_ENDPOINT =
   process.env.FINMIND_ENDPOINT || "https://api.finmindtrade.com/api/v4/data";
@@ -210,7 +211,8 @@ export default async function handler(req, res) {
   );
   const mode = `${params.mode || "auto"}`.toLowerCase();
   const tradeDateFilter = `${params.trade_date || params.tradeDate || ""}`.trim();
-  const startDateFilter = `${params.start_date || params.startDate || ""}`.trim();
+  // 只补录最近 180 天（数据保留窗口）内的缺口，更早的会被每日清理删掉，不再下载
+  const startDateFilter = clampToPriceWindow(`${params.start_date || params.startDate || ""}`.trim());
   const endDateFilter = `${params.end_date || params.endDate || ""}`.trim();
   const retryFailed = `${params.retry_failed || params.retryFailed || "1"}` === "1";
   const statuses = parseStatusList(
@@ -271,7 +273,7 @@ export default async function handler(req, res) {
 
       for (const range of ranges || []) {
         if (rateLimited) break;
-        const startDate = range.start_date;
+        const startDate = range.start_date > startDateFilter ? range.start_date : startDateFilter;
         let endDate = range.end_date;
         if (maxDaysPerRange > 0) {
           const cappedEnd = addDays(startDate, maxDaysPerRange - 1);
