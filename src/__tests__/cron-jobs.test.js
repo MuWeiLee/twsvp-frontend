@@ -40,3 +40,12 @@ describe("scheduled jobs (GitHub Actions)", () => {
     }
   });
 });
+
+describe("short-emotion URL aliases", () => {
+  it("redirects common spellings (e.g. /shortEmotion) to /short-emotion instead of the SPA login", () => {
+    const sources = (vercel.redirects || []).filter((r) => r.destination === "/short-emotion").map((r) => r.source);
+    for (const alias of ["/shortEmotion", "/shortemotion", "/short_emotion", "/shortEmotion/"]) {
+      expect(sources).toContain(alias);
+    }
+  });
+});
