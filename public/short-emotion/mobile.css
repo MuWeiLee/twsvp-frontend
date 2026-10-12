@@ -1,0 +1,9 @@
+/* 线上版补充样式：长图导出容器 + 新闻快照时间（移动端适配见文件后半部分） */
+.export-host{position:fixed;left:-20000px;top:0;pointer-events:none;z-index:-1}
+.export-shell{box-sizing:border-box;padding:28px;background:#f3f4f0}
+.export-shell main{display:block!important;grid-column:auto!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important}
+.export-shell .topbar{padding:18px 22px;margin-bottom:16px;border:1px solid #dfe2da;border-radius:16px;background:#fff}
+.export-shell .toast{display:none!important}
+.export-shell .news-list{max-height:none!important;overflow:visible!important}
+.export-footer{padding:22px 4px 6px;color:#7b827a;font-size:11px;text-align:center}
+.news-asof{padding:8px 2px 0;color:var(--muted);font-size:11px}

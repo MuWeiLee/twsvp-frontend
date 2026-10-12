@@ -51,9 +51,29 @@
     {
       "path": "/api/sync-quant-runs",
       "schedule": "*/10 * * * 1-5"
+    },
+    {
+      "path": "/api/sync-short-emotion",
+      "schedule": "0,30 1-7 * * 1-5"
     }
   ],
+  "functions": {
+    "api/sync-short-emotion.js": {
+      "maxDuration": 300,
+      "regions": [
+        "hkg1"
+      ]
+    }
+  },
   "rewrites": [
+    {
+      "source": "/short-emotion",
+      "destination": "/short-emotion/index.html"
+    },
+    {
+      "source": "/short-emotion/",
+      "destination": "/short-emotion/index.html"
+    },
     {
       "source": "/((?!api/).*)",
       "destination": "/"

@@ -1,0 +1,189 @@
+// Orchestration for 短线情绪工作台:
+//   runScheduledRefresh — the only code path that calls Wind (cron / manual trigger)
+//   readResource        — what page visitors get: stored snapshots, never a Wind call
+import {
+  loadEmotion, loadThemeAnomalies, loadNews, historyRecord, isTradingSessionHistory,
+  classify, exportEngineState, importEngineState
+} from "./engine.js";
+import { getStore, storageMode } from "./store.js";
+import { duePlan, scheduleSummary, SCHEDULE } from "./schedule.js";
+import { getApiKeys, isMockMode } from "./wind-client.js";
+
+const KEY = {
+  emotion: "emotion:latest",
+  anomalies: "anomalies:latest",
+  news: "news:latest",
+  lastRun: "cron:last-run",
+  engineState: (day) => `engine-state:${day}`,
+  calendar: (day) => `calendar:${day}`,
+  slotLock: (day, slot) => `lock:slot:${day}:${slot}`,
+  bootstrapLock: (day) => `lock:bootstrap:${day}`
+};
+
+const errorText = (error) => String(error?.message || error);
+const quoteDayOf = (snapshot) => String(snapshot?.quoteTime || "").replace(/\D/g, "").slice(0, 8);
+const ALL_JOBS = { emotion: true, anomalies: true, news: true, cleanup: false };
+
+/**
+ * Refreshes whatever is due in the current Beijing 5-minute slot.
+ * force=true (CRON_SECRET-authorised manual run) runs every job once.
+ * Outside the schedule it only bootstraps an empty store, at most once a day.
+ */
+export async function runScheduledRefresh({ force = false, now = new Date() } = {}) {
+  const store = getStore();
+  const plan = duePlan(now);
+  const result = { startedAt: now.toISOString(), beijingTime: `${plan.day} ${plan.label}`, mode: "scheduled", ran: [], skipped: [], errors: [] };
+  const finish = async (status, extra = {}) => {
+    const output = { ...result, ...extra, status, finishedAt: new Date().toISOString() };
+    await store.kvSet(KEY.lastRun, output).catch(() => {});
+    return output;
+  };
+
+  let jobs = { ...plan.jobs };
+  if (force) {
+    jobs = { ...ALL_JOBS };
+    result.mode = "force";
+  } else if (!plan.anyDue) {
+    if (await store.kvGet(KEY.emotion)) return { ...result, status: "idle", reason: "不在定时窗口内，未调用 Wind" };
+    if (!(await store.kvSetIfAbsent(KEY.bootstrapLock(plan.day), { at: now.toISOString() }))) {
+      return { ...result, status: "idle", reason: "今日已尝试过初始化" };
+    }
+    jobs = { ...ALL_JOBS };
+    result.mode = "bootstrap";
+  } else {
+    const calendar = await store.kvGet(KEY.calendar(plan.day));
+    if (calendar?.value?.trading === false) return { ...result, status: "holiday", reason: "今日已判定为休市" };
+    // Several triggers in the same slot (cron retries, manual hits) call Wind only once.
+    if (!(await store.kvSetIfAbsent(KEY.slotLock(plan.day, plan.slot), { at: now.toISOString() }))) {
+      return { ...result, status: "duplicate", reason: `本时段（${plan.label}）已更新过` };
+    }
+  }
+
+  if (!isMockMode() && getApiKeys().length === 0) {
+    return finish("error", { errors: ["WIND_API_KEY 未配置（Vercel → Settings → Environment Variables）"] });
+  }
+
+  importEngineState((await store.kvGet(KEY.engineState(plan.day)).catch(() => null))?.value, plan.day);
+
+  let marketLive = true;
+  if (jobs.emotion) {
+    try {
+      const snapshot = await loadEmotion();
+      const quoteDay = quoteDayOf(snapshot);
+      if (quoteDay === plan.day) {
+        await store.kvSet(KEY.emotion, snapshot);
+        const record = historyRecord(snapshot);
+        await store.historyUpsert(record, isTradingSessionHistory(record));
+        result.ran.push("emotion");
+      } else if (result.mode !== "scheduled" && quoteDay) {
+        // Manual/bootstrap run outside a session: show the last session's numbers, add no curve point.
+        await store.kvSet(KEY.emotion, { ...snapshot, tradingDate: quoteDay, offSession: true });
+        result.ran.push("emotion(off-session)");
+      } else if (!quoteDay) {
+        marketLive = false;
+        result.errors.push(`emotion: Wind 未返回行情时间，保留上一份快照 | ${snapshot.errors.slice(0, 3).join(" | ")}`);
+      } else if (plan.minute >= SCHEDULE.holidayCheckAfter) {
+        await store.kvSet(KEY.calendar(plan.day), { trading: false, quoteDay, checkedAt: now.toISOString() });
+        return finish("holiday", { reason: `行情时间停留在 ${quoteDay}，判定今日休市，今天不再调用 Wind` });
+      } else {
+        marketLive = false;
+        result.skipped.push(`emotion: 行情尚未切换到 ${plan.day}`);
+      }
+    } catch (error) {
+      result.errors.push(`emotion: ${errorText(error)}`);
+    }
+  }
+
+  const tasks = [];
+  if (jobs.anomalies && !marketLive && result.mode === "scheduled") {
+    result.skipped.push("anomalies: 当日行情未就绪，跳过以免覆盖为旧数据");
+  } else if (jobs.anomalies) {
+    tasks.push(loadThemeAnomalies().then(async (output) => {
+      // A fully failed run (nothing returned) must not wipe the last good radar.
+      if (!output.items.length && output.partial && await store.kvGet(KEY.anomalies)) {
+        result.errors.push(`anomalies: 本次无有效结果，保留上一份 | ${output.errors.slice(0, 3).join(" | ")}`);
+        return;
+      }
+      await store.kvSet(KEY.anomalies, output);
+      result.ran.push("anomalies");
+    }).catch((error) => { result.errors.push(`anomalies: ${errorText(error)}`); }));
+  }
+  if (jobs.news) {
+    tasks.push(loadNews().then(async (items) => {
+      if (!items.length) { result.skipped.push("news: 无新结果"); return; }
+      await store.kvSet(KEY.news, { asOf: new Date().toISOString(), items });
+      result.ran.push("news");
+    }).catch((error) => { result.errors.push(`news: ${errorText(error)}`); }));
+  }
+  await Promise.all(tasks);
+
+  await store.kvSet(KEY.engineState(plan.day), exportEngineState(plan.day)).catch((error) => {
+    result.errors.push(`engine-state: ${errorText(error)}`);
+  });
+
+  if (jobs.cleanup) {
+    try {
+      const removedDays = await store.historyPrune(SCHEDULE.historyTradingDays);
+      const cutoff = new Date(now.getTime() - 3 * 86_400_000).toISOString();
+      for (const prefix of ["lock:", "engine-state:", "calendar:"]) await store.kvDeleteOlderThan(prefix, cutoff);
+      result.ran.push(`cleanup(-${removedDays}d)`);
+    } catch (error) {
+      result.errors.push(`cleanup: ${errorText(error)}`);
+    }
+  }
+
+  return finish(result.errors.length && !result.ran.length ? "error" : "ok");
+}
+
+const EMPTY_ANOMALIES = {
+  items: [],
+  summary: { total: 0, rawTotal: 0, mergedTotal: 0, filteredOut: 0, minScore: 60 },
+  limitData: { stockCount: 0, streakCounts: {} },
+  partial: true,
+  errors: []
+};
+
+export class NotReadyError extends Error {}
+
+/** Stored data for page visitors. Never calls Wind. */
+export async function readResource(resource) {
+  const store = getStore();
+  const meta = (entry) => ({ storedAt: entry?.updatedAt || null, schedule: scheduleSummary() });
+
+  if (resource === "emotion") {
+    const entry = await store.kvGet(KEY.emotion);
+    if (!entry) throw new NotReadyError(`暂无快照：首个数据将在下一个交易时段由定时任务生成（${scheduleSummary()}）`);
+    return { ...entry.value, ...meta(entry) };
+  }
+  if (resource === "anomalies") {
+    const entry = await store.kvGet(KEY.anomalies);
+    return entry ? { ...entry.value, ...meta(entry) } : { ...EMPTY_ANOMALIES, pending: true, ...meta(null) };
+  }
+  if (resource === "news") {
+    const entry = await store.kvGet(KEY.news);
+    return { items: entry?.value?.items || [], asOf: entry?.value?.asOf || null, ...meta(entry) };
+  }
+  if (resource === "history") {
+    const latest = await store.kvGet(KEY.emotion);
+    const tradingDate = latest?.value?.tradingDate || await store.historyLatestDate();
+    const [history, daily] = await Promise.all([
+      tradingDate ? store.historyForDate(tradingDate) : [],
+      store.dailyHistory()
+    ]);
+    const dailyHistory = daily.slice(-SCHEDULE.historyTradingDays)
+      .map((item) => ({ ...item, phase: classify(item.score, { upRatio: null }).phase }));
+    return { tradingDate, history, dailyHistory };
+  }
+  if (resource === "status") {
+    const lastRun = await store.kvGet(KEY.lastRun).catch(() => null);
+    return {
+      ok: true,
+      storage: storageMode(),
+      windKeyConfigured: getApiKeys().length > 0,
+      mock: isMockMode(),
+      schedule: scheduleSummary(),
+      lastRun: lastRun?.value || null
+    };
+  }
+  throw Object.assign(new Error(`未知资源：${resource}`), { statusCode: 404 });
+}
