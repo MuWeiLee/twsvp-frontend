@@ -165,8 +165,8 @@ function renderThemes() {
   $("#theme-list").innerHTML = themes.map((item, index) => `<div class="theme-row"><span class="theme-rank">${String(index + 1).padStart(2, "0")}</span><span class="theme-name"><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.code)}</small></span><span class="theme-bar"><i style="width:${Math.max(4, Math.abs(item.changePct) / max * 100)}%"></i></span><span class="theme-change">${formatPct(item.changePct)}</span></div>`).join("");
 }
 
-// 手机端个股分层默认收起；记住用户展开过的题材，切换筛选后保持展开。
-const compactLayout = window.matchMedia("(max-width: 680px)");
+// 手机/平板（≤1050px）个股分层默认收起；记住用户展开过的题材，切换筛选后保持展开。
+const compactLayout = window.matchMedia("(max-width: 1050px)");
 const openedStockThemes = new Set();
 function stockDetailsOpen(name) {
   return !compactLayout.matches || openedStockThemes.has(name);
@@ -242,7 +242,7 @@ function renderAnomalies() {
     const showNews = (anomalyFilter === "all" || anomalyFilter === "news") && item.news?.length;
     const newsCards = showNews ? `<div class="catalyst-news-list">${item.news.slice(0, 3).map((article) => `<article class="catalyst-news"><div class="catalyst-news-head"><b>${escapeHtml(article.title || "Wind市场消息")}</b><span>${escapeHtml(article.source || "Wind财经新闻")}${article.date ? ` · ${escapeHtml(article.date)}` : ""}</span></div><p><strong>刺激观点</strong>${escapeHtml(article.viewpoint || article.catalyst || "正文观点待补充")}</p><p><strong>可能影响</strong>${escapeHtml(article.impact || article.relation || `需要继续验证该消息对${item.name}基本面预期的实际影响。`)}</p>${article.matchedKeywords?.length ? `<div class="catalyst-keywords">${article.matchedKeywords.map((keyword) => `<i>${escapeHtml(keyword)}</i>`).join("")}${Number.isFinite(Number(article.relevanceScore)) ? `<em>关联度 ${article.relevanceScore}</em>` : ""}</div>` : ""}</article>`).join("")}</div>` : "";
     const displayStatus = anomalyFilter === "limit" ? "涨停点火" : anomalyFilter === "batch" ? "批量拉升" : anomalyFilter === "news" ? "消息催化" : item.status;
-    const batchChip = (anomalyFilter === "all" || anomalyFilter === "batch") && Number.isFinite(Number(item.shortMove)) ? `<span class="anomaly-chip batch">5分钟 ${formatPct(item.shortMove)}</span>` : "";
+    const batchChip = (anomalyFilter === "all" || anomalyFilter === "batch") && item.shortMove != null && Number.isFinite(Number(item.shortMove)) ? `<span class="anomaly-chip batch">5分钟 ${formatPct(item.shortMove)}</span>` : "";
     const limitChip = (anomalyFilter === "all" || anomalyFilter === "limit") && item.limitStocks?.length ? `<span class="anomaly-chip limit">${item.limitStocks.length}只点火股</span>` : "";
     const highBoardChip = (anomalyFilter === "all" || anomalyFilter === "limit") && item.ladder?.maxStreak >= 3 ? `<span class="anomaly-chip ladder">最高${item.ladder.maxStreak}板 +${item.ladder.highBoardBonus}</span>` : "";
     const fullLadderChip = (anomalyFilter === "all" || anomalyFilter === "limit") && item.ladder?.contiguousDepth >= 3 ? `<span class="anomaly-chip ladder">完整1-${item.ladder.contiguousDepth}板 +${item.ladder.ladderBonus}</span>` : "";
@@ -260,7 +260,7 @@ function renderDailyTimeline() {
   const allDaily = (data.dailyHistory || []).filter((item) => String(item.tradingDate || "").length === 8 && Number.isFinite(Number(item.score)))
     .sort((a, b) => String(a.tradingDate).localeCompare(String(b.tradingDate)));
   const history = allDaily.slice(-20);
-  setText("#history-count", `${allDaily.length} \u4e2a\u4ea4\u6613\u65e5 \u00b7 \u663e\u793a\u6700\u8fd1${history.length}\u65e5\u5747\u503c`);
+  setText("#history-count", `近 ${history.length} 个交易日均值`);
   if (history.length < 2) {
     $("#timeline-chart").innerHTML = `<div class="empty">\u5df2\u6c89\u6dc0${history.length}\u4e2a\u65e5\u7ebf\u70b9\uff1b\u6bcf\u65e5\u6309\u5f53\u5929 n \u4e2a\u76d8\u4e2d\u5feb\u7167\u7b49\u6743\u5e73\u5747\uff0c\u540e\u7eed\u81ea\u52a8\u7d2f\u8ba1\u3002</div>`;
     return;
@@ -290,6 +290,8 @@ function chartSize() {
 }
 
 function renderTimeline() {
+  setText("#timeline-kicker", timelineMode === "daily" ? "DAILY EMOTION AVERAGE" : "INTRADAY EMOTION PATH");
+  setText("#timeline-title", timelineMode === "daily" ? "每日情绪均值" : "盘中情绪路径");
   if (timelineMode === "daily") {
     renderDailyTimeline();
     return;
@@ -346,6 +348,7 @@ function renderAll() {
 
 async function loadEmotion(force = false) {
   const button = $("#refresh");
+  button.dataset.loading = "1";
   button.disabled = true;
   button.textContent = "读取中…";
   reportToolbarState({ refreshing: true });
@@ -357,6 +360,7 @@ async function loadEmotion(force = false) {
       data.dailyHistory = historyPayload.dailyHistory || data.dailyHistory || [];
     }
     renderAll();
+    loadNews();
     await loadAnomalies(force);
     if (force) toast("已读取最新快照（交易日 09:00–15:00 每30分钟自动更新）");
   } catch (error) {
@@ -371,28 +375,23 @@ async function loadEmotion(force = false) {
     reportToolbarState({ connection: notReady ? "暂无快照" : "快照读取异常", error: !notReady });
     toast(error.message, !notReady);
   } finally {
-    button.disabled = false;
-    button.textContent = "刷新";
+    delete button.dataset.loading;
+    updateRefreshButton();
     reportToolbarState({ refreshing: false });
   }
 }
 
 async function loadNews() {
-  const button = $("#load-news");
-  button.disabled = true;
-  button.textContent = "加载中…";
   $("#news-list").innerHTML = '<div class="loading">正在读取新闻快照…</div>';
   try {
     const payload = await api("news");
     const items = payload.items || [];
     const asOf = shanghaiTimeLabel(payload.asOf);
-    $("#news-list").innerHTML = items.length ? items.slice(0, 5).map((item) => `<article class="news-item"><b>${escapeHtml(item.title || "Wind 市场信息")}</b><span>${escapeHtml(item.date || "")} · 相关度 ${Number(item.relevance || 0).toFixed(2)}</span><p>${escapeHtml(String(item.content || "").slice(0, 170))}${String(item.content || "").length > 170 ? "…" : ""}</p></article>`).join("") + (asOf ? `<div class="news-asof">新闻快照 ${escapeHtml(asOf)}</div>` : "") : '<div class="empty">暂无新闻快照，交易日 09:00 起每 30 分钟更新。</div>';
+    setText("#news-asof", asOf ? `快照 ${asOf}` : "等待快照");
+    $("#news-list").innerHTML = items.length ? items.slice(0, 5).map((item) => `<article class="news-item"><b>${escapeHtml(item.title || "Wind 市场信息")}</b><span>${escapeHtml(item.date || "")} · 相关度 ${Number(item.relevance || 0).toFixed(2)}</span><p>${escapeHtml(String(item.content || "").slice(0, 170))}${String(item.content || "").length > 170 ? "…" : ""}</p></article>`).join("") : '<div class="empty">暂无新闻快照，交易日 09:00 起每 30 分钟更新。</div>';
   } catch (error) {
     $("#news-list").innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`;
     toast(error.message, true);
-  } finally {
-    button.disabled = false;
-    button.textContent = "刷新新闻";
   }
 }
 
@@ -471,6 +470,39 @@ async function exportEmotionImage() {
   }
 }
 
+// 「刷新」每个浏览器每小时只能按一次（打开页面本身不计入）。
+const REFRESH_COOLDOWN_MS = 60 * 60 * 1000;
+const REFRESH_KEY = "short-emotion:last-manual-refresh";
+
+function lastManualRefresh() {
+  try { return Number(localStorage.getItem(REFRESH_KEY)) || 0; } catch { return 0; }
+}
+
+function refreshCooldownLeft() {
+  return Math.max(0, REFRESH_COOLDOWN_MS - (Date.now() - lastManualRefresh()));
+}
+
+function updateRefreshButton() {
+  const button = $("#refresh");
+  if (!button || button.dataset.loading === "1") return;
+  const left = refreshCooldownLeft();
+  button.disabled = left > 0;
+  button.textContent = left > 0 ? `${Math.ceil(left / 60_000)}分钟后可刷新` : "刷新";
+  button.title = left > 0 ? "刷新每小时只能使用一次；数据在交易时段每 30 分钟自动更新" : "读取最新快照";
+}
+
+function handleManualRefresh() {
+  if (refreshCooldownLeft() > 0) {
+    updateRefreshButton();
+    toast("刷新每小时只能使用一次，交易时段数据每 30 分钟会自动更新");
+    return;
+  }
+  try { localStorage.setItem(REFRESH_KEY, String(Date.now())); } catch {}
+  loadEmotion(true);
+}
+
+setInterval(updateRefreshButton, 30_000);
+
 let resizeTimer = null;
 window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
@@ -478,9 +510,9 @@ window.addEventListener("resize", () => {
 });
 
 function bindEvents() {
-  $("#refresh").addEventListener("click", () => loadEmotion(true));
+  $("#refresh").addEventListener("click", handleManualRefresh);
   $("#export-image").addEventListener("click", exportEmotionImage);
-  $("#load-news").addEventListener("click", loadNews);
+
   $$(".anomaly-filter").forEach((button) => button.addEventListener("click", () => {
     anomalyFilter = button.dataset.anomalyFilter;
     $$(".anomaly-filter").forEach((item) => item.classList.toggle("active", item === button));
