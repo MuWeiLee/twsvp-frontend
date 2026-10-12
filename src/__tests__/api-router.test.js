@@ -25,7 +25,8 @@ describe("api/router (single Vercel function)", () => {
       expect(existsSync(resolve(apiDir, "_routes", `${route}.js`))).toBe(true);
     }
     expect(ROUTE_NAMES).toContain("ptt/hot");
-    expect(ROUTE_NAMES).toContain("sync-short-emotion");
+    expect(ROUTE_NAMES).toContain("short-emotion");
+    expect(ROUTE_NAMES).not.toContain("sync-short-emotion");
   });
 
   it("dispatches by the rewritten __route param and strips it from the query", async () => {

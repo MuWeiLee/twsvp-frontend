@@ -16,7 +16,6 @@ const ROUTES = {
   "sync-ptt-hot-batch": () => import("./_routes/sync-ptt-hot-batch.js"),
   "sync-ptt-hot": () => import("./_routes/sync-ptt-hot.js"),
   "sync-quant-runs": () => import("./_routes/sync-quant-runs.js"),
-  "sync-short-emotion": () => import("./_routes/sync-short-emotion.js"),
   "sync-stock-prices-backfill": () => import("./_routes/sync-stock-prices-backfill.js"),
   "sync-stock-prices-daily": () => import("./_routes/sync-stock-prices-daily.js"),
   "sync-stock-prices-history": () => import("./_routes/sync-stock-prices-history.js"),

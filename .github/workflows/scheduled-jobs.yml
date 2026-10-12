@@ -1,40 +1,93 @@
-# 定时任务：Vercel Hobby 计划只允许每天一次的 cron，原 vercel.json 里的高频任务
-# 导致部署失败，因此统一改由 GitHub Actions 定时调用 /api/sync-* 接口。
+# 定时任务（Vercel Hobby 计划只允许每天一次的 cron，所以统一由 GitHub Actions 触发）
 #
-# - 时间均为 UTC（北京时间 = UTC+8）
-# - 每个 cron 对应的接口见 scripts/cron/jobs.json，两处需保持一致（有单测校验）
-# - 需要仓库 Secret：CRON_SECRET（与 Vercel 环境变量 CRON_SECRET 相同）
-# - 可选仓库变量：SITE_URL（默认 https://twsvp.com）
-# - GitHub 定时任务会有几分钟延迟，接口本身按触发的 cron 表达式和北京时间判断要做什么
+# 1) short-emotion：短线情绪工作台。在 Actions 里直接调用 Wind 计算快照，结果推送到
+#    `short-emotion-data` 分支；twsvp.com/short-emotion 只读该分支，不需要数据库。
+#    需要仓库 Secret：WIND_API_KEY。
+#    北京时间工作日 09:00–15:30 每 30 分钟触发，具体跑哪些任务见 api/_lib/short-emotion/schedule.js。
+#
+# 2) call-api：调用 Vercel 上的 /api/sync-* 接口（行情、新闻、绩效、量化）。
+#    这些任务依赖 Supabase，数据库暂停期间已全部暂停（scripts/cron/jobs.json 中 paused=true）。
+#    恢复时：去掉 paused，并在下方 schedule 加回对应 cron 行；需要 Secret：CRON_SECRET。
+#
+# 时间均为 UTC（北京时间 = UTC+8）。GitHub 定时任务可能延迟几分钟，任务按北京时间判断时段。
 name: Scheduled jobs
 
 on:
   schedule:
-    - cron: "45 1 * * 1-5"       # 台股交易日历
-    - cron: "0 4 * * 6,0"        # 周末补日线
-    - cron: "0 18 * * 6,0"       # 周末历史回补
-    - cron: "*/20 * * * 6,0"     # 周末历史行情
-    - cron: "0 16 * * *"         # 观点到期通知 + 观点绩效结算
-    - cron: "0 17 * * *"         # 用户绩效
-    - cron: "*/30 * * * *"       # NewsData 新闻
-    - cron: "*/15 * * * *"       # 公开资讯观测站 RSS
-    - cron: "*/10 * * * *"       # 新闻与个股关联
-    - cron: "0 2 * * 1-5"        # 缺失行情扫描
-    - cron: "*/5 7-15 * * 1-5"   # 缺失行情补录
-    - cron: "*/10 * * * 1-5"     # 量化任务
-    - cron: "0,30 1-7 * * 1-5"   # 短线情绪工作台（北京时间 09:00–15:30，接口内只在 09:00–15:00 执行）
+    - cron: "0,30 1-7 * * 1-5"   # 短线情绪工作台
   workflow_dispatch:
     inputs:
+      target:
+        description: "要运行的任务"
+        type: choice
+        options:
+          - short-emotion
+          - call-api
+        default: short-emotion
+      force:
+        description: "短线情绪：忽略时间窗口，立即刷新全部数据"
+        type: boolean
+        default: true
       path:
-        description: "手动调用的接口路径，例如 /api/sync-short-emotion?force=1"
-        required: true
-        default: "/api/sync-short-emotion?force=1"
+        description: "call-api：要调用的接口路径，例如 /api/sync-newsdata"
+        required: false
+        default: ""
 
 permissions:
   contents: read
 
 jobs:
-  call:
+  short-emotion:
+    if: github.event.schedule == '0,30 1-7 * * 1-5' || (github.event_name == 'workflow_dispatch' && inputs.target == 'short-emotion')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: short-emotion-data
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    env:
+      DATA_DIR: ${{ github.workspace }}/../short-emotion-data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Load data branch
+        run: |
+          mkdir -p "$DATA_DIR"
+          if git fetch --depth=1 origin short-emotion-data; then
+            git archive FETCH_HEAD | tar -x -C "$DATA_DIR"
+            git rev-parse 'FETCH_HEAD^{tree}' > "$RUNNER_TEMP/previous-tree"
+          fi
+      - name: Refresh snapshot
+        run: node scripts/short-emotion/refresh.mjs ${{ (github.event_name == 'workflow_dispatch' && inputs.force) && '--force' || '' }}
+        env:
+          WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
+          SHORT_EMOTION_STORE: file
+          SHORT_EMOTION_DATA_DIR: ${{ env.DATA_DIR }}
+      - name: Publish data branch
+        run: |
+          cd "$DATA_DIR"
+          # 数据分支不需要 Vercel 预览部署
+          echo '{"git":{"deploymentEnabled":false}}' > vercel.json
+          printf '%s\n' "# short-emotion-data" "" "短线情绪工作台的数据快照，由 GitHub Actions（Scheduled jobs）自动生成并强制覆盖，请勿手动修改。" > README.md
+          git init -q
+          git checkout -q -b short-emotion-data
+          git add -A
+          tree=$(git write-tree)
+          if [ -f "$RUNNER_TEMP/previous-tree" ] && [ "$tree" = "$(cat "$RUNNER_TEMP/previous-tree")" ]; then
+            echo "数据无变化，跳过推送"
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "short-emotion snapshot $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" short-emotion-data
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  call-api:
+    if: github.event_name == 'schedule' && github.event.schedule != '0,30 1-7 * * 1-5' || (github.event_name == 'workflow_dispatch' && inputs.target == 'call-api')
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -47,4 +100,4 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           SITE_URL: ${{ vars.SITE_URL }}
           CRON_SCHEDULE: ${{ github.event.schedule }}
-          MANUAL_PATH: ${{ github.event.inputs.path }}
+          MANUAL_PATH: ${{ inputs.path }}

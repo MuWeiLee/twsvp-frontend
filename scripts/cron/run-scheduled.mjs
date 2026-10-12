@@ -28,8 +28,13 @@ if (manualPath) {
   if (!manualPath.startsWith("/api/")) fail(`手动路径必须以 /api/ 开头：${manualPath}`);
   paths = [manualPath];
 } else {
-  paths = jobs.filter((job) => job.schedule === schedule).flatMap((job) => job.calls.map((call) => call.path));
-  if (!paths.length) fail(`jobs.json 中没有与 schedule "${schedule}" 对应的任务`);
+  const matched = jobs.filter((job) => job.schedule === schedule);
+  if (!matched.length) fail(`jobs.json 中没有与 schedule "${schedule}" 对应的任务`);
+  paths = matched.filter((job) => !job.paused).flatMap((job) => job.calls.map((call) => call.path));
+  if (!paths.length) {
+    console.log(`schedule "${schedule}" 对应的任务已暂停，跳过`);
+    process.exit(0);
+  }
 }
 
 async function call(path) {
