@@ -1,5 +1,5 @@
 // 单一入口：Vercel Hobby 计划每次部署最多 12 个 Serverless Functions，
-// 原来 api/ 下每个文件都是一个函数（共 26 个），超限导致部署失败。
+// 原来 api/ 下每个文件都是一个函数（曾有 26 个），超限导致部署失败。
 // 现在所有接口代码放在 api/_routes/（下划线目录不会被当成函数），
 // vercel.json 把 /api/<name> 改写到这里，再按路径分发给原来的 handler。
 // 对外 URL、参数和返回完全不变；新增接口时在下面的表里登记一行即可。
@@ -7,8 +7,6 @@ const ROUTES = {
   "cleanup-stock-price-backfill-state": () => import("./_routes/cleanup-stock-price-backfill-state.js"),
   "ptt-hot": () => import("./_routes/ptt-hot.js"),
   "ptt/hot": () => import("./_routes/ptt/hot.js"),
-  "search-ptt-stock": () => import("./_routes/search-ptt-stock.js"),
-  "search-threads": () => import("./_routes/search-threads.js"),
   "short-emotion": () => import("./_routes/short-emotion.js"),
   "sync-feed-expiry-notifications": () => import("./_routes/sync-feed-expiry-notifications.js"),
   "sync-feed-performance": () => import("./_routes/sync-feed-performance.js"),
@@ -17,8 +15,6 @@ const ROUTES = {
   "sync-newsdata": () => import("./_routes/sync-newsdata.js"),
   "sync-ptt-hot-batch": () => import("./_routes/sync-ptt-hot-batch.js"),
   "sync-ptt-hot": () => import("./_routes/sync-ptt-hot.js"),
-  "sync-ptt-stock-board": () => import("./_routes/sync-ptt-stock-board.js"),
-  "sync-ptt-stock-links": () => import("./_routes/sync-ptt-stock-links.js"),
   "sync-quant-runs": () => import("./_routes/sync-quant-runs.js"),
   "sync-short-emotion": () => import("./_routes/sync-short-emotion.js"),
   "sync-stock-prices-backfill": () => import("./_routes/sync-stock-prices-backfill.js"),
