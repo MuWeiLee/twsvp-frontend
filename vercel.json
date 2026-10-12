@@ -1,6 +1,6 @@
 {
   "functions": {
-    "api/sync-short-emotion.js": {
+    "api/router.js": {
       "maxDuration": 300
     }
   },
@@ -12,6 +12,10 @@
     {
       "source": "/short-emotion/",
       "destination": "/short-emotion/index.html"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/router?__route=:path*"
     },
     {
       "source": "/((?!api/).*)",

@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { getTaipeiDateString } from "./_lib/taipei-date.js";
+import { getTaipeiDateString } from "../_lib/taipei-date.js";
 
 const FINMIND_ENDPOINT =
   process.env.FINMIND_ENDPOINT || "https://api.finmindtrade.com/api/v4/data";

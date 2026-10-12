@@ -13,11 +13,12 @@ describe("scheduled jobs (GitHub Actions)", () => {
     expect([...workflowSchedules].sort()).toEqual(jobs.map((job) => job.schedule).sort());
   });
 
-  it("every job calls an existing /api/sync-* function", () => {
+  it("every job calls a route registered in api/router.js", async () => {
+    const { ROUTE_NAMES } = await import("../../api/router.js");
     for (const job of jobs) {
       for (const call of job.calls) {
-        const file = call.path.split("?")[0].replace(/^\//, "");
-        expect(() => readFileSync(resolve(root, `${file}.js`))).not.toThrow();
+        const route = call.path.split("?")[0].replace(/^\/api\//, "");
+        expect(ROUTE_NAMES).toContain(route);
       }
     }
   });

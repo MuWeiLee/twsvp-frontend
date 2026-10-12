@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { formatDate, getTaipeiDateString } from "./_lib/taipei-date.js";
+import { formatDate, getTaipeiDateString } from "../_lib/taipei-date.js";
 
 const chunkArray = (arr, size) => {
   const chunks = [];

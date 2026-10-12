@@ -3,7 +3,7 @@
 //
 // 只读 Supabase 中由定时任务写入的快照，不调用 Wind；响应在 CDN 缓存 2 分钟，
 // 访客再多也不会增加 Wind 额度消耗。
-import { readResource, NotReadyError } from "./_lib/short-emotion/service.js";
+import { readResource, NotReadyError } from "../_lib/short-emotion/service.js";
 
 const RESOURCES = new Set(["emotion", "anomalies", "history", "news", "status"]);
 

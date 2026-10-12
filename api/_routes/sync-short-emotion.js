@@ -8,7 +8,7 @@
 //   GitHub → Actions → Scheduled jobs → Run workflow（默认路径即 ?force=1），或
 //   curl -H "x-cron-secret: $CRON_SECRET" "https://twsvp.com/api/sync-short-emotion?force=1"
 import { timingSafeEqual } from "node:crypto";
-import { runScheduledRefresh } from "./_lib/short-emotion/service.js";
+import { runScheduledRefresh } from "../_lib/short-emotion/service.js";
 
 function secretMatches(provided, expected) {
   if (!expected || !provided) return false;

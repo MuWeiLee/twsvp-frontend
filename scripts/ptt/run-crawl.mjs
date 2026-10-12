@@ -1,4 +1,4 @@
-import handler from "../../api/sync-ptt-stock-board.js";
+import handler from "../../api/_routes/sync-ptt-stock-board.js";
 import { invokeHandler } from "./_invoke-handler.mjs";
 
 const parseArgs = () => {
