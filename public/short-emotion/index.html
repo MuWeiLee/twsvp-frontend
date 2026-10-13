@@ -45,7 +45,7 @@
     <header class="tabs-wrap">
       <div class="tabs" role="tablist" aria-label="页面分区">
         <button class="tab-btn active" data-target="overview" type="button">情绪总览</button>
-        <button class="tab-btn" data-target="breadth" type="button">市场广度</button>
+        <button id="breadth-tab" class="tab-btn" data-target="breadth" type="button">市场广度</button>
         <button id="themes-tab" class="tab-btn" data-target="themes" type="button">题材雷达</button>
         <button class="tab-btn" data-target="timeline" type="button">情绪路径</button>
       </div>
@@ -87,7 +87,7 @@
 
       <section id="breadth" class="section">
         <article class="card">
-          <div class="card-head"><h2 class="card-title">市场广度</h2><span id="up-ratio" class="pill">—</span></div>
+          <div class="card-head"><h2 id="breadth-title" class="card-title">市场广度</h2><span id="up-ratio" class="pill">—</span></div>
           <div class="breadth-numbers"><div class="up"><strong id="up-count">—</strong><span>上涨</span></div><div class="flat"><strong id="flat-count">—</strong><span>平盘</span></div><div class="down"><strong id="down-count">—</strong><span>下跌</span></div></div>
           <div class="breadth-track"><i id="breadth-up"></i><i id="breadth-flat"></i><i id="breadth-down"></i></div>
           <p id="breadth-read" class="readout">等待市场广度数据。</p>
@@ -151,6 +151,6 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="/short-emotion/vendor/html-to-image.js" defer></script>
-  <script type="module" src="/short-emotion/app.js?v=21"></script>
+  <script type="module" src="/short-emotion/app.js?v=22"></script>
 </body>
 </html>

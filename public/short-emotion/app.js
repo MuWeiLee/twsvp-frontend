@@ -22,6 +22,8 @@ const MARKETS = {
     themeTitle: "题材热度排名",
     themePill: "A股 Wind 概念",
     themesTab: "题材雷达",
+    breadthTitle: "市场广度",
+    breadthUnit: "家数",
     anomalyTitle: "当日题材异动",
     anomalyDesc: "相似分支先归并为父题材，再按涨停、批量拉升与消息催化筛选高价值方向。",
     emptyThemes: "Wind 暂未返回A股概念排名。",
@@ -41,6 +43,9 @@ const MARKETS = {
     themeTitle: "产业热度排名",
     themePill: "证交所产业指数",
     themesTab: "产业雷达",
+    // Wind 条件选股最多返回 100 只，数不出全市场涨跌家数，台股广度改用 27 个证交所产业指数
+    breadthTitle: "产业广度",
+    breadthUnit: "产业",
     anomalyTitle: "当日产业异动",
     anomalyDesc: "以证交所产业指数为题材，并纳入新闻点名的族群；按涨停（涨幅≥9.5%）与消息催化筛选。",
     emptyThemes: "Wind 暂未返回台股产业排名。",
@@ -104,6 +109,8 @@ function applyMarketCopy() {
   setText("#theme-title", CFG.themeTitle);
   setText("#theme-pill", CFG.themePill);
   setText("#themes-tab", CFG.themesTab);
+  setText("#breadth-title", CFG.breadthTitle);
+  setText("#breadth-tab", CFG.breadthTitle);
   setText("#anomaly-title", CFG.anomalyTitle);
   setText("#anomaly-desc", CFG.anomalyDesc);
   hantify(document.body);
@@ -222,7 +229,8 @@ function renderPulse() {
   setText("#action-copy", `情绪分数 ${data.score}，操作姿态为“${data.regime.posture}”。评分来自广度、极端反馈、梯队、溢价、题材和成交环境。`);
   setText("#confirm-signal", data.score >= 57 ? "核心强势延续、后排不出现批量掉队" : "跌停与大跌收缩、昨日强势股溢价转正");
   setText("#risk-signal", data.score >= 70 ? "炸板上升、昨日涨停溢价快速转负" : "跌停扩散、高位股负反馈加剧");
-  $("#dimension-bars").innerHTML = Object.entries(data.dimensions).map(([key, value]) => `<div class="dimension-item"><span>${escapeHtml(dimensionNames[key] || key)}</span><div class="dimension-track"><i style="width:${Math.max(2, Number(value))}%"></i></div><b>${formatNumber(value)}</b></div>`).join("");
+  const names = MARKET === "tw" ? { ...dimensionNames, breadth: "产业广度", themes: "产业聚焦" } : dimensionNames;
+  $("#dimension-bars").innerHTML = Object.entries(data.dimensions).map(([key, value]) => `<div class="dimension-item"><span>${escapeHtml(names[key] || key)}</span><div class="dimension-track"><i style="width:${Math.max(2, Number(value))}%"></i></div><b>${formatNumber(value)}</b></div>`).join("");
 }
 
 function renderMetrics() {
@@ -248,11 +256,14 @@ function renderBreadth() {
   $("#breadth-down").style.width = `${down / total * 100}%`;
   $("#breadth-flat").style.width = `${flat / total * 100}%`;
   const ratio = Number(data.market.upRatio);
-  setText("#breadth-read", !Number.isFinite(ratio) ? "广度数据暂缺。" : ratio >= 70 ? "市场呈现普涨，赚钱效应具备扩散基础。" : ratio >= 50 ? "上涨家数占优，但仍需结合涨停溢价判断强度。" : ratio >= 30 ? "下跌家数占优，当前更接近结构行情。" : "市场广度明显偏弱，指数表现可能掩盖个股风险。");
-  setText("#limit-up", formatNumber(data.extremes.limitUp));
-  setText("#limit-down", formatNumber(data.extremes.limitDown));
-  setText("#big-up", formatNumber(data.extremes.bigUp));
-  setText("#big-down", formatNumber(data.extremes.bigDown));
+  const breadthText = !Number.isFinite(ratio) ? "广度数据暂缺。" : ratio >= 70 ? "市场呈现普涨，赚钱效应具备扩散基础。" : ratio >= 50 ? "上涨家数占优，但仍需结合涨停溢价判断强度。" : ratio >= 30 ? "下跌家数占优，当前更接近结构行情。" : "市场广度明显偏弱，指数表现可能掩盖个股风险。";
+  setText("#breadth-read", MARKET === "tw" ? `${breadthText.replace(/家数/g, "产业")}（按 ${up + down + flat} 个证交所产业指数统计）` : breadthText);
+  // 台股条件选股最多返回 100 只，达到上限显示「100+」
+  const capped = (value, flag) => `${formatNumber(value)}${flag ? "+" : ""}`;
+  setText("#limit-up", capped(data.extremes.limitUp, data.extremes.limitUpCapped));
+  setText("#limit-down", capped(data.extremes.limitDown, data.extremes.limitDownCapped));
+  setText("#big-up", capped(data.extremes.bigUp, data.extremes.bigUpCapped));
+  setText("#big-down", capped(data.extremes.bigDown, data.extremes.bigDownCapped));
   const bigUp = Number(data.extremes.bigUp);
   const bigDown = Number(data.extremes.bigDown);
   const balance = Number.isFinite(bigUp + bigDown) && bigUp + bigDown ? bigUp / (bigUp + bigDown) * 100 : 50;
@@ -300,7 +311,7 @@ function renderAnomalies() {
   });
   const streakRank = (label) => label === "首板" ? 1 : Number.parseInt(label) || 99;
   const streakSummary = Object.entries(anomalyData?.limitData?.streakCounts || {}).sort((a, b) => streakRank(a[0]) - streakRank(b[0])).map(([label, count]) => `<span>${escapeHtml(label)} ${count}</span>`).join("");
-  $("#anomaly-summary").innerHTML = `<span>${MARKET === "tw" ? "有效方向" : "有效题材"} ${summary.total || 0}</span><span>${limitLabel}样本 ${anomalyData?.limitData?.stockCount || 0}</span>${streakSummary}<span>已合并 ${Math.max(0, (summary.rawTotal || 0) - (summary.mergedTotal || 0))}</span><span>过滤低分 ${summary.filteredOut || 0}</span><span>门槛 ≥ ${summary.minScore || 60}</span>`;
+  $("#anomaly-summary").innerHTML = `<span>${MARKET === "tw" ? "有效方向" : "有效题材"} ${summary.total || 0}</span><span>${limitLabel}样本 ${anomalyData?.limitData?.stockCount || 0}</span>${streakSummary}${MARKET === "tw" ? "" : `<span>已合并 ${Math.max(0, (summary.rawTotal || 0) - (summary.mergedTotal || 0))}</span>`}<span>过滤低分 ${summary.filteredOut || 0}</span><span>门槛 ≥ ${summary.minScore || 60}</span>`;
   const sorters = {
     all: (a, b) => (b.tabScores?.all ?? b.score) - (a.tabScores?.all ?? a.score) || (b.scoreBreakdown?.ladderTotalBonus || 0) - (a.scoreBreakdown?.ladderTotalBonus || 0) || (b.sortMetrics?.limitCount || 0) - (a.sortMetrics?.limitCount || 0),
     limit: (a, b) => (b.sortMetrics?.limitCount || b.limitStocks?.length || 0) - (a.sortMetrics?.limitCount || a.limitStocks?.length || 0) || (b.tabScores?.limit ?? b.score) - (a.tabScores?.limit ?? a.score),

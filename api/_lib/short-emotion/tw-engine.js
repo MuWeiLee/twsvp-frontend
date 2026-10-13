@@ -95,6 +95,10 @@ function screenResult(payload) {
   return { rows, total: Number.isFinite(total) ? total : rows.length };
 }
 
+// Wind 条件选股最多返回 100 只：达到上限时页面显示「100+」。
+const SCREEN_CAP = 100;
+const isCapped = (screen) => Boolean(screen) && screen.rows.length >= SCREEN_CAP && screen.total <= screen.rows.length;
+
 /** 只计当日有成交的股票；明细被截断时按当日占比推算总数。 */
 function countForDay(screen, day) {
   if (!screen) return null;
@@ -238,15 +242,11 @@ export async function loadEmotion() {
 
     const calls = await runWindTasks([
       () => windCall("index_data", "get_index_price_indicators", { windcode: INDEX_CODE, indexes: "最新成交价,涨跌幅,成交额,交易时间" }),
-      () => screenTw("今日涨跌幅大于0"),
-      () => screenTw("今日涨跌幅小于0"),
-      () => screenTw("今日涨跌幅等于0"),
       () => screenTw(`今日涨跌幅大于等于${LIMIT_PCT}%`),
       () => screenTw(`今日涨跌幅小于等于-${LIMIT_PCT}%`),
       () => screenTw("今日涨跌幅大于5%"),
       () => screenTw("今日涨跌幅小于-5%"),
-      () => industrySnapshot("最新成交价,涨跌幅,成交额,交易时间"),
-      () => windCall("index_data", "get_index_technicals", { question: "台湾加权指数最新指数成份上涨数量、下跌数量、平盘数量" })
+      () => industrySnapshot("最新成交价,涨跌幅,成交额,交易时间")
     ]);
     const indexRow = objects(tables(fulfilled(calls[0]))[0])[0] || {};
     // 以行情日期为准：盘前/收盘后 Wind 返回的是最近一个交易日的数据，按日历「今天」会全部被过滤掉。
@@ -254,28 +254,22 @@ export async function loadEmotion() {
     const dataDay = rawQuoteTime?.slice(0, 8) || day;
     // 非盘中时 Wind 的时间是 00:00:00，显示为当日收盘 13:30
     const quoteTime = rawQuoteTime && / 00:00:00$/.test(rawQuoteTime) ? `${dataDay} 13:30:00` : rawQuoteTime;
-    const screens = calls.slice(1, 8).map((result) => (fulfilled(result) ? screenResult(fulfilled(result)) : null));
-    const [upScreen, downScreen, flatScreen, limitUpScreen, limitDownScreen, bigUpScreen, bigDownScreen] = screens;
-    let up = countForDay(upScreen, dataDay);
-    let down = countForDay(downScreen, dataDay);
-    let flat = countForDay(flatScreen, dataDay);
-    let breadthSource = "Wind台股条件选股计数";
-    if (up == null || down == null) {
-      const tech = objects(tables(fulfilled(calls[9]))[0])[0] || {};
-      up = num(tech["最新指数成份上涨数量"]);
-      down = num(tech["最新指数成份下跌数量"]);
-      flat = num(tech["最新指数成份平盘数量"]);
-      breadthSource = "Wind加权指数成份涨跌数量";
-    }
+    const screens = calls.slice(1, 5).map((result) => (fulfilled(result) ? screenResult(fulfilled(result)) : null));
+    const [limitUpScreen, limitDownScreen, bigUpScreen, bigDownScreen] = screens;
+    // 广度：Wind 的条件选股最多返回 100 只，无法数出全市场涨跌家数；改用 27 个证交所产业指数的涨跌家数。
+    const allIndustries = fulfilled(calls[5]) || [];
+    const up = allIndustries.length ? allIndustries.filter((item) => item.changePct > 0).length : null;
+    const down = allIndustries.length ? allIndustries.filter((item) => item.changePct < 0).length : null;
+    const flat = allIndustries.length ? allIndustries.filter((item) => item.changePct === 0).length : null;
+    const breadthSource = "证交所产业指数涨跌家数";
     const limitUpRows = (limitUpScreen?.rows || []).filter((row) => row.day === dataDay);
     const limitDownRows = (limitDownScreen?.rows || []).filter((row) => row.day === dataDay);
     const limitUp = limitUpScreen ? countForDay(limitUpScreen, dataDay) : null;
     const limitDown = limitDownScreen ? countForDay(limitDownScreen, dataDay) : null;
     const bigUp = countForDay(bigUpScreen, dataDay);
     const bigDown = countForDay(bigDownScreen, dataDay);
-    const themes = (fulfilled(calls[8]) || []).sort((a, b) => b.changePct - a.changePct)
+    const themes = [...allIndustries].sort((a, b) => b.changePct - a.changePct)
       .slice(0, 10).map((item) => ({ code: item.code, name: `${item.name}`, changePct: item.changePct, tradeTime: item.tradeTime }));
-    const allIndustries = fulfilled(calls[8]) || [];
 
     // 记录行情日的涨停名单（连板计算用）
     if (limitUpRows.length) state.limitHistory[dataDay] = limitUpRows.map((row) => row.code);
@@ -308,7 +302,7 @@ export async function loadEmotion() {
     const score = Math.round(clamp(dimensions.breadth * .2 + dimensions.limits * .2 + dimensions.ladder * .15 + dimensions.profit * .2 + dimensions.themes * .15 + dimensions.liquidity * .1));
     errors.push(...calls.map(reason).filter(Boolean));
     errors.push(...[
-      [!Object.keys(indexRow).length, "加权指数"], [up == null || down == null, "涨跌家数"],
+      [!Object.keys(indexRow).length, "加权指数"], [up == null || down == null, "产业涨跌家数"],
       [limitUp == null, "涨停家数"], [limitDown == null, "跌停家数"], [bigUp == null, "大涨家数"],
       [bigDown == null, "大跌家数"], [premium == null, "昨日涨停溢价"], [!themes.length, "产业排名"]
     ].filter(([missing]) => missing).map(([, name]) => `NO_RESULTS: ${name}未返回`));
@@ -329,7 +323,7 @@ export async function loadEmotion() {
         amount,
         up, down, flat, upRatio
       },
-      extremes: { limitUp, limitDown, bigUp, bigDown, limitUpStocks: limitUpRows.slice(0, 80), limitDownStocks: limitDownRows.slice(0, 40) },
+      extremes: { limitUp, limitDown, bigUp, bigDown, bigUpCapped: isCapped(bigUpScreen), bigDownCapped: isCapped(bigDownScreen), limitUpCapped: isCapped(limitUpScreen), limitDownCapped: isCapped(limitDownScreen), limitUpStocks: limitUpRows.slice(0, 80), limitDownStocks: limitDownRows.slice(0, 40) },
       ladder: {
         maxStreak: streaks.length ? Math.max(...streaks) : 0,
         multiBoard: streaks.filter((value) => value >= 2).length,
@@ -378,7 +372,9 @@ export function newsGroups(news) {
   for (const article of news) {
     const text = `${article.title || ""}。${article.content || ""}`;
     for (const sentence of text.split(/[。！？\n；]/)) {
-      const names = [...sentence.matchAll(/([一-龥A-Za-z]{2,6})族群/g)].map((match) => match[1]).filter((name) => !/^(相关|各|其他|这些|该|多个|热门)$/.test(name));
+      const names = [...sentence.matchAll(/([一-龥A-Za-z]{2,6})族群/g)]
+        .map((match) => match[1].replace(/^(?:以及|还有|包括|带动|其中|其他|整体|相关|与|及|和|跟|的|在|让|使|由|对)+/, ""))
+        .filter((name) => name.length >= 2 && !/^(相关|各|其他|这些|该|多个|热门|部分|个别)$/.test(name));
       if (!names.length) continue;
       const stocks = [...sentence.matchAll(/([一-龥A-Za-z-]{2,8})[（(](\d{4,6}[A-Z]?)[)）]/g)].map((match) => ({ name: match[1], code: match[2] }));
       for (const name of names) {
