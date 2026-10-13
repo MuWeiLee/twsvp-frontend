@@ -1,0 +1,19 @@
+# 临时探针（探完即删）：验证台股短线情绪的数据来源
+name: TW emotion probe
+on:
+  push:
+    branches: [probe/tw-emotion]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/probe/tw-probe.mjs
+        env:
+          WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
