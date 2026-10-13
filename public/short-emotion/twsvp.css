@@ -490,3 +490,35 @@ main {
   .guardrails { grid-template-columns: 1fr; }
   .guardrails div + div { border-left: 0; border-top: 1px solid var(--border); }
 }
+
+/* A股 / 台股切换（顶栏，同主站胶囊样式） */
+.market-switch {
+  flex: none;
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+}
+.market-tab {
+  padding: 4px 12px;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-decoration: none;
+  white-space: nowrap;
+}
+:root[data-market="cn"] .market-tab[data-market="cn"],
+:root[data-market="tw"] .market-tab[data-market="tw"] { background: var(--ink); color: var(--surface); }
+/* 台股没有盘中涨速数据，隐藏「批量拉升」筛选 */
+:root[data-market="tw"] [data-anomaly-filter="batch"] { display: none; }
+@media (max-width: 380px) {
+  .nav { gap: 8px; }
+  .nav-title { font-size: 18px; }
+  .market-tab { padding: 4px 10px; }
+}
+:root[data-market="tw"] .stock-details > summary::after { content: "展開"; }
+:root[data-market="tw"] .stock-details[open] > summary::after { content: "收起"; }

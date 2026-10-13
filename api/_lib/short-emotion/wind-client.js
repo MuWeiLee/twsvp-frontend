@@ -101,7 +101,9 @@ function validateCall(serverType, toolName, params) {
   for (const key of ["question", "query", "metricIdsStr"]) {
     if (typeof params[key] === "string" && /\s/.test(params[key])) errors.push(`字段 '${key}' 不得含空格或其它空白字符`);
   }
-  if (typeof params.windcode === "string" && params.windcode.includes(",")) errors.push("字段 'windcode' 只允许单个标的");
+  // 指数快照工具支持多个代码（逗号分隔），其它工具只允许单个标的。
+  const multiCodeTool = serverType === "index_data" && toolName === "get_index_price_indicators";
+  if (typeof params.windcode === "string" && params.windcode.includes(",") && !multiCodeTool) errors.push("字段 'windcode' 只允许单个标的");
   for (const key of ["begin_date", "end_date", "beginDate", "endDate", "date", "tradeDate"]) {
     if (key in params && typeof params[key] === "string" && !/^\d{8}$/.test(params[key])) errors.push(`字段 '${key}' 日期格式错误，要求 yyyyMMdd`);
   }

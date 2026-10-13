@@ -1,3 +1,5 @@
+import { HANT, HANT_FIXES } from "./hant-map.js?v=1";
+
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 let data = null;
@@ -5,6 +7,107 @@ let anomalyData = null;
 let anomalyFilter = "all";
 let timelineMode = "intraday";
 let toastTimer = null;
+
+// ── 市场：/cn-short-emotion（A股）与 /tw-short-emotion（台股）共用这一页 ──
+const MARKET = /^\/tw-short-emotion/.test(location.pathname) ? "tw" : "cn";
+const MARKETS = {
+  cn: {
+    label: "A股",
+    pulseTitle: "A股短线情绪",
+    indexLabel: "全A涨跌幅",
+    indexPrefix: "全A",
+    indexCode: "881001.WI",
+    amountLabel: "两市成交额",
+    amountNote: "Wind 全A口径",
+    themeTitle: "题材热度排名",
+    themePill: "A股 Wind 概念",
+    themesTab: "题材雷达",
+    anomalyTitle: "当日题材异动",
+    anomalyDesc: "相似分支先归并为父题材，再按涨停、批量拉升与消息催化筛选高价值方向。",
+    emptyThemes: "Wind 暂未返回A股概念排名。",
+    // 盘中曲线：09:25–11:30、13:00–15:00（午休压缩掉）
+    sessions: [[565, 690], [780, 900]],
+    slotsWide: [[565, "09:25"], [600, "10:00"], [690, "11:30"], [810, "13:30"], [870, "14:30"], [900, "15:00"]],
+    slotsNarrow: [[565, "09:25"], [630, "10:30"], [690, "11:30"], [840, "14:00"], [900, "15:00"]]
+  },
+  tw: {
+    label: "台股",
+    pulseTitle: "台股短线情绪",
+    indexLabel: "加权指数涨跌幅",
+    indexPrefix: "加权",
+    indexCode: "TWII.TW",
+    amountLabel: "上市成交额",
+    amountNote: "新台币 · 加权指数口径",
+    themeTitle: "产业热度排名",
+    themePill: "证交所产业指数",
+    themesTab: "产业雷达",
+    anomalyTitle: "当日产业异动",
+    anomalyDesc: "以证交所产业指数为题材，并纳入新闻点名的族群；按涨停（涨幅≥9.5%）与消息催化筛选。",
+    emptyThemes: "Wind 暂未返回台股产业排名。",
+    // 台股连续交易 09:00–13:30
+    sessions: [[540, 815]],
+    slotsWide: [[540, "09:00"], [600, "10:00"], [660, "11:00"], [720, "12:00"], [780, "13:00"], [810, "13:30"]],
+    slotsNarrow: [[540, "09:00"], [630, "10:30"], [720, "12:00"], [810, "13:30"]]
+  }
+};
+const CFG = MARKETS[MARKET];
+
+// 台股页面显示繁体：页面文字与动态内容统一按字表转换（数据本身在定时任务里已转成繁体）。
+function toHant(text) {
+  let output = String(text).replace(/[\u4e00-\u9fff]/g, (char) => HANT[char] || char);
+  for (const [pattern, replacement] of HANT_FIXES) output = output.replace(pattern, replacement);
+  return output;
+}
+
+function hantify(root) {
+  if (MARKET !== "tw" || !root) return;
+  if (root.nodeType === Node.TEXT_NODE) {
+    const next = toHant(root.nodeValue);
+    if (next !== root.nodeValue) root.nodeValue = next;
+    return;
+  }
+  if (root.nodeType !== Node.ELEMENT_NODE) return;
+  for (const attribute of ["title", "aria-label"]) {
+    const value = root.getAttribute(attribute);
+    if (value && toHant(value) !== value) root.setAttribute(attribute, toHant(value));
+  }
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const next = toHant(node.nodeValue);
+      if (next !== node.nodeValue) node.nodeValue = next;
+    } else {
+      for (const attribute of ["title", "aria-label"]) {
+        const value = node.getAttribute(attribute);
+        if (value && toHant(value) !== value) node.setAttribute(attribute, toHant(value));
+      }
+    }
+  }
+}
+
+if (MARKET === "tw") {
+  new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.type === "characterData") hantify(mutation.target);
+      else if (mutation.type === "attributes") hantify(mutation.target);
+      else mutation.addedNodes.forEach((node) => hantify(node));
+    }
+  }).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["title", "aria-label"] });
+}
+
+function applyMarketCopy() {
+  setText("#pulse-title", CFG.pulseTitle);
+  setText("#index-label", CFG.indexLabel);
+  setText("#index-level", CFG.indexCode);
+  setText("#amount-label", CFG.amountLabel);
+  setText("#amount-note", CFG.amountNote);
+  setText("#theme-title", CFG.themeTitle);
+  setText("#theme-pill", CFG.themePill);
+  setText("#themes-tab", CFG.themesTab);
+  setText("#anomaly-title", CFG.anomalyTitle);
+  setText("#anomaly-desc", CFG.anomalyDesc);
+  hantify(document.body);
+}
 
 const isEmbedded = new URLSearchParams(window.location.search).get("embed") === "1";
 if (isEmbedded) {
@@ -57,7 +160,7 @@ function signClass(value) {
 const API_BASE = "/api/short-emotion";
 
 async function api(resource) {
-  const response = await fetch(`${API_BASE}?resource=${encodeURIComponent(resource)}`, { headers: { Accept: "application/json" } });
+  const response = await fetch(`${API_BASE}?market=${MARKET}&resource=${encodeURIComponent(resource)}`, { headers: { Accept: "application/json" } });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw Object.assign(new Error(payload.error || `请求失败 (${response.status})`), { code: payload.code });
   return payload;
@@ -106,6 +209,8 @@ function renderPulse() {
   setText("#phase-badge", data.regime.phase);
   $("#score-ring").style.setProperty("--score", data.score);
   const titles = {
+    冰點: "先观察风险释放，不急于左侧抢修复",
+    修復: "小仓试错，等待修复升级为共振",
     冰点: "先观察风险释放，不急于左侧抢修复",
     退潮: "降低交易频率，回避中高位接力",
     分歧: "聚焦核心，放弃无辨识度后排",
@@ -123,7 +228,7 @@ function renderPulse() {
 function renderMetrics() {
   setText("#index-change", formatPct(data.market.changePct));
   $("#index-change").className = signClass(data.market.changePct);
-  setText("#index-level", Number.isFinite(data.market.index) ? `全A ${data.market.index.toFixed(2)}` : "881001.WI");
+  setText("#index-level", Number.isFinite(data.market.index) ? `${CFG.indexPrefix} ${data.market.index.toFixed(2)}` : CFG.indexCode);
   setText("#amount", compactAmount(data.market.amount));
   setText("#premium", formatPct(data.profit.premium));
   $("#premium").className = signClass(data.profit.premium);
@@ -158,11 +263,11 @@ function renderBreadth() {
 function renderThemes() {
   const themes = data.themes || [];
   if (!themes.length) {
-    $("#theme-list").innerHTML = '<div class="empty">Wind 暂未返回A股概念排名。</div>';
+    $("#theme-list").innerHTML = `<div class="empty">${CFG.emptyThemes}</div>`;
     return;
   }
   const max = Math.max(...themes.map((item) => Math.abs(Number(item.changePct))), 1);
-  $("#theme-list").innerHTML = themes.map((item, index) => `<div class="theme-row"><span class="theme-rank">${String(index + 1).padStart(2, "0")}</span><span class="theme-name"><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.code)}</small></span><span class="theme-bar"><i style="width:${Math.max(4, Math.abs(item.changePct) / max * 100)}%"></i></span><span class="theme-change">${formatPct(item.changePct)}</span></div>`).join("");
+  $("#theme-list").innerHTML = themes.map((item, index) => `<div class="theme-row"><span class="theme-rank">${String(index + 1).padStart(2, "0")}</span><span class="theme-name"><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.code)}</small></span><span class="theme-bar"><i style="width:${Math.max(4, Math.abs(item.changePct) / max * 100)}%"></i></span><span class="theme-change ${signClass(item.changePct)}">${formatPct(item.changePct)}</span></div>`).join("");
 }
 
 // 个股分层默认收起；记住用户展开过的题材，切换筛选后保持展开。
@@ -181,6 +286,7 @@ function renderAnomalies() {
   const summary = anomalyData?.summary || {};
   const sourceItems = anomalyData?.items || [];
   const filterLabels = { all: "全部异动", limit: "涨停点火", batch: "批量拉升", news: "消息催化" };
+  const limitLabel = MARKET === "tw" ? "涨停（≥9.5%）" : "涨停";
   const filterCounts = {
     all: sourceItems.filter((item) => (item.tabScores?.all ?? item.score) >= 60).length,
     limit: sourceItems.filter((item) => item.signals.includes("limit") && (item.tabScores?.limit ?? item.score) >= 60).length,
@@ -194,14 +300,16 @@ function renderAnomalies() {
   });
   const streakRank = (label) => label === "首板" ? 1 : Number.parseInt(label) || 99;
   const streakSummary = Object.entries(anomalyData?.limitData?.streakCounts || {}).sort((a, b) => streakRank(a[0]) - streakRank(b[0])).map(([label, count]) => `<span>${escapeHtml(label)} ${count}</span>`).join("");
-  $("#anomaly-summary").innerHTML = `<span>有效题材 ${summary.total || 0}</span><span>涨停样本 ${anomalyData?.limitData?.stockCount || 0}</span>${streakSummary}<span>已合并 ${Math.max(0, (summary.rawTotal || 0) - (summary.mergedTotal || 0))}</span><span>过滤低分 ${summary.filteredOut || 0}</span><span>门槛 ≥ ${summary.minScore || 60}</span>`;
+  $("#anomaly-summary").innerHTML = `<span>${MARKET === "tw" ? "有效方向" : "有效题材"} ${summary.total || 0}</span><span>${limitLabel}样本 ${anomalyData?.limitData?.stockCount || 0}</span>${streakSummary}<span>已合并 ${Math.max(0, (summary.rawTotal || 0) - (summary.mergedTotal || 0))}</span><span>过滤低分 ${summary.filteredOut || 0}</span><span>门槛 ≥ ${summary.minScore || 60}</span>`;
   const sorters = {
     all: (a, b) => (b.tabScores?.all ?? b.score) - (a.tabScores?.all ?? a.score) || (b.scoreBreakdown?.ladderTotalBonus || 0) - (a.scoreBreakdown?.ladderTotalBonus || 0) || (b.sortMetrics?.limitCount || 0) - (a.sortMetrics?.limitCount || 0),
     limit: (a, b) => (b.sortMetrics?.limitCount || b.limitStocks?.length || 0) - (a.sortMetrics?.limitCount || a.limitStocks?.length || 0) || (b.tabScores?.limit ?? b.score) - (a.tabScores?.limit ?? a.score),
     batch: (a, b) => (b.sortMetrics?.fiveMinuteChange || b.shortMove || 0) - (a.sortMetrics?.fiveMinuteChange || a.shortMove || 0) || (b.tabScores?.batch ?? b.score) - (a.tabScores?.batch ?? a.score),
     news: (a, b) => (b.sortMetrics?.newsMomentum || 0) - (a.sortMetrics?.newsMomentum || 0) || (b.tabScores?.news ?? b.score) - (a.tabScores?.news ?? a.score)
   };
-  const sortLabels = { all: "综合分降序", limit: "涨停家数降序", batch: "5分钟涨跌幅降序", news: "涨跌幅与涨速综合降序" };
+  const sortLabels = MARKET === "tw"
+    ? { all: "综合分降序", limit: "涨停家数降序", batch: "—", news: "产业涨跌幅降序" }
+    : { all: "综合分降序", limit: "涨停家数降序", batch: "5分钟涨跌幅降序", news: "涨跌幅与涨速综合降序" };
   const items = sourceItems.filter((item) => (anomalyFilter === "all" || item.signals.includes(anomalyFilter)) && (item.tabScores?.[anomalyFilter] ?? item.score) >= 60).sort(sorters[anomalyFilter] || sorters.all);
   const quoteTime = anomalyData?.items?.[0]?.tradeTime ? `行情时间 ${anomalyData.items[0].tradeTime} · ` : "";
   setText("#anomaly-time", `${quoteTime}排序：${sortLabels[anomalyFilter]}`);
@@ -307,9 +415,10 @@ function renderTimeline() {
     return { ...item, snapshotDate: `${parts.year}${parts.month}${parts.day}`, minute: Number(parts.hour) * 60 + Number(parts.minute), timeLabel: `${parts.hour}:${parts.minute}` };
   };
   const tradingDate = String(data.tradingDate || today);
+  const inSession = (minute) => CFG.sessions.some(([start, end]) => minute >= start && minute <= end);
   const history = (data.history || []).map(parseSnapshot).filter(Boolean)
     .filter((item) => item.snapshotDate === tradingDate)
-    .filter((item) => (item.minute >= 565 && item.minute <= 690) || (item.minute >= 780 && item.minute <= 900))
+    .filter((item) => inSession(item.minute))
     .filter((item) => tradingDate !== today || item.minute <= nowMinute)
     .sort((a, b) => a.minute - b.minute).slice(-60);
   const latestLabel = history.at(-1)?.timeLabel;
@@ -320,17 +429,23 @@ function renderTimeline() {
   }
   const { width, height } = chartSize();
   const pad = 25;
-  const tradingProgress = (minute) => minute <= 690 ? minute - 565 : 125 + minute - 780;
-  const totalTradingMinutes = 245;
+  // 把各交易时段首尾相接（A股去掉午休），算出某分钟在整个交易日中的位置。
+  const tradingProgress = (minute) => {
+    let elapsed = 0;
+    for (const [start, end] of CFG.sessions) {
+      if (minute <= end) return elapsed + Math.max(0, minute - start);
+      elapsed += end - start;
+    }
+    return elapsed;
+  };
+  const totalTradingMinutes = CFG.sessions.reduce((sum, [start, end]) => sum + end - start, 0);
   const xAt = (minute) => pad + tradingProgress(minute) / totalTradingMinutes * (width - pad * 2);
   const points = history.map((item) => ({ x: xAt(item.minute), y: height - pad - Number(item.score) / 100 * (height - pad * 2), ...item }));
   const line = points.map((point) => `${point.x},${point.y}`).join(" ");
   const area = `${points[0].x},${height - pad} ${line} ${points.at(-1).x},${height - pad}`;
   const grid = [25, 50, 75].map((score) => { const y = height - pad - score / 100 * (height - pad * 2); return `<line class="timeline-grid" x1="${pad}" y1="${y}" x2="${width - pad}" y2="${y}"/><text class="timeline-label" x="0" y="${y + 3}">${score}</text>`; }).join("");
   const dots = points.map((point, index) => `<circle class="timeline-dot" cx="${point.x}" cy="${point.y}" r="${index === points.length - 1 ? 5 : 3}"><title>${escapeHtml(point.phase)} · ${point.score} · ${escapeHtml(point.timeLabel)}</title></circle>`).join("");
-  const slots = width < 480
-    ? [{ minute: 565, label: "09:25" }, { minute: 630, label: "10:30" }, { minute: 690, label: "11:30" }, { minute: 840, label: "14:00" }, { minute: 900, label: "15:00" }]
-    : [{ minute: 565, label: "09:25" }, { minute: 600, label: "10:00" }, { minute: 690, label: "11:30" }, { minute: 810, label: "13:30" }, { minute: 870, label: "14:30" }, { minute: 900, label: "15:00" }];
+  const slots = (width < 480 ? CFG.slotsNarrow : CFG.slotsWide).map(([minute, label]) => ({ minute, label }));
   const axis = slots.map((slot, index) => { const x = xAt(slot.minute); const anchor = index === 0 ? "start" : index === slots.length - 1 ? "end" : "middle"; return `<line class="timeline-grid timeline-time-grid" x1="${x}" y1="${pad}" x2="${x}" y2="${height - pad}"/><text class="timeline-label timeline-time-label" text-anchor="${anchor}" x="${x}" y="${height - 5}">${slot.label}</text>`; }).join("");
   $("#timeline-chart").innerHTML = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><defs><linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1"><stop class="timeline-stop" offset="0" stop-opacity=".12"/><stop class="timeline-stop" offset="1" stop-opacity="0"/></linearGradient></defs>${grid}${axis}<polygon class="timeline-area" points="${area}"/><polyline class="timeline-line" points="${line}"/>${dots}</svg>`;
 }
@@ -360,7 +475,7 @@ async function loadEmotion(force = false) {
     renderAll();
     loadNews();
     await loadAnomalies(force);
-    if (force) toast("已读取最新快照（交易日 09:00–15:00 每30分钟自动更新）");
+    if (force) toast(`已读取最新快照（${data.schedule || "交易时段每30分钟自动更新"}）`);
   } catch (error) {
     const notReady = error.code === "not_ready";
     $("#connection-dot").className = notReady ? "status-dot" : "status-dot bad";
@@ -430,10 +545,10 @@ async function exportEmotionImage() {
     shell.style.width = `${width}px`;
     const head = document.createElement("div");
     head.className = "export-head";
-    head.innerHTML = '<img src="/logo.png" alt="TWSVP"><b>短线情绪</b>';
+    head.innerHTML = `<img src="/logo.png" alt="TWSVP"><b>${MARKET === "tw" ? toHant("短线情绪 · 台股") : "短线情绪 · A股"}</b>`;
     const footer = document.createElement("div");
     footer.className = "export-footer";
-    footer.textContent = "TWSVP · AI短线情绪 · 数据来源 Wind，仅用于研究与情绪观察，不构成投资建议";
+    footer.textContent = toHant(`TWSVP · AI短线情绪 · ${CFG.label} · 数据来源 Wind，仅用于研究与情绪观察，不构成投资建议`);
     shell.append(head, clone, footer);
     host.append(shell);
     document.body.append(host);
@@ -446,7 +561,7 @@ async function exportEmotionImage() {
     const blob = await window.htmlToImage.toBlob(shell, { width, height, pixelRatio, backgroundColor: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#efefef" });
     if (!blob) throw new Error("浏览器未能生成图片");
     const day = new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()).replaceAll("/", "-");
-    const fileName = `AI短线情绪-${day}.png`;
+    const fileName = `AI短线情绪-${CFG.label}-${day}.png`;
     const file = typeof File === "function" ? new File([blob], fileName, { type: "image/png" }) : null;
     if (file && window.matchMedia("(pointer: coarse)").matches && navigator.canShare?.({ files: [file] })) {
       await navigator.share({ files: [file], title: "AI短线情绪" }).catch((error) => { if (error?.name !== "AbortError") throw error; });
@@ -472,7 +587,7 @@ async function exportEmotionImage() {
 
 // 「刷新」每个浏览器每小时只能按一次（打开页面本身不计入）。
 const REFRESH_COOLDOWN_MS = 60 * 60 * 1000;
-const REFRESH_KEY = "short-emotion:last-manual-refresh";
+const REFRESH_KEY = `short-emotion:last-manual-refresh:${MARKET}`;
 
 function lastManualRefresh() {
   try { return Number(localStorage.getItem(REFRESH_KEY)) || 0; } catch { return 0; }
@@ -558,5 +673,6 @@ function watchSections() {
   $$(".tab-btn").forEach((button) => { const section = document.getElementById(button.dataset.target); if (section) observer.observe(section); });
 }
 
+applyMarketCopy();
 bindEvents();
 loadEmotion();

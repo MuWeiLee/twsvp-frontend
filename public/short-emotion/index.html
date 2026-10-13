@@ -11,6 +11,8 @@
     // 与 TWSVP 主站共用外观设置（同域 localStorage）：深浅色主题与红涨/绿涨配色。
     (function () {
       var root = document.documentElement;
+      root.dataset.market = /^\/tw-short-emotion/.test(location.pathname) ? "tw" : "cn";
+      if (root.dataset.market === "tw") { root.lang = "zh-Hant-TW"; document.title = "短線情緒 · 台股 · TWSVP"; }
       var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
       var theme = get("twsvp_theme");
       if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
@@ -24,13 +26,17 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/short-emotion/twsvp.css?v=1">
+  <link rel="stylesheet" href="/short-emotion/twsvp.css?v=2">
 </head>
 <body>
   <div class="app-shell">
     <nav class="nav">
       <a class="nav-logo" href="/feed" aria-label="TWSVP"><img src="/logo.png" alt="TWSVP"></a>
       <div class="nav-title">短线情绪</div>
+      <div class="market-switch" role="tablist" aria-label="市场">
+        <a class="market-tab" data-market="cn" href="/cn-short-emotion">A股</a>
+        <a class="market-tab" data-market="tw" href="/tw-short-emotion">台股</a>
+      </div>
       <button id="export-image" class="nav-btn" type="button" aria-label="导出图片" title="导出长图">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4v11M7.5 8.5 12 4l4.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
       </button>
@@ -40,7 +46,7 @@
       <div class="tabs" role="tablist" aria-label="页面分区">
         <button class="tab-btn active" data-target="overview" type="button">情绪总览</button>
         <button class="tab-btn" data-target="breadth" type="button">市场广度</button>
-        <button class="tab-btn" data-target="themes" type="button">题材雷达</button>
+        <button id="themes-tab" class="tab-btn" data-target="themes" type="button">题材雷达</button>
         <button class="tab-btn" data-target="timeline" type="button">情绪路径</button>
       </div>
     </header>
@@ -54,7 +60,7 @@
 
       <section id="overview" class="section">
         <article class="card pulse-card">
-          <div class="card-head"><h2 class="card-title">A股短线情绪</h2><span id="posture" class="pill pill-solid">—</span></div>
+          <div class="card-head"><h2 id="pulse-title" class="card-title">A股短线情绪</h2><span id="posture" class="pill pill-solid">—</span></div>
           <div class="pulse-main">
             <div id="score-ring" class="score-ring"><div><strong id="score">—</strong><small>/ 100</small></div></div>
             <div class="phase-copy"><span>当前情绪阶段</span><h3 id="phase">读取中</h3><p id="summary">正在读取市场广度与短线极端反馈。</p></div>
@@ -72,8 +78,8 @@
         </article>
 
         <div class="metric-strip">
-          <article><span>全A涨跌幅</span><strong id="index-change">—</strong><small id="index-level">881001.WI</small></article>
-          <article><span>两市成交额</span><strong id="amount">—</strong><small>Wind 全A口径</small></article>
+          <article><span id="index-label">全A涨跌幅</span><strong id="index-change">—</strong><small id="index-level">881001.WI</small></article>
+          <article><span id="amount-label">两市成交额</span><strong id="amount">—</strong><small id="amount-note">Wind 全A口径</small></article>
           <article><span>昨日涨停溢价</span><strong id="premium">—</strong><small>今日平均涨跌幅</small></article>
           <article><span>涨停 / 跌停</span><strong id="limit-pair" class="limit-pair"><span class="up-text">—</span><i>/</i><span class="down-text">—</span></strong><small>极端反馈</small></article>
         </div>
@@ -101,8 +107,8 @@
 
       <section id="themes" class="section">
         <article class="card anomaly-panel">
-          <div class="card-head"><h2 class="card-title">当日题材异动</h2></div>
-          <p class="card-desc">相似分支先归并为父题材，再按涨停、批量拉升与消息催化筛选高价值方向。</p>
+          <div class="card-head"><h2 id="anomaly-title" class="card-title">当日题材异动</h2></div>
+          <p id="anomaly-desc" class="card-desc">相似分支先归并为父题材，再按涨停、批量拉升与消息催化筛选高价值方向。</p>
           <div id="anomaly-summary" class="anomaly-summary"><span>识别中…</span></div>
           <div class="anomaly-toolbar" role="group" aria-label="异动类型筛选">
             <button class="anomaly-filter active" data-anomaly-filter="all" type="button">全部</button>
@@ -116,7 +122,7 @@
         </article>
 
         <article id="theme-ranking" class="card">
-          <div class="card-head"><h2 class="card-title">题材热度排名</h2><span class="pill">A股 Wind 概念</span></div>
+          <div class="card-head"><h2 id="theme-title" class="card-title">题材热度排名</h2><span id="theme-pill" class="pill">A股 Wind 概念</span></div>
           <div id="theme-list" class="theme-list"><div class="loading">正在读取题材排名…</div></div>
         </article>
 
@@ -145,6 +151,6 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="/short-emotion/vendor/html-to-image.js" defer></script>
-  <script type="module" src="/short-emotion/app.js?v=20"></script>
+  <script type="module" src="/short-emotion/app.js?v=21"></script>
 </body>
 </html>

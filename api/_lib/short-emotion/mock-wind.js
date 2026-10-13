@@ -43,10 +43,58 @@ const CONCEPTS = [
   ["8841555.WI", "商业航天指数", 0.8, 55.2, 54.8]
 ];
 
+const TW_LIMIT = [["6223.TWO", "旺硅"], ["6515.TW", "颖崴"], ["2603.TW", "长荣海运"], ["3008.TW", "大立光"]];
+
+function mockTaiwan(serverType, toolName, params, now, qt) {
+  const question = String(params.question || params.query || "");
+  if (toolName === "get_index_price_indicators") {
+    const codes = String(params.windcode).split(",");
+    return result({ data: table(["最新成交价", "涨跌幅", "成交额", "近3分钟涨跌幅", "交易时间", "Wind代码"],
+      codes.map((code, index) => [1000 + index * 37, code === "TWII.TW" ? 0.42 : 2.6 - index * 0.3, 8.4e11 / (index + 1), index < 3 ? 0.5 - index * 0.1 : 0.02, qt, code])) });
+  }
+  if (toolName === "get_index_kline") {
+    const rows = [];
+    for (let offset = 14; offset >= 0; offset -= 1) {
+      const date = new Date(Date.UTC(Number(now.day.slice(0, 4)), Number(now.day.slice(4, 6)) - 1, Number(now.day.slice(6, 8)) - offset));
+      if ([0, 6].includes(date.getUTCDay())) continue;
+      rows.push([`${date.toISOString().slice(0, 10)}T00:00:00.000+08:00`, "49000", "49100", "49200", "48900", "800000000000"]);
+    }
+    return result({ data: table(["TIME", "OPEN", "MATCH", "HIGH", "LOW", "TURNOVER"], rows) });
+  }
+  if (toolName === "get_index_technicals") {
+    return result({ data: { data: [table(["Wind代码", "最新指数成份上涨数量", "最新指数成份下跌数量", "最新指数成份平盘数量"], [["TWII.TW", 620, 380, 90]])] } });
+  }
+  if (toolName === "search_global_stocks") {
+    const day = (question.match(/(\d{8})涨跌幅/) || [])[1] || now.day;
+    const pick = /大于等于9\.5%/.test(question) ? TW_LIMIT : /小于等于-9\.5%/.test(question) ? TW_LIMIT.slice(0, 1) : /大于5%/.test(question) ? TW_LIMIT.concat(TW_LIMIT) : /小于-5%/.test(question) ? TW_LIMIT.slice(0, 2) : TW_LIMIT;
+    const total = /大于0/.test(question) ? 640 : /小于0/.test(question) ? 410 : /等于0/.test(question) ? 85 : pick.length;
+    const rows = pick.map(([code, name]) => [code, name, /小于/.test(question) ? -9.8 : 9.9, `${day} 10:00:00`, Number(day)]);
+    return result({ data: { data: [{ ...table(["Wind代码", "证券简称", "最新涨跌幅", "交易时间", "日期"], rows), excelTotalCount: Math.max(total, rows.length) }] } });
+  }
+  if (toolName === "get_financial_data") {
+    if (/成分股今日涨跌幅排名前十/.test(question)) {
+      return result({ data: { data: [table(["Wind代码", "证券简称", "最新涨跌幅", "交易时间", "日期"],
+        [["6223.TWO", "旺硅", 9.96], ["6515.TW", "颖崴", 9.7], ["6510.TWO", "精测", 6.2], ["3661.TW", "世芯-KY", 2.1], ["2330.TW", "台积电", 0.4]].map((row) => [...row, qt, now.day]))] } });
+    }
+    if (/的最新涨跌幅$/.test(question)) {
+      const codes = question.replace(/的最新涨跌幅$/, "").split("、");
+      return result({ data: { data: [table(["Wind代码", "证券简称", "最新涨跌幅"], codes.map((code, index) => [code, `样本${index + 1}`, 4.5 - index]))] } });
+    }
+    return result({ data: { data: [] } });
+  }
+  if (toolName === "get_financial_news") {
+    return result({ data: { items: [
+      { title: "台股探针族群走强", content: "探针族群旺矽(6223)、颖崴(6515)、精测(6510)同步上涨，半导体先进制程需求带动。航运股集体上涨。", date: `${now.day.slice(0, 4)}-${now.day.slice(4, 6)}-${now.day.slice(6, 8)}`, source: "Wind样例", relevance: 0.8 }
+    ] } });
+  }
+  return result({ data: [] });
+}
+
 export function mockWindResult(serverType, toolName, params) {
   const now = beijingNow();
   const qt = quoteTime();
   const question = String(params.question || params.query || "");
+  if (/\.TWO?\b|台湾|台股/.test(JSON.stringify(params))) return mockTaiwan(serverType, toolName, params, now, qt);
 
   if (serverType === "index_data" && toolName === "get_index_price_indicators") {
     return result({ data: [table(

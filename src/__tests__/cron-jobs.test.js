@@ -41,11 +41,23 @@ describe("scheduled jobs (GitHub Actions)", () => {
   });
 });
 
-describe("short-emotion URL aliases", () => {
-  it("redirects common spellings (e.g. /shortEmotion) to /short-emotion instead of the SPA login", () => {
-    const sources = (vercel.redirects || []).filter((r) => r.destination === "/short-emotion").map((r) => r.source);
-    for (const alias of ["/shortEmotion", "/shortemotion", "/short_emotion", "/shortEmotion/"]) {
+describe("short-emotion URLs (A股 / 台股)", () => {
+  it("serves /cn-short-emotion and /tw-short-emotion from the same page", () => {
+    const rewrites = Object.fromEntries((vercel.rewrites || []).map((r) => [r.source, r.destination]));
+    for (const path of ["/cn-short-emotion", "/cn-short-emotion/", "/tw-short-emotion", "/tw-short-emotion/"]) {
+      expect(rewrites[path]).toBe("/short-emotion/index.html");
+    }
+  });
+
+  it("redirects the old /short-emotion and common spellings to the A股 page", () => {
+    const sources = (vercel.redirects || []).filter((r) => r.destination === "/cn-short-emotion").map((r) => r.source);
+    for (const alias of ["/short-emotion", "/short-emotion/", "/shortEmotion", "/shortemotion", "/short_emotion", "/shortEmotion/"]) {
       expect(sources).toContain(alias);
     }
+  });
+
+  it("page rewrites come before the SPA catch-all", () => {
+    const sources = (vercel.rewrites || []).map((r) => r.source);
+    expect(sources.indexOf("/tw-short-emotion")).toBeLessThan(sources.indexOf("/((?!api/).*)"));
   });
 });

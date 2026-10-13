@@ -1,9 +1,9 @@
 # 定时任务（Vercel Hobby 计划只允许每天一次的 cron，所以统一由 GitHub Actions 触发）
 #
-# 1) short-emotion：短线情绪工作台。在 Actions 里直接调用 Wind 计算快照，结果推送到
-#    `short-emotion-data` 分支；twsvp.com/short-emotion 只读该分支，不需要数据库。
-#    需要仓库 Secret：WIND_API_KEY。
-#    北京时间工作日 09:00–15:30 每 30 分钟触发，具体跑哪些任务见 api/_lib/short-emotion/schedule.js。
+# 1) short-emotion：短线情绪工作台（A股 + 台股）。在 Actions 里直接调用 Wind 计算快照，结果推送到
+#    `short-emotion-data` 分支（A股在根目录，台股在 tw/）；twsvp.com/cn-short-emotion、/tw-short-emotion
+#    只读该分支，不需要数据库。需要仓库 Secret：WIND_API_KEY。
+#    北京/台北时间工作日 09:00–15:30 每 30 分钟触发，各市场跑哪些任务见 api/_lib/short-emotion/schedule.js。
 #
 # 2) call-api：调用 Vercel 上的 /api/sync-* 接口（行情、新闻、绩效、量化）。
 #    这些任务依赖 Supabase，数据库暂停期间已全部暂停（scripts/cron/jobs.json 中 paused=true）。
@@ -28,6 +28,14 @@ on:
         description: "短线情绪：忽略时间窗口，立即刷新全部数据"
         type: boolean
         default: true
+      market:
+        description: "短线情绪：市场（all / cn / tw）"
+        type: choice
+        options:
+          - all
+          - cn
+          - tw
+        default: all
       path:
         description: "call-api：要调用的接口路径，例如 /api/sync-newsdata"
         required: false
@@ -60,13 +68,18 @@ jobs:
             git archive FETCH_HEAD | tar -x -C "$DATA_DIR"
             git rev-parse 'FETCH_HEAD^{tree}' > "$RUNNER_TEMP/previous-tree"
           fi
+      - name: Install Traditional Chinese converter (台股繁体)
+        run: npm install --prefix "$RUNNER_TEMP/opencc" --no-audit --no-fund opencc-js@1.0.5
       - name: Refresh snapshot
-        run: node scripts/short-emotion/refresh.mjs ${{ (github.event_name == 'workflow_dispatch' && inputs.force) && '--force' || '' }}
+        run: node scripts/short-emotion/refresh.mjs ${{ (github.event_name == 'workflow_dispatch' && inputs.force) && '--force' || '' }} --market=${{ (github.event_name == 'workflow_dispatch' && inputs.market) || 'all' }}
         env:
+          OPENCC_JS_DIR: ${{ runner.temp }}/opencc
           WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
           SHORT_EMOTION_STORE: file
           SHORT_EMOTION_DATA_DIR: ${{ env.DATA_DIR }}
       - name: Publish data branch
+        # 一个市场失败时，另一个市场已写好的数据照常发布（任务仍会标记为失败）
+        if: ${{ !cancelled() }}
         run: |
           cd "$DATA_DIR"
           # 数据分支不需要 Vercel 预览部署
