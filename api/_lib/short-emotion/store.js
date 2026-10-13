@@ -282,13 +282,15 @@ class GithubReadStore {
     this.base = String(baseUrl).replace(/\/+$/, "");
   }
   async fetchJson(relative, fallback) {
-    const cached = readCache.get(relative);
+    // 缓存按完整地址区分：A股（根目录）和台股（tw/）的同名文件不能互相命中。
+    const url = `${this.base}/${relative}`;
+    const cached = readCache.get(url);
     if (cached && Date.now() - cached.at < READ_CACHE_MS) return cached.value;
-    const response = await fetch(`${this.base}/${relative}`, { signal: AbortSignal.timeout(10_000) });
+    const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
     if (response.status === 404) return fallback;
     if (!response.ok) throw new Error(`读取数据分支失败：${response.status} ${relative}`);
     const value = await response.json();
-    readCache.set(relative, { at: Date.now(), value });
+    readCache.set(url, { at: Date.now(), value });
     return value;
   }
   async kvGet(key) { return this.fetchJson(`kv/${kvFileName(key)}`, null); }

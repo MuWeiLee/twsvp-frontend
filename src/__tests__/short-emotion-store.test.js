@@ -55,4 +55,17 @@ describe("short-emotion data branch (file store → GitHub read store)", () => {
     process.env.SHORT_EMOTION_STORE = "github";
     await expect(getStore().kvSet("x", 1)).rejects.toThrow();
   });
+
+  it("keeps A股 and 台股 apart when reading the data branch", async () => {
+    process.env.SHORT_EMOTION_STORE = "github";
+    process.env.SHORT_EMOTION_DATA_URL = "https://raw.example/split";
+    globalThis.fetch = async (url) => {
+      const text = String(url);
+      if (text.endsWith("/split/kv/emotion_latest.json")) return new Response(JSON.stringify({ value: { score: 42 } }), { status: 200 });
+      return new Response("not found", { status: 404 });
+    };
+    const { getStore } = await import("../../api/_lib/short-emotion/store.js");
+    expect((await getStore("cn").kvGet("emotion:latest")).value.score).toBe(42);
+    expect(await getStore("tw").kvGet("emotion:latest")).toBeNull();
+  });
 });
