@@ -4,7 +4,7 @@ on:
   push:
     branches: [probe/tw-emotion]
 permissions:
-  contents: read
+  contents: write
 jobs:
   probe:
     runs-on: ubuntu-latest
@@ -14,6 +14,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node scripts/probe/tw-probe.mjs
+      - run: node scripts/probe/tw-probe.mjs > "$RUNNER_TEMP/probe.txt" 2>&1; cat "$RUNNER_TEMP/probe.txt"
         env:
           WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
+      - name: Publish probe output
+        run: |
+          mkdir out && cp "$RUNNER_TEMP/probe.txt" out/ && cd out
+          git init -q && git checkout -q -b probe/tw-emotion-output && git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "probe output"
+          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" probe/tw-emotion-output
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
