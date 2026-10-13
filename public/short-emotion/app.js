@@ -1,4 +1,4 @@
-import { HANT, HANT_FIXES } from "./hant-map.js?v=1";
+import { HANT, HANT_FIXES } from "./hant-map.js?v=2";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -891,8 +891,8 @@ async function handleManualRefresh() {
     }
     pollRefresh();
   } catch (error) {
+    try { localStorage.removeItem(REFRESH_KEY); } catch {} // 没刷新成功不占用每小时一次的额度
     stopRefresh();
-    try { localStorage.removeItem(REFRESH_KEY); } catch {}
     toast(error.code === "not_configured" ? "实时刷新服务尚未开通，页面显示的是最近一次定时快照" : `刷新失败：${error.message}`, true);
   }
 }
