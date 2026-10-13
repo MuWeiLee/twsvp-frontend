@@ -249,11 +249,16 @@ export async function loadEmotion() {
       () => windCall("index_data", "get_index_technicals", { question: "台湾加权指数最新指数成份上涨数量、下跌数量、平盘数量" })
     ]);
     const indexRow = objects(tables(fulfilled(calls[0]))[0])[0] || {};
+    // 以行情日期为准：盘前/收盘后 Wind 返回的是最近一个交易日的数据，按日历「今天」会全部被过滤掉。
+    const rawQuoteTime = normalizeQuoteTime(indexRow["交易时间"]);
+    const dataDay = rawQuoteTime?.slice(0, 8) || day;
+    // 非盘中时 Wind 的时间是 00:00:00，显示为当日收盘 13:30
+    const quoteTime = rawQuoteTime && / 00:00:00$/.test(rawQuoteTime) ? `${dataDay} 13:30:00` : rawQuoteTime;
     const screens = calls.slice(1, 8).map((result) => (fulfilled(result) ? screenResult(fulfilled(result)) : null));
     const [upScreen, downScreen, flatScreen, limitUpScreen, limitDownScreen, bigUpScreen, bigDownScreen] = screens;
-    let up = countForDay(upScreen, day);
-    let down = countForDay(downScreen, day);
-    let flat = countForDay(flatScreen, day);
+    let up = countForDay(upScreen, dataDay);
+    let down = countForDay(downScreen, dataDay);
+    let flat = countForDay(flatScreen, dataDay);
     let breadthSource = "Wind台股条件选股计数";
     if (up == null || down == null) {
       const tech = objects(tables(fulfilled(calls[9]))[0])[0] || {};
@@ -262,24 +267,22 @@ export async function loadEmotion() {
       flat = num(tech["最新指数成份平盘数量"]);
       breadthSource = "Wind加权指数成份涨跌数量";
     }
-    const limitUpRows = (limitUpScreen?.rows || []).filter((row) => row.day === day);
-    const limitDownRows = (limitDownScreen?.rows || []).filter((row) => row.day === day);
-    const limitUp = limitUpScreen ? countForDay(limitUpScreen, day) : null;
-    const limitDown = limitDownScreen ? countForDay(limitDownScreen, day) : null;
-    const bigUp = countForDay(bigUpScreen, day);
-    const bigDown = countForDay(bigDownScreen, day);
+    const limitUpRows = (limitUpScreen?.rows || []).filter((row) => row.day === dataDay);
+    const limitDownRows = (limitDownScreen?.rows || []).filter((row) => row.day === dataDay);
+    const limitUp = limitUpScreen ? countForDay(limitUpScreen, dataDay) : null;
+    const limitDown = limitDownScreen ? countForDay(limitDownScreen, dataDay) : null;
+    const bigUp = countForDay(bigUpScreen, dataDay);
+    const bigDown = countForDay(bigDownScreen, dataDay);
     const themes = (fulfilled(calls[8]) || []).sort((a, b) => b.changePct - a.changePct)
       .slice(0, 10).map((item) => ({ code: item.code, name: `${item.name}`, changePct: item.changePct, tradeTime: item.tradeTime }));
     const allIndustries = fulfilled(calls[8]) || [];
 
-    // 盘中才记录当日涨停名单（连板计算用）
-    const quoteTime = normalizeQuoteTime(indexRow["交易时间"]);
-    const live = quoteTime?.slice(0, 8) === day && !/ 00:00:00$/.test(quoteTime);
-    if (live && limitUpRows.length) state.limitHistory[day] = limitUpRows.map((row) => row.code);
-    const streaks = limitUpRows.map((row) => streakOf(row.code, day));
+    // 记录行情日的涨停名单（连板计算用）
+    if (limitUpRows.length) state.limitHistory[dataDay] = limitUpRows.map((row) => row.code);
+    const streaks = limitUpRows.map((row) => streakOf(row.code, dataDay));
 
     // 昨日涨停溢价：前一交易日涨停股今天的平均涨跌幅
-    const previousDay = previousTradingDays(day, 1)[0] || null;
+    const previousDay = previousTradingDays(dataDay, 1)[0] || null;
     const previousLimits = previousDay ? state.limitHistory[previousDay] || [] : [];
     let premium = null;
     let premiumSample = 0;
@@ -292,7 +295,7 @@ export async function loadEmotion() {
     }
 
     const amount = num(indexRow["成交额"]);
-    const liquidity = scoreLiquidity(amount, calendar.filter((row) => row.day < day));
+    const liquidity = scoreLiquidity(amount, calendar.filter((row) => row.day < dataDay));
     const upRatio = Number.isFinite(up) && Number.isFinite(down) && up + down > 0 ? up / (up + down) * 100 : null;
     const dimensions = {
       breadth: Math.round(scoreBreadth(up, down)),
@@ -332,7 +335,7 @@ export async function loadEmotion() {
         multiBoard: streaks.filter((value) => value >= 2).length,
         counts: streaks.reduce((counts, value) => { const label = limitStreakLabel(value); counts[label] = (counts[label] || 0) + 1; return counts; }, {})
       },
-      profit: { premium, sampleSize: premiumSample, baseTradingDate: previousDay, currentTradingDate: day, method: "前一交易日涨停股（涨幅≥9.5%）今日涨跌幅等权平均" },
+      profit: { premium, sampleSize: premiumSample, baseTradingDate: previousDay, currentTradingDate: dataDay, method: "前一交易日涨停股（涨幅≥9.5%）今日涨跌幅等权平均" },
       themes,
       coverage: [
         { name: "市场广度", status: up != null ? "direct" : "error", note: breadthSource },
@@ -404,9 +407,10 @@ export async function loadThemeAnomalies() {
     ]);
     errors.push(...[industryResult, limitResult, newsResult].map(reason).filter(Boolean));
     const industries = fulfilled(industryResult) || [];
-    const limitRows = (fulfilled(limitResult) ? screenResult(fulfilled(limitResult)).rows : []).filter((row) => row.day === day);
-    const news = fulfilled(newsResult)?.data?.items || fulfilled(newsResult)?.data?.data?.items || [];
     const tradeTime = industries.map((item) => item.tradeTime).filter(Boolean).sort().at(-1) || null;
+    const dataDay = tradeTime?.slice(0, 8) || day;
+    const limitRows = (fulfilled(limitResult) ? screenResult(fulfilled(limitResult)).rows : []).filter((row) => row.day === dataDay);
+    const news = fulfilled(newsResult)?.data?.items || fulfilled(newsResult)?.data?.data?.items || [];
 
     // 候选产业：涨幅前 8 + 新闻点名的产业，逐个查询成分股排名。
     const newsHits = new Map(industries.map((item) => [item.code, industryNewsMatches(news, item.name)]));
@@ -420,7 +424,7 @@ export async function loadThemeAnomalies() {
 
     const buildItem = (base, members, articles, kind) => {
       const limitStocks = members.filter((row) => row.changePct >= LIMIT_PCT).map((row) => {
-        const streak = streakOf(row.code, day);
+        const streak = streakOf(row.code, dataDay);
         return { code: row.code, name: row.name, changePct: row.changePct, limitStreak: streak, streakLabel: limitStreakLabel(streak) };
       });
       const followers = members.filter((row) => row.changePct >= 3 && row.changePct < LIMIT_PCT).slice(0, 5);
@@ -523,7 +527,7 @@ export async function loadThemeAnomalies() {
     const items = rawItems.filter((item) => item.tabScores.all >= MIN_SCORE || item.signals.length)
       .sort((a, b) => b.score - a.score || b.sortMetrics.limitCount - a.sortMetrics.limitCount).slice(0, MAX_ITEMS);
     const streakCounts = limitRows.reduce((counts, row) => {
-      const label = limitStreakLabel(streakOf(row.code, day));
+      const label = limitStreakLabel(streakOf(row.code, dataDay));
       counts[label] = (counts[label] || 0) + 1;
       return counts;
     }, {});
