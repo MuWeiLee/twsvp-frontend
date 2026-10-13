@@ -90,7 +90,14 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
     try {
       const snapshot = await transform(await loadEmotion());
       const quoteDay = quoteDayOf(snapshot);
-      if (quoteDay === plan.day) {
+      if (SCHEDULE.endOfDay && quoteDay) {
+        // 盘后模式（台股）：Wind 只有收盘数据，直接保存最近一个交易日的快照，每日曲线按交易日记一个点。
+        const eodSnapshot = { ...snapshot, tradingDate: quoteDay, endOfDay: true };
+        await store.kvSet(KEY.emotion, eodSnapshot);
+        const record = historyRecord(eodSnapshot);
+        await store.historyUpsert(record, isTradingSessionHistory(record));
+        result.ran.push(`emotion(eod ${quoteDay})`);
+      } else if (quoteDay === plan.day) {
         await store.kvSet(KEY.emotion, snapshot);
         const record = historyRecord(snapshot);
         await store.historyUpsert(record, isTradingSessionHistory(record));
@@ -115,7 +122,7 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
   }
 
   const tasks = [];
-  if (jobs.anomalies && !marketLive && result.mode === "scheduled") {
+  if (jobs.anomalies && !marketLive && result.mode === "scheduled" && !SCHEDULE.endOfDay) {
     result.skipped.push("anomalies: 当日行情未就绪，跳过以免覆盖为旧数据");
   } else if (jobs.anomalies) {
     tasks.push(loadThemeAnomalies().then(transform).then(async (output) => {
