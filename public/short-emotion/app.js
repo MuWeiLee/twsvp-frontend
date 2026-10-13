@@ -519,82 +519,220 @@ async function loadNews() {
   }
 }
 
-// 长图导出：原版用本机 Edge + PowerShell 截图，线上改为在浏览器内用 html-to-image 生成。
-// 与页面同为 600px 单列，导出图和手机上看到的版式一致。
-function exportWidth() {
-  return 600;
+// ── 导出图片：长图（整页一张）或小卡（每个模块一张），在浏览器内用 html-to-image 生成 ──
+const EXPORT_WIDTH = 600;
+
+function exportDay() {
+  return new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()).replaceAll("/", "-");
 }
 
-async function exportEmotionImage() {
-  const button = $("#export-image");
-  const main = document.querySelector("main");
-  if (!main || !data) return toast("当前没有可导出的短线情绪数据", true);
-  if (!window.htmlToImage) return toast("导出组件尚未加载完成，请稍后重试", true);
-  const originalText = button.textContent;
-  button.disabled = true;
-  button.textContent = "正在生成长图…";
-  reportToolbarState({ exporting: true });
+function exportBackground() {
+  return getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#efefef";
+}
+
+/** 克隆一段页面内容，去掉按钮和 id，展开折叠内容。 */
+function cloneForExport(node, { openDetails = true } = {}) {
+  const clone = node.cloneNode(true);
+  clone.removeAttribute("id");
+  clone.querySelectorAll("[id]").forEach((item) => item.removeAttribute("id"));
+  clone.querySelectorAll("button").forEach((item) => item.remove());
+  clone.querySelectorAll("details").forEach((item) => { if (openDetails) item.open = true; else item.remove(); });
+  clone.querySelectorAll(".news-list").forEach((item) => { item.style.maxHeight = "none"; item.style.overflow = "visible"; });
+  return clone;
+}
+
+function exportHeader(subtitle = "") {
+  const head = document.createElement("div");
+  head.className = "export-head";
+  const quote = $("#quote-time")?.textContent || "";
+  head.innerHTML = `<img src="/logo.png" alt="TWSVP"><div><b>${escapeHtml(toHant(`短线情绪 · ${CFG.label}`))}${subtitle ? ` · ${escapeHtml(subtitle)}` : ""}</b><small>${escapeHtml(quote)}</small></div>`;
+  return head;
+}
+
+function exportFooter() {
+  const footer = document.createElement("div");
+  footer.className = "export-footer";
+  footer.textContent = toHant(`TWSVP · 数据来源 Wind · 仅用于研究与情绪观察，不构成投资建议`);
+  return footer;
+}
+
+async function renderShell(nodes, extraClass = "") {
   const host = document.createElement("div");
   host.className = "export-host";
+  const shell = document.createElement("div");
+  shell.className = `export-shell ${extraClass}`.trim();
+  shell.style.width = `${EXPORT_WIDTH}px`;
+  shell.append(...nodes);
+  host.append(shell);
+  document.body.append(host);
   try {
-    const width = exportWidth();
-    const clone = main.cloneNode(true);
-    clone.removeAttribute("id");
-    clone.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
-    const activeFilter = clone.querySelector(".anomaly-filter.active");
-    if (activeFilter) {
-      const marker = document.createElement("span");
-      marker.className = "export-filter-marker";
-      marker.textContent = `当前视图：${activeFilter.textContent}`;
-      activeFilter.closest(".anomaly-toolbar")?.prepend(marker);
-    }
-    clone.querySelectorAll("button").forEach((node) => node.remove());
-    clone.querySelectorAll("details").forEach((node) => { node.open = true; });
-    clone.querySelectorAll(".news-list").forEach((node) => { node.style.maxHeight = "none"; node.style.overflow = "visible"; });
-    const shell = document.createElement("div");
-    shell.className = "export-shell";
-    shell.style.width = `${width}px`;
-    const head = document.createElement("div");
-    head.className = "export-head";
-    head.innerHTML = `<img src="/logo.png" alt="TWSVP"><b>${MARKET === "tw" ? toHant("短线情绪 · 台股") : "短线情绪 · A股"}</b>`;
-    const footer = document.createElement("div");
-    footer.className = "export-footer";
-    footer.textContent = toHant(`TWSVP · AI短线情绪 · ${CFG.label} · 数据来源 Wind，仅用于研究与情绪观察，不构成投资建议`);
-    shell.append(head, clone, footer);
-    host.append(shell);
-    document.body.append(host);
     await document.fonts?.ready;
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const height = Math.ceil(shell.scrollHeight);
-    if (height > 30000) throw new Error("页面过长，请切换到题材较少的视图后再导出");
-    // iOS Safari 单张 canvas 约 1600 万像素上限，按长图尺寸自动降低倍率。
-    const pixelRatio = Math.max(0.5, Math.min(2, window.devicePixelRatio || 1, Math.sqrt(16_000_000 / (width * height))));
-    const blob = await window.htmlToImage.toBlob(shell, { width, height, pixelRatio, backgroundColor: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#efefef" });
+    if (height > 30000) throw new Error("页面过长，请改用「导出小卡」");
+    // iOS Safari 单张 canvas 约 1600 万像素上限，按尺寸自动降低倍率。
+    // 浏览器 canvas 单边最多约 16384 像素，长图再按高度限制倍率，避免底部被截掉。
+    const pixelRatio = Math.max(0.5, Math.min(2, window.devicePixelRatio || 1, Math.sqrt(16_000_000 / (EXPORT_WIDTH * height)), 16_000 / height));
+    const blob = await window.htmlToImage.toBlob(shell, { width: EXPORT_WIDTH, height, pixelRatio, backgroundColor: exportBackground() });
     if (!blob) throw new Error("浏览器未能生成图片");
-    const day = new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()).replaceAll("/", "-");
-    const fileName = `AI短线情绪-${CFG.label}-${day}.png`;
-    const file = typeof File === "function" ? new File([blob], fileName, { type: "image/png" }) : null;
-    if (file && window.matchMedia("(pointer: coarse)").matches && navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], title: "AI短线情绪" }).catch((error) => { if (error?.name !== "AbortError") throw error; });
+    return blob;
+  } finally {
+    host.remove();
+  }
+}
+
+/** 小卡：每个模块一张，标题 + 行情时间 + 模块内容 + 免责声明。 */
+function exportCardSources() {
+  const title = (node, fallback) => node?.querySelector(".card-title")?.textContent?.trim() || fallback;
+  const sources = [];
+  const add = (node, name, options) => { if (node && node.offsetParent !== null) sources.push({ node, name: title(node, name), ...options }); };
+  add($(".pulse-card"), "情绪温度");
+  add($(".signal-card"), "交易姿态");
+  const metrics = $(".metric-strip");
+  if (metrics) sources.push({ node: metrics, name: toHant("核心指标") });
+  $$("#breadth .card").forEach((card) => add(card, "广度"));
+  // 异动：取当前筛选下的前 3 个方向，各自一张（不含个股分层明细）
+  $$(".anomaly-card").slice(0, 3).forEach((card) => {
+    const name = card.querySelector(".anomaly-card-head b")?.textContent?.trim() || "";
+    sources.push({ node: card, name: `${$("#anomaly-title")?.textContent || ""} · ${name}`, openDetails: false });
+  });
+  add($("#theme-ranking"), "热度排名");
+  add($(".catalyst-panel"), "事件催化");
+  add($(".timeline-panel"), "情绪路径");
+  return sources;
+}
+
+async function exportLongImage() {
+  const main = document.querySelector("main");
+  const clone = cloneForExport(main);
+  const active = $(".anomaly-filter.active");
+  if (active) {
+    const marker = document.createElement("span");
+    marker.className = "export-filter-marker";
+    marker.textContent = `当前视图：${active.textContent}`;
+    clone.querySelector(".anomaly-toolbar")?.prepend(marker);
+  }
+  clone.querySelectorAll(".status-bar").forEach((item) => item.remove());
+  const blob = await renderShell([exportHeader(), clone, exportFooter()]);
+  return [{ blob, name: toHant(`AI短线情绪-${CFG.label}-${exportDay()}.png`), title: toHant("长图") }];
+}
+
+async function exportSmallCards(onProgress) {
+  const sources = exportCardSources();
+  const files = [];
+  for (let index = 0; index < sources.length; index += 1) {
+    const source = sources[index];
+    onProgress?.(index + 1, sources.length);
+    const blob = await renderShell([exportHeader(source.name), cloneForExport(source.node, { openDetails: source.openDetails !== false }), exportFooter()], "export-card");
+    files.push({ blob, name: toHant(`AI短线情绪-${CFG.label}-${exportDay()}-${String(index + 1).padStart(2, "0")}.png`), title: source.name });
+  }
+  return files;
+}
+
+function downloadBlob(blob, name) {
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = name;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 4000);
+}
+
+async function shareOrDownload(files) {
+  const asFiles = typeof File === "function" ? files.map((item) => new File([item.blob], item.name, { type: "image/png" })) : [];
+  if (asFiles.length && window.matchMedia("(pointer: coarse)").matches && navigator.canShare?.({ files: asFiles })) {
+    await navigator.share({ files: asFiles, title: toHant("AI短线情绪") }).catch((error) => { if (error?.name !== "AbortError") throw error; });
+    return;
+  }
+  for (const item of files) {
+    downloadBlob(item.blob, item.name);
+    await new Promise((resolve) => setTimeout(resolve, 350));
+  }
+}
+
+/** 小卡预览：可逐张保存，也可一次全部分享/下载。手机上长按图片也能存到相册。 */
+function showGallery(files) {
+  closeGallery();
+  const urls = files.map((item) => URL.createObjectURL(item.blob));
+  const overlay = document.createElement("div");
+  overlay.className = "export-gallery";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-label", "导出小卡");
+  overlay.innerHTML = `<div class="gallery-sheet"><div class="gallery-head"><b>导出小卡 · ${files.length} 张</b><button class="pill-btn gallery-all" type="button">全部保存</button><button class="nav-btn gallery-close" type="button" aria-label="关闭">✕</button></div><p class="gallery-hint">点单张图片下方的「保存」逐张保存；手机上也可以长按图片存到相册。</p><div class="gallery-grid">${files.map((item, index) => `<figure><img src="${urls[index]}" alt="${escapeHtml(item.title)}"><figcaption><span>${escapeHtml(item.title)}</span><button class="gallery-save" type="button" data-index="${index}">保存</button></figcaption></figure>`).join("")}</div></div>`;
+  overlay.addEventListener("click", async (event) => {
+    if (event.target === overlay || event.target.closest(".gallery-close")) return closeGallery();
+    const save = event.target.closest(".gallery-save");
+    if (save) return shareOrDownload([files[Number(save.dataset.index)]]).catch((error) => toast(`保存失败：${error.message}`, true));
+    if (event.target.closest(".gallery-all")) return shareOrDownload(files).catch((error) => toast(`保存失败：${error.message}`, true));
+  });
+  overlay._urls = urls;
+  document.body.append(overlay);
+  document.body.classList.add("gallery-open");
+}
+
+function closeGallery() {
+  const overlay = $(".export-gallery");
+  if (!overlay) return;
+  (overlay._urls || []).forEach((url) => URL.revokeObjectURL(url));
+  overlay.remove();
+  document.body.classList.remove("gallery-open");
+}
+
+let exporting = false;
+async function runExport(kind) {
+  closeExportMenu();
+  if (exporting) return;
+  if (!data) return toast("当前没有可导出的短线情绪数据", true);
+  if (!window.htmlToImage) return toast("导出组件尚未加载完成，请稍后重试", true);
+  const button = $("#export-image");
+  exporting = true;
+  button.disabled = true;
+  button.setAttribute("aria-busy", "true");
+  reportToolbarState({ exporting: true });
+  try {
+    if (kind === "cards") {
+      toast("正在生成小卡…");
+      const files = await exportSmallCards((current, total) => toast(`正在生成小卡 ${current}/${total}…`));
+      showGallery(files);
+      toast(`已生成 ${files.length} 张小卡`);
     } else {
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = fileName;
-      document.body.append(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+      toast("正在生成长图…");
+      await shareOrDownload(await exportLongImage());
+      toast("长图已生成");
     }
-    toast("AI短线情绪长图已生成");
   } catch (error) {
     toast(`导出图片失败：${error instanceof Error ? error.message : String(error)}`, true);
   } finally {
-    host.remove();
+    exporting = false;
     button.disabled = false;
-    button.textContent = originalText;
+    button.removeAttribute("aria-busy");
     reportToolbarState({ exporting: false });
   }
 }
+
+function closeExportMenu() {
+  $(".export-menu")?.remove();
+  $("#export-image")?.setAttribute("aria-expanded", "false");
+}
+
+function toggleExportMenu(event) {
+  event.stopPropagation();
+  if ($(".export-menu")) return closeExportMenu();
+  const menu = document.createElement("div");
+  menu.className = "export-menu";
+  menu.setAttribute("role", "menu");
+  menu.innerHTML = '<button type="button" role="menuitem" data-export="long"><b>导出长图</b><small>整页一张，适合存档</small></button><button type="button" role="menuitem" data-export="cards"><b>导出小卡</b><small>每个区块一张，适合分享</small></button>';
+  menu.addEventListener("click", (clickEvent) => {
+    const item = clickEvent.target.closest("[data-export]");
+    if (item) runExport(item.dataset.export);
+  });
+  $(".nav").append(menu);
+  $("#export-image").setAttribute("aria-expanded", "true");
+}
+
+document.addEventListener("click", (event) => { if (!event.target.closest(".export-menu")) closeExportMenu(); });
+document.addEventListener("keydown", (event) => { if (event.key === "Escape") { closeExportMenu(); closeGallery(); } });
 
 // 「刷新」每个浏览器每小时只能按一次（打开页面本身不计入）。
 const REFRESH_COOLDOWN_MS = 60 * 60 * 1000;
@@ -637,7 +775,7 @@ window.addEventListener("resize", () => {
 
 function bindEvents() {
   $("#refresh").addEventListener("click", handleManualRefresh);
-  $("#export-image").addEventListener("click", exportEmotionImage);
+  $("#export-image").addEventListener("click", toggleExportMenu);
 
   $$(".anomaly-filter").forEach((button) => button.addEventListener("click", () => {
     anomalyFilter = button.dataset.anomalyFilter;
