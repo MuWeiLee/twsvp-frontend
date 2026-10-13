@@ -86,7 +86,7 @@ function renderHeader() {
   const quote = data.quoteTime ? String(data.quoteTime).replace(/^\d{4}(\d{2})(\d{2})\s?(\d{2}:\d{2}).*$/, "$1-$2 $3") : null;
   const stored = shanghaiTimeLabel(data.storedAt || data.capturedAt)?.split(" ").at(-1);
   const status = data.offSession ? "非交易时段 · 最近一次快照" : data.partial ? "定时快照 · 部分数据可用" : "定时快照";
-  $("#connection-dot").className = data.partial ? "" : "ok";
+  $("#connection-dot").className = data.partial ? "status-dot" : "status-dot ok";
   setText("#connection", status);
   setText("#quote-time", `${quote ? `行情时间 ${quote}` : "未返回行情时间"}${stored ? ` · 快照 ${stored}` : ""}`);
   if (data.schedule) setText("#schedule-note", data.schedule);
@@ -165,15 +165,14 @@ function renderThemes() {
   $("#theme-list").innerHTML = themes.map((item, index) => `<div class="theme-row"><span class="theme-rank">${String(index + 1).padStart(2, "0")}</span><span class="theme-name"><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.code)}</small></span><span class="theme-bar"><i style="width:${Math.max(4, Math.abs(item.changePct) / max * 100)}%"></i></span><span class="theme-change">${formatPct(item.changePct)}</span></div>`).join("");
 }
 
-// 手机/平板（≤1050px）个股分层默认收起；记住用户展开过的题材，切换筛选后保持展开。
-const compactLayout = window.matchMedia("(max-width: 1050px)");
+// 个股分层默认收起；记住用户展开过的题材，切换筛选后保持展开。
 const openedStockThemes = new Set();
 function stockDetailsOpen(name) {
-  return !compactLayout.matches || openedStockThemes.has(name);
+  return openedStockThemes.has(name);
 }
 document.addEventListener("toggle", (event) => {
   const details = event.target;
-  if (!(details instanceof HTMLDetailsElement) || !details.classList.contains("stock-details") || !compactLayout.matches) return;
+  if (!(details instanceof HTMLDetailsElement) || !details.classList.contains("stock-details")) return;
   if (details.open) openedStockThemes.add(details.dataset.theme);
   else openedStockThemes.delete(details.dataset.theme);
 }, true);
@@ -280,7 +279,7 @@ function renderDailyTimeline() {
     const anchor = slotIndex === 0 ? "start" : slotIndex === axisIndexes.length - 1 ? "end" : "middle";
     return `<line class="timeline-grid timeline-time-grid" x1="${point.x}" y1="${pad}" x2="${point.x}" y2="${height - pad}"/><text class="timeline-label timeline-time-label" text-anchor="${anchor}" x="${point.x}" y="${height - 5}">${label}</text>`;
   }).join("");
-  $("#timeline-chart").innerHTML = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><defs><linearGradient id="areaGradientDaily" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c8f16a" stop-opacity=".48"/><stop offset="1" stop-color="#c8f16a" stop-opacity=".04"/></linearGradient></defs>${grid}${axis}<polygon class="timeline-area daily" points="${area}"/><polyline class="timeline-line" points="${line}"/>${dots}</svg>`;
+  $("#timeline-chart").innerHTML = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><defs><linearGradient id="areaGradientDaily" x1="0" y1="0" x2="0" y2="1"><stop class="timeline-stop" offset="0" stop-opacity=".12"/><stop class="timeline-stop" offset="1" stop-opacity="0"/></linearGradient></defs>${grid}${axis}<polygon class="timeline-area daily" points="${area}"/><polyline class="timeline-line" points="${line}"/>${dots}</svg>`;
 }
 
 // 按容器真实尺寸绘制，避免 viewBox 固定 1000×200 在手机上把文字和圆点横向压扁。
@@ -290,7 +289,6 @@ function chartSize() {
 }
 
 function renderTimeline() {
-  setText("#timeline-kicker", timelineMode === "daily" ? "DAILY EMOTION AVERAGE" : "INTRADAY EMOTION PATH");
   setText("#timeline-title", timelineMode === "daily" ? "每日情绪均值" : "盘中情绪路径");
   if (timelineMode === "daily") {
     renderDailyTimeline();
@@ -334,7 +332,7 @@ function renderTimeline() {
     ? [{ minute: 565, label: "09:25" }, { minute: 630, label: "10:30" }, { minute: 690, label: "11:30" }, { minute: 840, label: "14:00" }, { minute: 900, label: "15:00" }]
     : [{ minute: 565, label: "09:25" }, { minute: 600, label: "10:00" }, { minute: 690, label: "11:30" }, { minute: 810, label: "13:30" }, { minute: 870, label: "14:30" }, { minute: 900, label: "15:00" }];
   const axis = slots.map((slot, index) => { const x = xAt(slot.minute); const anchor = index === 0 ? "start" : index === slots.length - 1 ? "end" : "middle"; return `<line class="timeline-grid timeline-time-grid" x1="${x}" y1="${pad}" x2="${x}" y2="${height - pad}"/><text class="timeline-label timeline-time-label" text-anchor="${anchor}" x="${x}" y="${height - 5}">${slot.label}</text>`; }).join("");
-  $("#timeline-chart").innerHTML = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><defs><linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c8f16a" stop-opacity=".48"/><stop offset="1" stop-color="#c8f16a" stop-opacity=".04"/></linearGradient></defs>${grid}${axis}<polygon class="timeline-area" points="${area}"/><polyline class="timeline-line" points="${line}"/>${dots}</svg>`;
+  $("#timeline-chart").innerHTML = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><defs><linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1"><stop class="timeline-stop" offset="0" stop-opacity=".12"/><stop class="timeline-stop" offset="1" stop-opacity="0"/></linearGradient></defs>${grid}${axis}<polygon class="timeline-area" points="${area}"/><polyline class="timeline-line" points="${line}"/>${dots}</svg>`;
 }
 
 function renderAll() {
@@ -365,7 +363,7 @@ async function loadEmotion(force = false) {
     if (force) toast("已读取最新快照（交易日 09:00–15:00 每30分钟自动更新）");
   } catch (error) {
     const notReady = error.code === "not_ready";
-    $("#connection-dot").className = notReady ? "" : "bad";
+    $("#connection-dot").className = notReady ? "status-dot" : "status-dot bad";
     setText("#connection", notReady ? "暂无快照" : "快照读取异常");
     if (notReady) {
       setText("#phase", "等待开盘");
@@ -396,10 +394,9 @@ async function loadNews() {
 }
 
 // 长图导出：原版用本机 Edge + PowerShell 截图，线上改为在浏览器内用 html-to-image 生成。
+// 与页面同为 600px 单列，导出图和手机上看到的版式一致。
 function exportWidth() {
-  if (window.innerWidth <= 680) return 720;
-  if (window.innerWidth <= 1050) return 1000;
-  return 1440;
+  return 600;
 }
 
 async function exportEmotionImage() {
@@ -431,10 +428,13 @@ async function exportEmotionImage() {
     const shell = document.createElement("div");
     shell.className = "export-shell";
     shell.style.width = `${width}px`;
+    const head = document.createElement("div");
+    head.className = "export-head";
+    head.innerHTML = '<img src="/logo.png" alt="TWSVP"><b>短线情绪</b>';
     const footer = document.createElement("div");
     footer.className = "export-footer";
     footer.textContent = "TWSVP · AI短线情绪 · 数据来源 Wind，仅用于研究与情绪观察，不构成投资建议";
-    shell.append(clone, footer);
+    shell.append(head, clone, footer);
     host.append(shell);
     document.body.append(host);
     await document.fonts?.ready;
@@ -443,7 +443,7 @@ async function exportEmotionImage() {
     if (height > 30000) throw new Error("页面过长，请切换到题材较少的视图后再导出");
     // iOS Safari 单张 canvas 约 1600 万像素上限，按长图尺寸自动降低倍率。
     const pixelRatio = Math.max(0.5, Math.min(2, window.devicePixelRatio || 1, Math.sqrt(16_000_000 / (width * height))));
-    const blob = await window.htmlToImage.toBlob(shell, { width, height, pixelRatio, backgroundColor: "#f3f4f0" });
+    const blob = await window.htmlToImage.toBlob(shell, { width, height, pixelRatio, backgroundColor: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#efefef" });
     if (!blob) throw new Error("浏览器未能生成图片");
     const day = new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()).replaceAll("/", "-");
     const fileName = `AI短线情绪-${day}.png`;
@@ -527,10 +527,35 @@ function bindEvents() {
     });
     renderTimeline();
   }));
-  $$(".nav-item").forEach((button) => button.addEventListener("click", () => {
-    $$(".nav-item").forEach((item) => item.classList.toggle("active", item === button));
+  $$(".tab-btn").forEach((button) => button.addEventListener("click", () => {
+    setActiveTab(button.dataset.target);
     document.getElementById(button.dataset.target)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }));
+  watchSections();
+}
+
+function setActiveTab(target) {
+  $$(".tab-btn").forEach((item) => {
+    const active = item.dataset.target === target;
+    item.classList.toggle("active", active);
+    // 手机上分栏可横向滚动：只调整分栏自身的横向位置，不触发页面滚动。
+    const bar = item.parentElement;
+    if (active && bar && (item.offsetLeft < bar.scrollLeft || item.offsetLeft + item.offsetWidth > bar.scrollLeft + bar.clientWidth)) {
+      bar.scrollTo({ left: item.offsetLeft - 16, behavior: "smooth" });
+    }
+  });
+}
+
+// 滚动时高亮当前分区（同主站分栏的选中态）。
+function watchSections() {
+  if (!("IntersectionObserver" in window)) return;
+  const visible = new Map();
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => visible.set(entry.target.id, entry.isIntersecting));
+    const current = $$(".tab-btn").map((button) => button.dataset.target).find((id) => visible.get(id));
+    if (current) setActiveTab(current);
+  }, { rootMargin: "-120px 0px -55% 0px" });
+  $$(".tab-btn").forEach((button) => { const section = document.getElementById(button.dataset.target); if (section) observer.observe(section); });
 }
 
 bindEvents();
