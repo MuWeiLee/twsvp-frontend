@@ -1,11 +1,11 @@
-import { HANT, HANT_FIXES } from "./hant-map.js?v=2";
+import { HANT, HANT_FIXES } from "./hant-map.js?v=3";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 let data = null;
 let anomalyData = null;
 let anomalyFilter = "all";
-let timelineMode = "intraday";
+let timelineMode = /^\/tw-short-emotion/.test(location.pathname) ? "daily" : "intraday";
 let toastTimer = null;
 
 // ── 市场：/cn-short-emotion（A股）与 /tw-short-emotion（台股）共用这一页 ──
@@ -113,6 +113,10 @@ function applyMarketCopy() {
   setText("#breadth-tab", CFG.breadthTitle);
   setText("#anomaly-title", CFG.anomalyTitle);
   setText("#anomaly-desc", CFG.anomalyDesc);
+  // 台股只有收盘数据：去掉「盘中」路径，只保留每日曲线
+  if (MARKET === "tw") {
+    $(".segmented")?.remove();
+  }
   hantify(document.body);
 }
 
@@ -198,11 +202,12 @@ function setText(selector, value) {
 function renderHeader() {
   const quote = data.quoteTime ? String(data.quoteTime).replace(/^\d{4}(\d{2})(\d{2})\s?(\d{2}:\d{2}).*$/, "$1-$2 $3") : null;
   const stored = shanghaiTimeLabel(data.storedAt || data.capturedAt)?.split(" ").at(-1);
-  const status = data.offSession ? "定时快照 · 非交易时段" : data.partial ? "定时快照 · 部分数据可用" : "定时快照";
+  const status = data.endOfDay ? `盘后快照${data.partial ? " · 部分数据可用" : ""}` : data.offSession ? "定时快照 · 非交易时段" : data.partial ? "定时快照 · 部分数据可用" : "定时快照";
   if (refreshRun.active) return; // 更新中由 renderRefreshState 接管状态条
   $("#connection-dot").className = data.partial ? "status-dot" : "status-dot ok";
   setText("#connection", status);
-  setText("#quote-time", `${quote ? `行情时间 ${quote}` : "未返回行情时间"}${stored ? ` · 快照 ${stored}` : ""}`);
+  const quoteLabel = data.endOfDay && quote ? `收盘数据 ${quote.slice(0, 5)}` : quote ? `行情时间 ${quote}` : "未返回行情时间";
+  setText("#quote-time", `${quoteLabel}${stored ? ` · 快照 ${stored}` : ""}`);
   if (data.schedule) setText("#schedule-note", data.schedule);
   reportToolbarState({ connection: status, quoteTime: quote ? `行情时间 ${quote}` : "未返回行情时间", partial: data.partial });
 }

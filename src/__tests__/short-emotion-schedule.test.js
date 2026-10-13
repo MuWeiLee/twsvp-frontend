@@ -38,22 +38,22 @@ describe("短线情绪 schedule (every 30 min, 09:00–15:00 Beijing)", () => {
   });
 });
 
-describe("台股 schedule (09:00–13:30, no lunch break)", () => {
+describe("台股 schedule (end-of-day snapshots inside the existing 09:00–15:30 cron)", () => {
   const twDue = (date, time) => Object.entries(duePlan(bj(date, time), "tw").jobs).filter(([, on]) => on).map(([name]) => name).sort();
 
-  it("09:00 refreshes news only", () => {
-    expect(twDue("2026-10-12", "09:00")).toEqual(["news"]);
+  it("09:00 takes the previous close plus news", () => {
+    expect(twDue("2026-10-12", "09:00")).toEqual(["anomalies", "emotion", "news"]);
   });
 
-  it("09:30–13:00 refreshes market data and news, including 12:00", () => {
-    for (const time of ["09:30", "11:00", "12:00", "12:30", "13:00"]) {
-      expect(twDue("2026-10-12", time)).toEqual(["anomalies", "emotion", "news"]);
+  it("during the session only news updates (Wind Taiwan quotes are end-of-day)", () => {
+    for (const time of ["09:30", "11:00", "13:00", "13:30"]) {
+      expect(twDue("2026-10-12", time)).toEqual(["news"]);
     }
   });
 
-  it("13:30 is the last run and includes cleanup; afternoon is idle", () => {
-    expect(twDue("2026-10-12", "13:30")).toEqual(["anomalies", "cleanup", "emotion", "news"]);
-    expect(twDue("2026-10-12", "14:00")).toEqual([]);
+  it("15:00 and 15:30 take the day's close; 15:30 also cleans up", () => {
+    expect(twDue("2026-10-12", "15:00")).toEqual(["anomalies", "emotion"]);
+    expect(twDue("2026-10-12", "15:30")).toEqual(["anomalies", "cleanup", "emotion"]);
   });
 });
 
