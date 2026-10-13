@@ -1018,6 +1018,22 @@ function importEngineState(state, day = localDate()) {
   if (state.previousTradingDate) cachedPreviousTradingDate = { day, date: state.previousTradingDate };
 }
 
+// Shared helpers for the 台股 engine (tw-engine.js).
+export {
+  windCall,
+  tables,
+  objects,
+  fulfilled,
+  reason,
+  runWindTasks,
+  runWindTasksInBatches,
+  clamp,
+  scoreBreadth,
+  scoreLimit,
+  scorePremium,
+  limitStreakLabel
+};
+
 export {
   loadEmotion,
   loadThemeAnomalies,

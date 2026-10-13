@@ -7,92 +7,145 @@
   "redirects": [
     {
       "source": "/shortEmotion",
-      "destination": "/short-emotion",
+      "destination": "/cn-short-emotion",
       "permanent": false
     },
     {
       "source": "/shortEmotion/",
-      "destination": "/short-emotion",
+      "destination": "/cn-short-emotion",
       "permanent": false
     },
     {
       "source": "/shortemotion",
-      "destination": "/short-emotion",
+      "destination": "/cn-short-emotion",
       "permanent": false
     },
     {
       "source": "/shortemotion/",
-      "destination": "/short-emotion",
+      "destination": "/cn-short-emotion",
       "permanent": false
     },
     {
       "source": "/ShortEmotion",
-      "destination": "/short-emotion",
+      "destination": "/cn-short-emotion",
       "permanent": false
     },
     {
       "source": "/ShortEmotion/",
-      "destination": "/short-emotion",
+      "destination": "/cn-short-emotion",
       "permanent": false
     },
     {
       "source": "/Shortemotion",
-      "destination": "/short-emotion",
+      "destination": "/cn-short-emotion",
       "permanent": false
     },
     {
       "source": "/Shortemotion/",
-      "destination": "/short-emotion",
+      "destination": "/cn-short-emotion",
       "permanent": false
     },
     {
       "source": "/SHORTEMOTION",
-      "destination": "/short-emotion",
+      "destination": "/cn-short-emotion",
       "permanent": false
     },
     {
       "source": "/SHORTEMOTION/",
-      "destination": "/short-emotion",
+      "destination": "/cn-short-emotion",
       "permanent": false
     },
     {
       "source": "/short_emotion",
-      "destination": "/short-emotion",
+      "destination": "/cn-short-emotion",
       "permanent": false
     },
     {
       "source": "/short_emotion/",
-      "destination": "/short-emotion",
+      "destination": "/cn-short-emotion",
       "permanent": false
     },
     {
       "source": "/short-Emotion",
-      "destination": "/short-emotion",
+      "destination": "/cn-short-emotion",
       "permanent": false
     },
     {
       "source": "/short-Emotion/",
-      "destination": "/short-emotion",
+      "destination": "/cn-short-emotion",
       "permanent": false
     },
     {
       "source": "/Short-Emotion",
-      "destination": "/short-emotion",
+      "destination": "/cn-short-emotion",
       "permanent": false
     },
     {
       "source": "/Short-Emotion/",
-      "destination": "/short-emotion",
+      "destination": "/cn-short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/short-emotion",
+      "destination": "/cn-short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/short-emotion/",
+      "destination": "/cn-short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/cnShortEmotion",
+      "destination": "/cn-short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/cn_short_emotion",
+      "destination": "/cn-short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/cnshortemotion",
+      "destination": "/cn-short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/twShortEmotion",
+      "destination": "/tw-short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/tw_short_emotion",
+      "destination": "/tw-short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/twshortemotion",
+      "destination": "/tw-short-emotion",
+      "permanent": false
+    },
+    {
+      "source": "/tw-shortEmotion",
+      "destination": "/tw-short-emotion",
       "permanent": false
     }
   ],
   "rewrites": [
     {
-      "source": "/short-emotion",
+      "source": "/cn-short-emotion",
       "destination": "/short-emotion/index.html"
     },
     {
-      "source": "/short-emotion/",
+      "source": "/cn-short-emotion/",
+      "destination": "/short-emotion/index.html"
+    },
+    {
+      "source": "/tw-short-emotion",
+      "destination": "/short-emotion/index.html"
+    },
+    {
+      "source": "/tw-short-emotion/",
       "destination": "/short-emotion/index.html"
     },
     {

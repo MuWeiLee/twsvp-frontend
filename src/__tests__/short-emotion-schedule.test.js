@@ -38,6 +38,25 @@ describe("短线情绪 schedule (every 30 min, 09:00–15:00 Beijing)", () => {
   });
 });
 
+describe("台股 schedule (09:00–13:30, no lunch break)", () => {
+  const twDue = (date, time) => Object.entries(duePlan(bj(date, time), "tw").jobs).filter(([, on]) => on).map(([name]) => name).sort();
+
+  it("09:00 refreshes news only", () => {
+    expect(twDue("2026-10-12", "09:00")).toEqual(["news"]);
+  });
+
+  it("09:30–13:00 refreshes market data and news, including 12:00", () => {
+    for (const time of ["09:30", "11:00", "12:00", "12:30", "13:00"]) {
+      expect(twDue("2026-10-12", time)).toEqual(["anomalies", "emotion", "news"]);
+    }
+  });
+
+  it("13:30 is the last run and includes cleanup; afternoon is idle", () => {
+    expect(twDue("2026-10-12", "13:30")).toEqual(["anomalies", "cleanup", "emotion", "news"]);
+    expect(twDue("2026-10-12", "14:00")).toEqual([]);
+  });
+});
+
 describe("runScheduledRefresh (mock Wind, memory store)", () => {
   let runScheduledRefresh;
   let readResource;
@@ -78,5 +97,36 @@ describe("runScheduledRefresh (mock Wind, memory store)", () => {
     const later = await runScheduledRefresh({ now: bj("2030-01-07", "10:30") });
     expect(later.status).toBe("holiday");
     expect(later.ran).toEqual([]);
+  });
+});
+
+describe("台股 refresh (mock Wind, memory store)", () => {
+  let runScheduledRefresh;
+  let readResource;
+
+  beforeAll(async () => {
+    process.env.WIND_MOCK = "1";
+    ({ runScheduledRefresh, readResource } = await import("../../api/_lib/short-emotion/service.js"));
+  });
+
+  it("stores a 台股 snapshot separately from A股", async () => {
+    const result = await runScheduledRefresh({ force: true, market: "tw" });
+    expect(result.status).toBe("ok");
+    expect(result.market).toBe("tw");
+    const emotion = await readResource("emotion", "tw");
+    expect(emotion.marketCode).toBe("tw");
+    expect(emotion.market.up).toBeGreaterThan(0);
+    expect(emotion.extremes.limitUp).toBeGreaterThan(0);
+    expect(emotion.themes[0].code).toMatch(/^TWSE\d+\.TW$/);
+    expect(emotion.schedule).toContain("13:30");
+    const anomalies = await readResource("anomalies", "tw");
+    expect(anomalies.items.length).toBeGreaterThan(0);
+    expect(anomalies.items.every((item) => !item.signals.includes("batch"))).toBe(true);
+    const cn = await readResource("emotion", "cn");
+    expect(cn.themes[0].code).not.toMatch(/^TWSE/);
+  });
+
+  it("rejects unknown markets", async () => {
+    await expect(readResource("emotion", "hk")).rejects.toThrow("未知市场");
   });
 });

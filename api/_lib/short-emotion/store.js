@@ -303,7 +303,6 @@ class GithubReadStore {
   async historyPrune() { this.readOnly(); }
 }
 
-let memoryStore = null;
 
 export function storageMode(env = process.env) {
   const explicit = String(env.SHORT_EMOTION_STORE || "").toLowerCase();
@@ -313,15 +312,26 @@ export function storageMode(env = process.env) {
   return "memory";
 }
 
-export function getStore() {
+// 每个市场一份独立数据：A股（cn）在数据分支根目录（保持原有路径），台股（tw）在 tw/ 子目录。
+const memoryStores = new Map();
+export function marketSubdir(market = "cn") {
+  return market === "cn" ? "" : market;
+}
+
+export function getStore(market = "cn") {
   const mode = storageMode();
-  if (mode === "file") return new FileStore(process.env.SHORT_EMOTION_DATA_DIR || "short-emotion-data");
-  if (mode === "github") return new GithubReadStore(process.env.SHORT_EMOTION_DATA_URL || DEFAULT_DATA_URL);
+  const sub = marketSubdir(market);
+  if (mode === "file") return new FileStore(path.join(process.env.SHORT_EMOTION_DATA_DIR || "short-emotion-data", sub));
+  if (mode === "github") {
+    const base = String(process.env.SHORT_EMOTION_DATA_URL || DEFAULT_DATA_URL).replace(/\/+$/, "");
+    return new GithubReadStore(sub ? `${base}/${sub}` : base);
+  }
   if (mode === "supabase") {
+    if (market !== "cn") throw new Error("Supabase 存储只支持 A股（cn）");
     const config = supabaseConfig();
     if (!config) throw new Error("SHORT_EMOTION_STORE=supabase 但缺少 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY");
     return new SupabaseStore(config);
   }
-  memoryStore ||= new MemoryStore();
-  return memoryStore;
+  if (!memoryStores.has(market)) memoryStores.set(market, new MemoryStore());
+  return memoryStores.get(market);
 }

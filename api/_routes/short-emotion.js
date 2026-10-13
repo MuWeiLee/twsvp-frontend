@@ -1,9 +1,9 @@
-// 短线情绪工作台 — 页面读接口（twsvp.com/short-emotion）
-// GET /api/short-emotion?resource=emotion|anomalies|history|news|status
+// 短线情绪工作台 — 页面读接口（twsvp.com/cn-short-emotion、/tw-short-emotion）
+// GET /api/short-emotion?market=cn|tw&resource=emotion|anomalies|history|news|status
 //
-// 只读 Supabase 中由定时任务写入的快照，不调用 Wind；响应在 CDN 缓存 2 分钟，
+// 只读定时任务写入数据分支的快照，不调用 Wind；响应在 CDN 缓存 2 分钟，
 // 访客再多也不会增加 Wind 额度消耗。
-import { readResource, NotReadyError } from "../_lib/short-emotion/service.js";
+import { readResource, NotReadyError, normalizeMarket } from "../_lib/short-emotion/service.js";
 
 const RESOURCES = new Set(["emotion", "anomalies", "history", "news", "status"]);
 
@@ -18,8 +18,15 @@ export default async function handler(req, res) {
     res.status(404).json({ error: "接口不存在" });
     return;
   }
+  let market;
   try {
-    const payload = await readResource(resource);
+    market = normalizeMarket(req.query?.market);
+  } catch {
+    res.status(404).json({ error: "市场不存在" });
+    return;
+  }
+  try {
+    const payload = await readResource(resource, market);
     res.setHeader("Cache-Control", resource === "status"
       ? "no-store"
       : "public, max-age=0, s-maxage=120, stale-while-revalidate=600");

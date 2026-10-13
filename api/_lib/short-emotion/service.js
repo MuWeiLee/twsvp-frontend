@@ -1,13 +1,25 @@
-// Orchestration for 短线情绪工作台:
-//   runScheduledRefresh — the only code path that calls Wind (cron / manual trigger)
+// Orchestration for 短线情绪工作台 (A股 cn / 台股 tw):
+//   runScheduledRefresh — the only code path that calls Wind (GitHub Actions cron / manual trigger)
 //   readResource        — what page visitors get: stored snapshots, never a Wind call
-import {
-  loadEmotion, loadThemeAnomalies, loadNews, historyRecord, isTradingSessionHistory,
-  classify, exportEngineState, importEngineState
-} from "./engine.js";
+import * as cnEngine from "./engine.js";
+import * as twEngine from "./tw-engine.js";
 import { getStore, storageMode } from "./store.js";
-import { duePlan, scheduleSummary, SCHEDULE } from "./schedule.js";
+import { duePlan, scheduleSummary, scheduleFor, MARKETS } from "./schedule.js";
 import { getApiKeys, isMockMode } from "./wind-client.js";
+import { toTraditional } from "./hant.js";
+
+const MARKET_CONFIG = {
+  cn: { engine: cnEngine, transform: async (value) => value },
+  tw: { engine: twEngine, transform: toTraditional }
+};
+
+export { MARKETS };
+
+export function normalizeMarket(value) {
+  const market = String(value || "cn").toLowerCase();
+  if (!MARKET_CONFIG[market]) throw Object.assign(new Error(`未知市场：${value}`), { statusCode: 404 });
+  return market;
+}
 
 const KEY = {
   emotion: "emotion:latest",
@@ -15,6 +27,7 @@ const KEY = {
   news: "news:latest",
   lastRun: "cron:last-run",
   engineState: (day) => `engine-state:${day}`,
+  engineStateLatest: "engine-state:latest",
   calendar: (day) => `calendar:${day}`,
   slotLock: (day, slot) => `lock:slot:${day}:${slot}`,
   bootstrapLock: (day) => `lock:bootstrap:${day}`
@@ -29,10 +42,14 @@ const ALL_JOBS = { emotion: true, anomalies: true, news: true, cleanup: false };
  * force=true (CRON_SECRET-authorised manual run) runs every job once.
  * Outside the schedule it only bootstraps an empty store, at most once a day.
  */
-export async function runScheduledRefresh({ force = false, now = new Date() } = {}) {
-  const store = getStore();
-  const plan = duePlan(now);
-  const result = { startedAt: now.toISOString(), beijingTime: `${plan.day} ${plan.label}`, mode: "scheduled", ran: [], skipped: [], errors: [] };
+export async function runScheduledRefresh({ force = false, now = new Date(), market = "cn" } = {}) {
+  market = normalizeMarket(market);
+  const { engine, transform } = MARKET_CONFIG[market];
+  const { loadEmotion, loadThemeAnomalies, loadNews, historyRecord, isTradingSessionHistory, exportEngineState, importEngineState } = engine;
+  const SCHEDULE = scheduleFor(market);
+  const store = getStore(market);
+  const plan = duePlan(now, market);
+  const result = { market, startedAt: now.toISOString(), beijingTime: `${plan.day} ${plan.label}`, mode: "scheduled", ran: [], skipped: [], errors: [] };
   const finish = async (status, extra = {}) => {
     const output = { ...result, ...extra, status, finishedAt: new Date().toISOString() };
     await store.kvSet(KEY.lastRun, output).catch(() => {});
@@ -63,12 +80,15 @@ export async function runScheduledRefresh({ force = false, now = new Date() } = 
     return finish("error", { errors: ["WIND_API_KEY 未配置（Vercel → Settings → Environment Variables）"] });
   }
 
-  importEngineState((await store.kvGet(KEY.engineState(plan.day)).catch(() => null))?.value, plan.day);
+  // 当日状态优先；台股的连板名单需要跨日延续，所以再回退到最近一次保存的状态。
+  const savedState = (await store.kvGet(KEY.engineState(plan.day)).catch(() => null))?.value
+    || (await store.kvGet(KEY.engineStateLatest).catch(() => null))?.value;
+  importEngineState(savedState, plan.day);
 
   let marketLive = true;
   if (jobs.emotion) {
     try {
-      const snapshot = await loadEmotion();
+      const snapshot = await transform(await loadEmotion());
       const quoteDay = quoteDayOf(snapshot);
       if (quoteDay === plan.day) {
         await store.kvSet(KEY.emotion, snapshot);
@@ -98,7 +118,7 @@ export async function runScheduledRefresh({ force = false, now = new Date() } = 
   if (jobs.anomalies && !marketLive && result.mode === "scheduled") {
     result.skipped.push("anomalies: 当日行情未就绪，跳过以免覆盖为旧数据");
   } else if (jobs.anomalies) {
-    tasks.push(loadThemeAnomalies().then(async (output) => {
+    tasks.push(loadThemeAnomalies().then(transform).then(async (output) => {
       // A fully failed run (nothing returned) must not wipe the last good radar.
       if (!output.items.length && output.partial && await store.kvGet(KEY.anomalies)) {
         result.errors.push(`anomalies: 本次无有效结果，保留上一份 | ${output.errors.slice(0, 3).join(" | ")}`);
@@ -109,7 +129,7 @@ export async function runScheduledRefresh({ force = false, now = new Date() } = 
     }).catch((error) => { result.errors.push(`anomalies: ${errorText(error)}`); }));
   }
   if (jobs.news) {
-    tasks.push(loadNews().then(async (items) => {
+    tasks.push(loadNews().then(transform).then(async (items) => {
       if (!items.length) { result.skipped.push("news: 无新结果"); return; }
       await store.kvSet(KEY.news, { asOf: new Date().toISOString(), items });
       result.ran.push("news");
@@ -117,15 +137,17 @@ export async function runScheduledRefresh({ force = false, now = new Date() } = 
   }
   await Promise.all(tasks);
 
-  await store.kvSet(KEY.engineState(plan.day), exportEngineState(plan.day)).catch((error) => {
+  const engineState = exportEngineState(plan.day);
+  await store.kvSet(KEY.engineState(plan.day), engineState).catch((error) => {
     result.errors.push(`engine-state: ${errorText(error)}`);
   });
+  await store.kvSet(KEY.engineStateLatest, engineState).catch(() => {});
 
   if (jobs.cleanup) {
     try {
       const removedDays = await store.historyPrune(SCHEDULE.historyTradingDays);
       const cutoff = new Date(now.getTime() - 3 * 86_400_000).toISOString();
-      for (const prefix of ["lock:", "engine-state:", "calendar:"]) await store.kvDeleteOlderThan(prefix, cutoff);
+      for (const prefix of ["lock:", "engine-state:2", "calendar:"]) await store.kvDeleteOlderThan(prefix, cutoff);
       result.ran.push(`cleanup(-${removedDays}d)`);
     } catch (error) {
       result.errors.push(`cleanup: ${errorText(error)}`);
@@ -146,13 +168,18 @@ const EMPTY_ANOMALIES = {
 export class NotReadyError extends Error {}
 
 /** Stored data for page visitors. Never calls Wind. */
-export async function readResource(resource) {
-  const store = getStore();
-  const meta = (entry) => ({ storedAt: entry?.updatedAt || null, schedule: scheduleSummary() });
+export async function readResource(resource, market = "cn") {
+  market = normalizeMarket(market);
+  const { classify } = MARKET_CONFIG[market].engine;
+  const SCHEDULE = scheduleFor(market);
+  const store = getStore(market);
+  const meta = (entry) => ({ marketCode: market, storedAt: entry?.updatedAt || null, schedule: scheduleSummary(market) });
 
   if (resource === "emotion") {
     const entry = await store.kvGet(KEY.emotion);
-    if (!entry) throw new NotReadyError(`暂无快照：首个数据将在下一个交易时段由定时任务生成（${scheduleSummary()}）`);
+    if (!entry) throw new NotReadyError(market === "tw"
+      ? `暫無快照：首個數據將在下一個交易時段由定時任務生成（${scheduleSummary(market)}）`
+      : `暂无快照：首个数据将在下一个交易时段由定时任务生成（${scheduleSummary(market)}）`);
     return { ...entry.value, ...meta(entry) };
   }
   if (resource === "anomalies") {
@@ -178,10 +205,11 @@ export async function readResource(resource) {
     const lastRun = await store.kvGet(KEY.lastRun).catch(() => null);
     return {
       ok: true,
+      marketCode: market,
       storage: storageMode(),
       windKeyConfigured: getApiKeys().length > 0,
       mock: isMockMode(),
-      schedule: scheduleSummary(),
+      schedule: scheduleSummary(market),
       lastRun: lastRun?.value || null
     };
   }
