@@ -24,7 +24,7 @@ async function getConverter() {
 // opencc 台湾用语之外的修正：日常写法用「台」，以及证交所产业的正式名称。
 export const HANT_FIXES = [
   [/臺/g, "台"], [/拉昇/g, "拉升"], [/釋出/g, "發布"],
-  [/計算機及外圍(?:裝置|設備)/g, "電腦及週邊設備"], [/計算機/g, "電腦"], [/外圍(?:裝置|設備)/g, "週邊設備"], [/零元件/g, "零組件"], [/通訊網路/g, "通信網路"]
+  [/計算機及外圍(?:裝置|設備)/g, "電腦及週邊設備"], [/計算機/g, "電腦"], [/外圍(?:裝置|設備)/g, "週邊設備"], [/零元件/g, "零組件"], [/通訊網路/g, "通信網路"], [/分鍾/g, "分鐘"]
 ];
 const fix = (text) => HANT_FIXES.reduce((value, [pattern, replacement]) => value.replace(pattern, replacement), text);
 

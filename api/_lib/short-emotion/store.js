@@ -10,6 +10,7 @@
 //   memory   — in-process, for local dev and tests.
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { githubToken, dataBranchHead, DATA_RAW_BASE } from "./github.js";
 
 const KV_TABLE = "short_emotion_kv";
 const HISTORY_TABLE = "short_emotion_history";
@@ -277,14 +278,35 @@ const DEFAULT_DATA_URL = "https://raw.githubusercontent.com/MuWeiLee/twsvp-front
 const READ_CACHE_MS = 30_000;
 const readCache = new Map();
 
+// raw.githubusercontent.com 按分支名读取会被缓存约 5 分钟；有 GITHUB_ACTIONS_TOKEN 时先查分支最新提交，
+// 按提交 SHA 读取（内容不可变、立即可见），这样点「刷新」后页面能马上读到新快照。
+const HEAD_CACHE_MS = 15_000;
+let headCache = null;
+async function currentHead(fresh) {
+  if (!fresh && headCache && Date.now() - headCache.at < HEAD_CACHE_MS) return headCache.sha;
+  const sha = await dataBranchHead();
+  headCache = { at: Date.now(), sha };
+  return sha;
+}
+
 class GithubReadStore {
-  constructor(baseUrl) {
+  constructor(baseUrl, { sub = "", pinToCommit = false, fresh = false } = {}) {
     this.base = String(baseUrl).replace(/\/+$/, "");
+    this.sub = sub;
+    this.pinToCommit = pinToCommit;
+    this.fresh = fresh;
+  }
+  async root() {
+    if (this.pinToCommit) {
+      const sha = await currentHead(this.fresh).catch(() => null);
+      if (sha) return `${DATA_RAW_BASE}/${sha}${this.sub ? `/${this.sub}` : ""}`;
+    }
+    return this.sub ? `${this.base}/${this.sub}` : this.base;
   }
   async fetchJson(relative, fallback) {
     // 缓存按完整地址区分：A股（根目录）和台股（tw/）的同名文件不能互相命中。
-    const url = `${this.base}/${relative}`;
-    const cached = readCache.get(url);
+    const url = `${await this.root()}/${relative}`;
+    const cached = this.fresh ? null : readCache.get(url);
     if (cached && Date.now() - cached.at < READ_CACHE_MS) return cached.value;
     const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
     if (response.status === 404) return fallback;
@@ -320,13 +342,14 @@ export function marketSubdir(market = "cn") {
   return market === "cn" ? "" : market;
 }
 
-export function getStore(market = "cn") {
+export function getStore(market = "cn", { fresh = false } = {}) {
   const mode = storageMode();
   const sub = marketSubdir(market);
   if (mode === "file") return new FileStore(path.join(process.env.SHORT_EMOTION_DATA_DIR || "short-emotion-data", sub));
   if (mode === "github") {
-    const base = String(process.env.SHORT_EMOTION_DATA_URL || DEFAULT_DATA_URL).replace(/\/+$/, "");
-    return new GithubReadStore(sub ? `${base}/${sub}` : base);
+    const custom = process.env.SHORT_EMOTION_DATA_URL;
+    const base = String(custom || DEFAULT_DATA_URL).replace(/\/+$/, "");
+    return new GithubReadStore(base, { sub, pinToCommit: !custom && Boolean(githubToken()), fresh });
   }
   if (mode === "supabase") {
     if (market !== "cn") throw new Error("Supabase 存储只支持 A股（cn）");

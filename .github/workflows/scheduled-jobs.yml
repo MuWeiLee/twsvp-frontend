@@ -11,6 +11,8 @@
 #
 # 时间均为 UTC（北京时间 = UTC+8）。GitHub 定时任务可能延迟几分钟，任务按北京时间判断时段。
 name: Scheduled jobs
+# 手动运行的标题带市场，页面「刷新」据此查询自己那次任务的进度（api/_lib/short-emotion/github.js）
+run-name: ${{ github.event_name == 'workflow_dispatch' && inputs.target == 'short-emotion' && format('short-emotion {0} refresh', inputs.market) || 'Scheduled jobs' }}
 
 on:
   schedule:

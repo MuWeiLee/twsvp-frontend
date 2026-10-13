@@ -594,3 +594,31 @@ body.gallery-open { overflow: hidden; }
 }
 :root[data-market="tw"] .stock-details > summary::after { content: "展開"; }
 :root[data-market="tw"] .stock-details[open] > summary::after { content: "收起"; }
+
+/* 数据更新中：状态点转圈 + 状态条底部进度条，避免用户点了刷新却看不到变化 */
+.status-bar { position: relative; overflow: hidden; }
+.status-dot.updating {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border);
+  border-top-color: var(--ink);
+  background: transparent;
+  animation: se-spin .8s linear infinite;
+}
+.status-bar.updating::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 40%;
+  height: 2px;
+  background: var(--ink);
+  animation: se-progress 1.4s ease-in-out infinite;
+}
+@keyframes se-spin { to { transform: rotate(360deg); } }
+@keyframes se-progress { 0% { left: -40%; } 100% { left: 100%; } }
+#quote-time.just-updated { animation: se-flash 2.4s ease-out; }
+@keyframes se-flash { 0%, 35% { color: var(--ink); background: var(--accent-soft); } 100% { background: transparent; } }
+@media (prefers-reduced-motion: reduce) {
+  .status-dot.updating, .status-bar.updating::after, #quote-time.just-updated { animation: none; }
+}
