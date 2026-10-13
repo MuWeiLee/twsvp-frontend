@@ -45,6 +45,10 @@ const probes = [
   ["5分钟涨速个股", "analytics_data", "get_financial_data", { question: "台湾上市柜股票5分钟涨跌幅排名前二十" }],
   ["行业成分盘中", "analytics_data", "get_financial_data", { question: "台湾航运指数成分股今日涨跌幅排名前十" }],
   ["加权指数5分钟K", "index_data", "get_index_kline", { windcode: "TWII.TW", begin_date: "2026-10-13", end_date: "2026-10-13", period: "3" }],
+  ["前一日涨停筛选", "global_stock_data", "search_global_stocks", { question: "筛选台湾上市柜股票中20261012涨跌幅大于等于9.5%的股票" }],
+  ["裸代码批量", "analytics_data", "get_financial_data", { question: "台股6223、6515、6510、3661的最新涨跌幅" }],
+  ["行业成分涨停", "analytics_data", "get_financial_data", { question: "台湾半导体指数成分股中今日涨跌幅大于等于9.5%的股票" }],
+  ["批量所属行业", "analytics_data", "get_financial_data", { question: "2429.TW、1516.TW、3008.TW、2603.TW、6223.TWO所属WIND行业" }],
   ["台股新闻(今日)", "financial_docs", "get_financial_news", { query: "台股盘中热点族群", top_k: 3 }]
 ];
 for (const [label, server, tool, args] of probes) {
