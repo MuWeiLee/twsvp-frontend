@@ -471,8 +471,80 @@ main {
 .export-shell main { padding: 0; }
 .export-shell .status-bar .pill-btn { display: none; }
 .export-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 12px; background: var(--surface); border: 1px solid var(--border); }
-.export-head img { width: 28px; height: 28px; }
-.export-head b { font-size: 18px; font-weight: 600; }
+.export-head img { flex: none; width: 28px; height: 28px; }
+.export-head b { display: block; font-size: 16px; font-weight: 600; line-height: 1.4; }
+.export-head small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
+.export-card .section, .export-card .card, .export-card .metric-strip { margin: 0; }
+.export-card .anomaly-card { border: 1px solid var(--border); }
+
+/* 导出选项（顶栏下拉） */
+.nav { position: sticky; }
+.export-menu {
+  position: absolute;
+  top: calc(100% - 6px);
+  right: 16px;
+  z-index: 20;
+  display: grid;
+  min-width: 200px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 20, 25, 0.12);
+}
+.export-menu button {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.export-menu button:hover, .export-menu button:focus-visible { background: var(--panel); outline: none; }
+.export-menu b { font-size: 14px; font-weight: 600; }
+.export-menu small { color: var(--muted); font-size: 12px; }
+
+/* 小卡预览 */
+body.gallery-open { overflow: hidden; }
+.export-gallery {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  background: rgba(15, 17, 21, 0.55);
+}
+.gallery-sheet {
+  display: flex;
+  flex-direction: column;
+  width: min(600px, 100%);
+  height: 100%;
+  background: var(--bg);
+}
+.gallery-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.gallery-head b { margin-right: auto; font-size: 16px; font-weight: 600; }
+.gallery-hint { padding: 10px 16px 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.gallery-grid {
+  display: grid;
+  gap: 12px;
+  padding: 12px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.gallery-grid figure { margin: 0; background: var(--surface); border: 1px solid var(--border); }
+.gallery-grid img { display: block; width: 100%; height: auto; }
+.gallery-grid figcaption { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-top: 1px solid var(--border); font-size: 13px; }
+.gallery-save { min-height: 30px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel); color: var(--ink); font-size: 13px; cursor: pointer; }
 .export-filter-marker { padding: 2px 8px; border-radius: 999px; background: var(--ink); color: var(--surface); font-size: 12px; font-weight: 600; }
 .export-footer { padding: 14px 0 4px; color: var(--muted); font-size: 12px; text-align: center; }
 
