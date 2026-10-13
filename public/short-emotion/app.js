@@ -166,8 +166,11 @@ function signClass(value) {
 // 所有数据来自定时任务写入的快照（交易日 09:00–15:00 每 30 分钟），页面不直接调用 Wind。
 const API_BASE = "/api/short-emotion";
 
-async function api(resource) {
-  const response = await fetch(`${API_BASE}?market=${MARKET}&resource=${encodeURIComponent(resource)}`, { headers: { Accept: "application/json" } });
+// fresh=true：刚完成一次刷新，跳过 CDN 与服务端缓存，直接读数据分支最新提交。
+let readFresh = false;
+async function api(resource, { fresh = readFresh } = {}) {
+  const extra = fresh ? `&fresh=1&t=${Date.now()}` : "";
+  const response = await fetch(`${API_BASE}?market=${MARKET}&resource=${encodeURIComponent(resource)}${extra}`, { headers: { Accept: "application/json" }, cache: fresh ? "no-store" : "default" });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw Object.assign(new Error(payload.error || `请求失败 (${response.status})`), { code: payload.code });
   return payload;
@@ -195,7 +198,8 @@ function setText(selector, value) {
 function renderHeader() {
   const quote = data.quoteTime ? String(data.quoteTime).replace(/^\d{4}(\d{2})(\d{2})\s?(\d{2}:\d{2}).*$/, "$1-$2 $3") : null;
   const stored = shanghaiTimeLabel(data.storedAt || data.capturedAt)?.split(" ").at(-1);
-  const status = data.offSession ? "非交易时段 · 最近一次快照" : data.partial ? "定时快照 · 部分数据可用" : "定时快照";
+  const status = data.offSession ? "定时快照 · 非交易时段" : data.partial ? "定时快照 · 部分数据可用" : "定时快照";
+  if (refreshRun.active) return; // 更新中由 renderRefreshState 接管状态条
   $("#connection-dot").className = data.partial ? "status-dot" : "status-dot ok";
   setText("#connection", status);
   setText("#quote-time", `${quote ? `行情时间 ${quote}` : "未返回行情时间"}${stored ? ` · 快照 ${stored}` : ""}`);
@@ -474,7 +478,7 @@ async function loadEmotion(force = false) {
   const button = $("#refresh");
   button.dataset.loading = "1";
   button.disabled = true;
-  button.textContent = "读取中…";
+  if (!refreshRun.active) button.textContent = "读取中…";
   reportToolbarState({ refreshing: true });
   try {
     data = await api("emotion");
@@ -486,7 +490,7 @@ async function loadEmotion(force = false) {
     renderAll();
     loadNews();
     await loadAnomalies(force);
-    if (force) toast(`已读取最新快照（${data.schedule || "交易时段每30分钟自动更新"}）`);
+
   } catch (error) {
     const notReady = error.code === "not_ready";
     $("#connection-dot").className = notReady ? "status-dot" : "status-dot bad";
@@ -734,9 +738,13 @@ function toggleExportMenu(event) {
 document.addEventListener("click", (event) => { if (!event.target.closest(".export-menu")) closeExportMenu(); });
 document.addEventListener("keydown", (event) => { if (event.key === "Escape") { closeExportMenu(); closeGallery(); } });
 
-// 「刷新」每个浏览器每小时只能按一次（打开页面本身不计入）。
+// 「刷新」每个浏览器每小时只能按一次（打开页面只读快照，不计入、也不触发更新）。
+// 点刷新 = 真实调用 Wind MCP：服务端触发 GitHub Actions 数据任务，页面显示「数据更新中」并轮询进度，
+// 任务完成后读取新快照，状态回到「定时快照」并显示新的快照时间。
 const REFRESH_COOLDOWN_MS = 60 * 60 * 1000;
 const REFRESH_KEY = `short-emotion:last-manual-refresh:${MARKET}`;
+const REFRESH_TIMEOUT_MS = 6 * 60_000;
+const refreshRun = { active: false, step: "", startedAt: 0, requestedAt: null, runId: null, timer: null, ticker: null };
 
 function lastManualRefresh() {
   try { return Number(localStorage.getItem(REFRESH_KEY)) || 0; } catch { return 0; }
@@ -748,21 +756,156 @@ function refreshCooldownLeft() {
 
 function updateRefreshButton() {
   const button = $("#refresh");
-  if (!button || button.dataset.loading === "1") return;
+  if (!button) return;
+  if (refreshRun.active) {
+    button.disabled = true;
+    button.textContent = "更新中…";
+    button.title = "正在从 Wind 获取最新数据";
+    return;
+  }
+  if (button.dataset.loading === "1") return;
   const left = refreshCooldownLeft();
   button.disabled = left > 0;
   button.textContent = left > 0 ? `${Math.ceil(left / 60_000)}分钟后可刷新` : "刷新";
-  button.title = left > 0 ? "刷新每小时只能使用一次；数据在交易时段每 30 分钟自动更新" : "读取最新快照";
+  button.title = left > 0 ? "刷新每小时只能使用一次；交易时段每 30 分钟也会自动更新" : "从 Wind 获取最新数据";
 }
 
-function handleManualRefresh() {
+const REFRESH_STEPS = {
+  submitted: "已提交更新请求，等待任务启动…",
+  queued: "排队中，即将开始获取数据…",
+  in_progress: "正在从 Wind MCP 获取最新数据…",
+  reading: "数据已写入，正在读取新快照…"
+};
+
+function renderRefreshState() {
+  const bar = $(".status-bar");
+  bar?.classList.toggle("updating", refreshRun.active);
+  if (refreshRun.active) {
+    const seconds = Math.max(0, Math.round((Date.now() - refreshRun.startedAt) / 1000));
+    $("#connection-dot").className = "status-dot updating";
+    setText("#connection", "数据更新中");
+    setText("#quote-time", `${REFRESH_STEPS[refreshRun.step] || REFRESH_STEPS.submitted} 已用时 ${seconds} 秒（约 1–2 分钟）`);
+  } else if (data) {
+    renderHeader();
+  }
+  updateRefreshButton();
+}
+
+function stopRefresh() {
+  refreshRun.active = false;
+  clearTimeout(refreshRun.timer);
+  clearInterval(refreshRun.ticker);
+  refreshRun.timer = null;
+  refreshRun.ticker = null;
+  renderRefreshState();
+}
+
+function beginRefresh({ requestedAt = null, runId = null, step = "submitted", startedAt = Date.now(), poll = true } = {}) {
+  Object.assign(refreshRun, { active: true, step, startedAt, requestedAt, runId });
+  clearInterval(refreshRun.ticker);
+  refreshRun.ticker = setInterval(renderRefreshState, 1000);
+  renderRefreshState();
+  if (poll) pollRefresh();
+}
+
+async function finishRefresh(success) {
+  if (!success) {
+    stopRefresh();
+    toast("本次更新未完成，页面仍显示上一份快照，请稍后再试", true);
+    return;
+  }
+  refreshRun.step = "reading";
+  renderRefreshState();
+  const before = data?.storedAt || null;
+  readFresh = true;
+  try {
+    stopRefreshKeepingBar();
+    await loadEmotion(true);
+  } finally {
+    readFresh = false;
+    stopRefresh();
+  }
+  const after = data?.storedAt || null;
+  const label = shanghaiTimeLabel(after)?.split(" ").at(-1);
+  if (after && after !== before) {
+    toast(`已更新：快照 ${label}`);
+    const stamp = $("#quote-time");
+    stamp?.classList.remove("just-updated");
+    void stamp?.offsetWidth;
+    stamp?.classList.add("just-updated");
+  } else {
+    toast(label ? `已是最新快照（${label}）` : "已读取最新快照");
+  }
+}
+
+// 读取新数据时保留「数据更新中」的显示，直到渲染完成。
+function stopRefreshKeepingBar() {
+  clearTimeout(refreshRun.timer);
+  refreshRun.timer = null;
+}
+
+async function pollRefresh() {
+  clearTimeout(refreshRun.timer);
+  if (!refreshRun.active) return;
+  if (Date.now() - refreshRun.startedAt > REFRESH_TIMEOUT_MS) {
+    stopRefresh();
+    toast("更新耗时过长，页面仍显示上一份快照；交易时段每 30 分钟也会自动更新", true);
+    return;
+  }
+  try {
+    const payload = await api("refresh-status", { fresh: true });
+    const run = payload.run;
+    // 只认这次刷新对应的任务：已知任务 id，或提交之后才创建的任务（避免把上一次已完成的任务当成这次）
+    const mine = run && (refreshRun.runId ? run.id === refreshRun.runId : Boolean(refreshRun.requestedAt) && Date.parse(run.createdAt) >= Date.parse(refreshRun.requestedAt) - 30_000);
+    if (mine) {
+      refreshRun.runId = run.id;
+      if (run.status === "completed") return finishRefresh(run.conclusion === "success");
+      refreshRun.step = run.status === "in_progress" ? "in_progress" : "queued";
+      renderRefreshState();
+    }
+  } catch {
+    // 网络抖动：继续轮询
+  }
+  refreshRun.timer = setTimeout(pollRefresh, 4000);
+}
+
+async function handleManualRefresh() {
+  if (refreshRun.active) return;
   if (refreshCooldownLeft() > 0) {
     updateRefreshButton();
-    toast("刷新每小时只能使用一次，交易时段数据每 30 分钟会自动更新");
+    toast("刷新每小时只能使用一次，交易时段每 30 分钟也会自动更新");
     return;
   }
   try { localStorage.setItem(REFRESH_KEY, String(Date.now())); } catch {}
-  loadEmotion(true);
+  beginRefresh({ step: "submitted", poll: false }); // 先显示「数据更新中」，提交成功后再轮询进度
+  try {
+    const response = await fetch(`${API_BASE}?market=${MARKET}&action=refresh`, { method: "POST", headers: { Accept: "application/json" } });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw Object.assign(new Error(payload.error || `请求失败 (${response.status})`), { code: payload.code });
+    if (payload.dispatched) {
+      refreshRun.requestedAt = payload.requestedAt;
+    } else if (payload.run) {
+      // 其他人刚刚发起过刷新：直接跟随那一次的进度
+      refreshRun.runId = payload.run.id;
+      if (payload.run.status === "completed") return finishRefresh(payload.run.conclusion === "success");
+    }
+    pollRefresh();
+  } catch (error) {
+    stopRefresh();
+    try { localStorage.removeItem(REFRESH_KEY); } catch {}
+    toast(error.code === "not_configured" ? "实时刷新服务尚未开通，页面显示的是最近一次定时快照" : `刷新失败：${error.message}`, true);
+  }
+}
+
+// 打开页面时如果已有进行中的刷新（例如别人刚点过），同样显示「数据更新中」并等它完成。
+async function resumeRunningRefresh() {
+  try {
+    const payload = await api("refresh-status", { fresh: true });
+    const run = payload.run;
+    if (run && run.status !== "completed" && Date.now() - Date.parse(run.createdAt) < REFRESH_TIMEOUT_MS) {
+      beginRefresh({ runId: run.id, step: run.status === "in_progress" ? "in_progress" : "queued", startedAt: Date.parse(run.createdAt) });
+    }
+  } catch {}
 }
 
 setInterval(updateRefreshButton, 30_000);
@@ -824,4 +967,4 @@ function watchSections() {
 
 applyMarketCopy();
 bindEvents();
-loadEmotion();
+loadEmotion().then(resumeRunningRefresh);

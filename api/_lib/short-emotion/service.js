@@ -168,11 +168,11 @@ const EMPTY_ANOMALIES = {
 export class NotReadyError extends Error {}
 
 /** Stored data for page visitors. Never calls Wind. */
-export async function readResource(resource, market = "cn") {
+export async function readResource(resource, market = "cn", { fresh = false } = {}) {
   market = normalizeMarket(market);
   const { classify } = MARKET_CONFIG[market].engine;
   const SCHEDULE = scheduleFor(market);
-  const store = getStore(market);
+  const store = getStore(market, { fresh });
   const meta = (entry) => ({ marketCode: market, storedAt: entry?.updatedAt || null, schedule: scheduleSummary(market) });
 
   if (resource === "emotion") {
