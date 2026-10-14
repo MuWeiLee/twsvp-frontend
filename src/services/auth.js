@@ -175,13 +175,14 @@ export async function getCurrentUserSupabase(options = {}) {
     return cachedSupabaseUser;
   }
   try {
+    // 先看本地有没有登录会话：访客没有会话，直接当作未登录（不发请求、不报错）。
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      cachedSupabaseUser = null;
+      supabaseCheckedAt = Date.now();
+      return cachedSupabaseUser;
+    }
     if (ensureSession) {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        cachedSupabaseUser = null;
-        supabaseCheckedAt = Date.now();
-        return cachedSupabaseUser;
-      }
       const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
       if (expiresAt && expiresAt - Date.now() < 60 * 1000) {
         await supabase.auth.refreshSession();
