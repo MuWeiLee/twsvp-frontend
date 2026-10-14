@@ -33,11 +33,18 @@
 
       <section class="card slide-in">
         <div class="section-title">{{ t("账号与安全") }}</div>
-        <div class="setting-item">
+        <div v-if="isLoggedIn" class="setting-item">
           <div class="setting-meta">
             <strong>{{ t("Google 账号") }}</strong>
             <span>{{ account.email }}</span>
           </div>
+        </div>
+        <div v-else-if="accountLoaded" class="setting-item">
+          <div class="setting-meta">
+            <strong>{{ t("未登录") }}</strong>
+            <span>{{ t("浏览无需登录，发观点时再登录即可") }}</span>
+          </div>
+          <button class="btn-login" type="button" @click="handleLogin">{{ t("登录") }}</button>
         </div>
 
         <div class="section-title">{{ t("通知偏好") }}</div>
@@ -200,14 +207,16 @@
           </router-link>
         </div>
 
-        <div class="section-title">{{ t("退出") }}</div>
-        <div class="setting-item">
-          <div class="setting-meta">
-            <strong>{{ t("退出当前账号") }}</strong>
-            <span>{{ t("将在本设备清除会话") }}</span>
+        <template v-if="isLoggedIn">
+          <div class="section-title">{{ t("退出") }}</div>
+          <div class="setting-item">
+            <div class="setting-meta">
+              <strong>{{ t("退出当前账号") }}</strong>
+              <span>{{ t("将在本设备清除会话") }}</span>
+            </div>
+            <button class="btn-danger" @click="handleLogout">{{ t("退出") }}</button>
           </div>
-          <button class="btn-danger" @click="handleLogout">{{ t("退出") }}</button>
-        </div>
+        </template>
 
         <p class="legal">
           {{ t("任何观点仅作为记录与回溯，不作为预测价格与投资建议。") }}
@@ -235,6 +244,7 @@ import {
   getStoredLanguagePreference,
 } from "../services/preferences.js";
 import { fetchBrokerPreferenceSupabase, getBrokerById } from "../services/brokers.js";
+import { promptLogin } from "../services/loginPrompt.js";
 
 const router = useRouter();
 const ADMIN_EMAIL = "pai.product.manager@gmail.com";
@@ -251,7 +261,10 @@ const priceScheme = ref("red_up");
 const themePreference = ref("system");
 const language = ref(getLanguagePreference());
 const currentUserId = ref("");
+const accountLoaded = ref(false);
 const brokerId = ref("");
+
+const isLoggedIn = computed(() => Boolean(currentUserId.value));
 
 const brokerLabel = computed(() => {
   const broker = getBrokerById(brokerId.value);
@@ -276,6 +289,7 @@ const loadAccount = async () => {
   const user = await getCurrentUserSupabase();
   account.email = user?.email || "—";
   currentUserId.value = user?.id || "";
+  accountLoaded.value = true;
   brokerId.value = await fetchBrokerPreferenceSupabase(currentUserId.value);
   if (currentUserId.value) {
     const profile = await getProfileSupabase(currentUserId.value);
@@ -296,11 +310,15 @@ const handleLogout = async () => {
 
   const success = await signOutSupabase();
   if (success) {
-    await router.replace("/login");
+    await router.replace("/feed");
     return;
   }
 
   alert(t("退出失败，请稍后重试。"));
+};
+
+const handleLogin = () => {
+  promptLogin(router);
 };
 
 const loadPreferences = () => {
@@ -543,7 +561,8 @@ const setLanguage = async (value) => {
   color: var(--ink);
 }
 
-.btn-danger {
+.btn-danger,
+.btn-login {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--ink);

@@ -9,7 +9,18 @@
         <button class="nav-action" @click="goSettings">{{ t("设置") }}</button>
       </nav>
 
-      <section class="profile">
+      <section v-if="isGuest" class="profile">
+        <GuestPrompt
+          :title="t('登录后查看你的观点与绩效')"
+          :description="t('浏览观点无需登录。想发布自己的观点、追踪胜率与绩效时，再登录即可。')"
+          @login="handleLogin"
+        />
+        <p class="legal">
+          {{ t("任何观点仅作为记录与回溯，不作为预测价格与投资建议。") }}
+        </p>
+      </section>
+
+      <section v-else class="profile">
         <div class="user-card">
           <div class="profile-avatar" :class="{ empty: !user.avatarUrl }">
             <img v-if="user.avatarUrl" :src="user.avatarUrl" alt="" />
@@ -190,8 +201,10 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
+import GuestPrompt from "../components/GuestPrompt.vue";
 import { useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
+import { promptLogin } from "../services/loginPrompt.js";
 import { showConfirm } from "../services/confirm.js";
 import { getProfileSupabase } from "../services/profile.js";
 import { supabase } from "../services/supabase.js";
@@ -224,6 +237,7 @@ const user = ref({
 const feeds = ref([]);
 const likedIds = ref(new Set());
 const currentUserId = ref("");
+const isGuest = ref(false);
 const activeMenuId = ref(null);
 const userPerformance = ref({
   avgPerformance: null,
@@ -323,10 +337,11 @@ const loadFeeds = async ({ append = false } = {}) => {
 const loadProfile = async () => {
   const supabaseUser = await getCurrentUserSupabase();
   if (!supabaseUser) {
-    router.replace("/login");
+    isGuest.value = true;
     return;
   }
 
+  isGuest.value = false;
   currentUserId.value = supabaseUser.id;
   const profile = await getProfileSupabase(supabaseUser.id);
 
@@ -408,9 +423,13 @@ const loadLikedIds = async (list = feeds.value) => {
   likedIds.value = await fetchFeedLikesSupabase(currentUserId.value, feedIds);
 };
 
+const handleLogin = () => {
+  promptLogin(router, { reason: "profile" });
+};
+
 const toggleLike = async (view) => {
   if (!currentUserId.value) {
-    router.replace("/login");
+    promptLogin(router, { reason: "like" });
     return;
   }
   const alreadyLiked = likedIds.value.has(view.feed_id);

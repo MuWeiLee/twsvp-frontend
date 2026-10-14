@@ -237,6 +237,7 @@ import BottomTabbar from "../components/BottomTabbar.vue";
 import FeedEditSheet from "../components/FeedEditSheet.vue";
 import { useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
+import { promptLogin } from "../services/loginPrompt.js";
 import { showConfirm } from "../services/confirm.js";
 import { getProfileSupabase } from "../services/profile.js";
 import { t } from "../services/i18n.js";
@@ -551,8 +552,7 @@ const handleQuickFollow = async () => {
   const authUserId = supabaseUser?.id || "";
   currentUserId.value = authUserId;
   if (!authUserId) {
-    showToast(t("请重新登录后再关注"), "error");
-    router.push("/login");
+    promptLogin(router, { reason: "follow" });
     return;
   }
   const followRows = [];
@@ -701,7 +701,7 @@ const saveEdit = async (content) => {
 
 const toggleLike = async (view) => {
   if (!currentUserId.value) {
-    router.replace("/login");
+    promptLogin(router, { reason: "like" });
     return;
   }
   const alreadyLiked = likedIds.value.has(view.feed_id);

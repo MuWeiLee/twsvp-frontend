@@ -188,6 +188,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
+import { promptLogin } from "../services/loginPrompt.js";
 import { showConfirm } from "../services/confirm.js";
 import { t } from "../services/i18n.js";
 import { addNotificationSupabase } from "../services/notifications.js";
@@ -255,7 +256,7 @@ const canEditFeed = (view) => {
 const toggleLike = async () => {
   if (!feed.value) return;
   if (!currentUserId.value) {
-    router.replace("/login");
+    promptLogin(router, { reason: "like" });
     return;
   }
   const alreadyLiked = likedIds.value.has(feed.value.feed_id);
@@ -551,7 +552,7 @@ const submitReply = async () => {
 };
 
 const goLogin = () => {
-  router.push("/login");
+  promptLogin(router, { reason: "comment" });
 };
 
 const canSubmitReply = computed(() => replyContent.value.trim().length > 0);

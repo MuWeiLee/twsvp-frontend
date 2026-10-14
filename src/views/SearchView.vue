@@ -554,6 +554,7 @@ import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
 import FeedEditSheet from "../components/FeedEditSheet.vue";
 import { getCurrentUserSupabase } from "../services/auth.js";
+import { promptLogin } from "../services/loginPrompt.js";
 import { showConfirm } from "../services/confirm.js";
 import { searchNewsSupabase } from "../services/news.js";
 import { searchUsersSupabase } from "../services/profile.js";
@@ -985,7 +986,7 @@ const openNews = (link) => {
 
 const toggleLike = async (view) => {
   if (!currentUserId.value) {
-    router.replace("/login");
+    promptLogin(router, { reason: "like" });
     return;
   }
   const alreadyLiked = likedIds.value.has(view.feed_id);

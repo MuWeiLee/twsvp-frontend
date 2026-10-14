@@ -109,7 +109,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getCurrentUserSupabase } from "../services/auth.js";
+import { ensureCanPost } from "../services/loginPrompt.js";
 import { searchStocksSupabase } from "../services/stocks.js";
 import { createFeedSupabase, mapLabelToDirection, mapLabelToHorizon } from "../services/feeds.js";
 import { t } from "../services/i18n.js";
@@ -231,9 +231,10 @@ const handlePublish = async () => {
     return;
   }
 
-  const user = await getCurrentUserSupabase();
+  // 先把写好的内容存成草稿：如果需要重新登录，回来后会自动带回（发布成功后草稿会清掉）。
+  saveDraft();
+  const user = await ensureCanPost(router);
   if (!user) {
-    router.replace("/login");
     return;
   }
 

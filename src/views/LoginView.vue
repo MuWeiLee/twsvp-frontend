@@ -152,7 +152,13 @@
 
     <section class="login-drawer">
       <div class="drawer-content">
-        <div class="drawer-title">{{ t("使用Google账号安全登录") }}</div>
+        <div class="drawer-head">
+          <div class="drawer-title">{{ drawerTitle }}</div>
+          <button class="browse-link" type="button" @click="handleBrowse">
+            {{ t("先逛逛，不登录") }} →
+          </button>
+        </div>
+        <p class="drawer-sub">{{ drawerSub }}</p>
         <button class="btn btn-google" @click="handleGoogle">
           <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
             <path
@@ -194,9 +200,11 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import logoUrl from "../assets/logo.png";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { t } from "../services/i18n.js";
 import {
+  clearLoginRedirect,
+  consumeLoginRedirect,
   ensureProfileSupabase,
   getCurrentUserSupabase,
   getProfileCompletionSupabase,
@@ -208,7 +216,45 @@ import {
 } from "../services/preferences.js";
 
 const router = useRouter();
+const route = useRoute();
 const language = ref(getLanguagePreference());
+
+// 从哪个操作跳来登录，就提示登录后能做什么。
+const LOGIN_REASON_TITLES = {
+  post: "登录后即可发布观点",
+  like: "登录后即可点赞",
+  comment: "登录后即可留言",
+  follow: "登录后即可关注",
+  notifications: "登录后查看你的通知",
+  profile: "登录后查看你的观点与绩效",
+};
+
+const loginReason = computed(() => {
+  const reason = typeof route.query.reason === "string" ? route.query.reason : "";
+  return LOGIN_REASON_TITLES[reason] ? reason : "";
+});
+
+const drawerTitle = computed(() => {
+  const _lang = language.value;
+  return t(LOGIN_REASON_TITLES[loginReason.value] || "使用Google账号安全登录");
+});
+
+const drawerSub = computed(() => {
+  const _lang = language.value;
+  return loginReason.value
+    ? t("使用Google账号安全登录")
+    : t("浏览观点无需登录，发观点时再登录即可");
+});
+
+// 不登录，回到刚才浏览的页面（直接打开登录页时去观点页）。
+const handleBrowse = () => {
+  clearLoginRedirect();
+  if (window.history.state?.back) {
+    router.back();
+    return;
+  }
+  router.replace("/feed");
+};
 const heroWords = computed(() => {
   const _lang = language.value;
   return [t("验证"), t("挖掘"), t("记录")];
@@ -224,7 +270,7 @@ onMounted(async () => {
   if (supabaseUser) {
     await ensureProfileSupabase(supabaseUser);
     const completed = await getProfileCompletionSupabase(supabaseUser.id);
-    router.replace(completed ? "/feed" : "/personal-setting");
+    router.replace(completed ? consumeLoginRedirect() || "/feed" : "/personal-setting");
   }
 });
 
@@ -642,9 +688,36 @@ const handleGoogleSupabase = async () => {
   gap: 6px;
 }
 
+.drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .drawer-title {
   font-weight: 600;
   font-size: 14px;
+}
+
+.browse-link {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  padding: 4px 0;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.browse-link:hover {
+  color: var(--ink);
+}
+
+.drawer-sub {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .hero-swap-enter-active,
