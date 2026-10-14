@@ -348,6 +348,7 @@ import { useRoute, useRouter } from "vue-router";
 import CreateFeedPanel from "../components/CreateFeedPanel.vue";
 import FeedEditSheet from "../components/FeedEditSheet.vue";
 import { getCurrentUserSupabase } from "../services/auth.js";
+import { ensureCanPost, promptLogin } from "../services/loginPrompt.js";
 import { showConfirm } from "../services/confirm.js";
 import { showToast } from "../services/toast.js";
 import {
@@ -448,8 +449,7 @@ const toggleStockFollow = async () => {
   const supabaseUser = await getCurrentUserSupabase({ force: true, ensureSession: true });
   currentUserId.value = supabaseUser?.id || "";
   if (!currentUserId.value) {
-    showToast(t("请重新登录后再关注"), "error");
-    router.push("/login");
+    promptLogin(router, { reason: "follow" });
     return;
   }
   const list = readFollowedStocks();
@@ -1097,8 +1097,20 @@ const goProfile = (view) => {
   }
 };
 
-const goCreateFeed = () => {
+// 访客点「发表观点」时先登录；登录（及首次补全资料）后回到本页并自动打开发观点面板。
+const goCreateFeed = async () => {
+  const user = await ensureCanPost(router);
+  if (!user) return;
+  currentUserId.value = user.id;
   isCreateOpen.value = true;
+};
+
+const openComposeFromLogin = async () => {
+  if (route.query.compose !== "1") return;
+  const { compose, ...rest } = route.query;
+  await router.replace({ path: route.path, query: rest });
+  const user = await getCurrentUserSupabase();
+  if (user) await goCreateFeed();
 };
 
 const closeCreateFeed = () => {
@@ -1174,7 +1186,7 @@ const loadLikedIds = async (list = views.value) => {
 
 const toggleLike = async (view) => {
   if (!currentUserId.value) {
-    router.replace("/login");
+    promptLogin(router, { reason: "like" });
     return;
   }
   const alreadyLiked = likedIds.value.has(view.feed_id);
@@ -1299,6 +1311,7 @@ const handleShare = async () => {
 onMounted(loadUser);
 onMounted(loadHiddenIds);
 onMounted(loadData);
+onMounted(openComposeFromLogin);
 onMounted(() => {
   window.addEventListener("resize", updateChartPlotWidth);
 });

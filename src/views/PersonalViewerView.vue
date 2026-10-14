@@ -179,6 +179,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getCurrentUserSupabase } from "../services/auth.js";
+import { promptLogin } from "../services/loginPrompt.js";
 import { showToast } from "../services/toast.js";
 import { getProfileSupabase, getUserGroupNamesSupabase } from "../services/profile.js";
 import { t } from "../services/i18n.js";
@@ -383,8 +384,7 @@ const toggleFollow = async () => {
   const authUserId = supabaseUser?.id || "";
   currentUserId.value = authUserId;
   if (!authUserId) {
-    showToast(t("请重新登录后再关注"), "error");
-    router.push("/login");
+    promptLogin(router, { reason: "follow" });
     return;
   }
   const list = readFollowedUsers();
@@ -544,7 +544,7 @@ const loadLikedIds = async (list = feeds.value) => {
 
 const toggleLike = async (view) => {
   if (!currentUserId.value) {
-    router.replace("/login");
+    promptLogin(router, { reason: "like" });
     return;
   }
   const alreadyLiked = likedIds.value.has(view.feed_id);

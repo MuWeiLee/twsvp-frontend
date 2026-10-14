@@ -9,7 +9,7 @@
         <span class="nav-space" aria-hidden="true"></span>
       </nav>
 
-      <div class="tabs tabs-wrap" :class="{ hidden: !showTabs }">
+      <div v-if="!isGuest" class="tabs tabs-wrap" :class="{ hidden: !showTabs }">
         <button
           class="tab-btn"
           :class="{ active: activeTab === 'like' }"
@@ -43,6 +43,7 @@
       <div
         ref="scrollContainer"
         class="notifications-scroll"
+        :class="{ guest: isGuest }"
         @touchstart="handleTouchStart"
         @touchmove="handleTouchMove"
         @touchend="handleTouchEnd"
@@ -51,7 +52,14 @@
         <div class="refresh-indicator" :style="{ height: `${pullDistance}px` }">
           <span :class="{ active: pullDistance >= PULL_THRESHOLD }">{{ refreshLabel }}</span>
         </div>
-        <section class="list">
+        <section v-if="isGuest" class="list">
+          <GuestPrompt
+            :title="t('登录后查看你的通知')"
+            :description="t('点赞、留言、关注和观点到期提醒都会出现在这里。浏览观点无需登录。')"
+            @login="handleLogin"
+          />
+        </section>
+        <section v-else class="list">
           <div
             v-for="item in filteredItems"
             :key="item.id"
@@ -101,7 +109,9 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import logoUrl from "../assets/logo.png";
 import BottomTabbar from "../components/BottomTabbar.vue";
+import GuestPrompt from "../components/GuestPrompt.vue";
 import { getCurrentUserSupabase } from "../services/auth.js";
+import { promptLogin } from "../services/loginPrompt.js";
 import { fetchNotificationsSupabase } from "../services/notifications.js";
 import { formatFeedTimestamp, getReplyCount } from "../services/feeds.js";
 import { t } from "../services/i18n.js";
@@ -111,6 +121,7 @@ const activeTab = ref("like");
 const items = ref([]);
 const isLoading = ref(false);
 const currentUserId = ref("");
+const isGuest = ref(false);
 const showTabs = ref(true);
 const lastScrollY = ref(0);
 const page = ref(1);
@@ -265,9 +276,12 @@ const filteredItems = computed(() => {
 const loadNotifications = async ({ append = false } = {}) => {
   const user = await getCurrentUserSupabase();
   if (!user) {
-    router.replace("/login");
+    isGuest.value = true;
+    hasMore.value = false;
+    isLoading.value = false;
     return;
   }
+  isGuest.value = false;
   currentUserId.value = user.id;
   if (append) {
     isLoadingMore.value = true;
@@ -308,6 +322,10 @@ const refreshNotifications = async () => {
     scrollContainer.value.scrollTo({ top: 0, behavior: "smooth" });
   }
   isRefreshing.value = false;
+};
+
+const handleLogin = () => {
+  promptLogin(router, { reason: "notifications" });
 };
 
 const goFeed = (feedId) => {
@@ -557,6 +575,10 @@ watch(activeTab, () => {
     16px calc(96px + env(safe-area-inset-bottom, 0px));
   overscroll-behavior: contain;
   background: var(--bg);
+}
+
+.notifications-scroll.guest {
+  padding-top: calc(var(--nav-height) + 12px + env(safe-area-inset-top, 0px));
 }
 
 .refresh-indicator {

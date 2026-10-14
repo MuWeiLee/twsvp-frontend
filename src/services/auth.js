@@ -130,6 +130,42 @@ export async function signInWithGoogleSupabase() {
   }
 }
 
+// ───── 登录后返回原页面 ─────
+// 访客点了需要登录的操作（发观点、点赞、留言、关注）时，记住要回到的页面；登录完成后跳回去。
+// 用 localStorage（带过期时间），因为 Google 登录会整页跳走再回到 /auth/callback。
+const LOGIN_REDIRECT_KEY = "twsvp_login_redirect";
+const LOGIN_REDIRECT_TTL_MS = 30 * 60 * 1000;
+
+const isSafeRedirectPath = (value) =>
+  value.startsWith("/") &&
+  !value.startsWith("//") &&
+  !/^\/(login|auth\/callback)?(\?|#|$)/.test(value);
+
+export function rememberLoginRedirect(path) {
+  if (typeof localStorage === "undefined") return;
+  const value = String(path || "");
+  if (!isSafeRedirectPath(value)) return;
+  localStorage.setItem(LOGIN_REDIRECT_KEY, JSON.stringify({ path: value, at: Date.now() }));
+}
+
+export function consumeLoginRedirect() {
+  if (typeof localStorage === "undefined") return null;
+  const raw = localStorage.getItem(LOGIN_REDIRECT_KEY);
+  localStorage.removeItem(LOGIN_REDIRECT_KEY);
+  try {
+    const { path, at } = JSON.parse(raw || "null") || {};
+    if (!path || !isSafeRedirectPath(String(path))) return null;
+    return Date.now() - at < LOGIN_REDIRECT_TTL_MS ? path : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearLoginRedirect() {
+  if (typeof localStorage === "undefined") return;
+  localStorage.removeItem(LOGIN_REDIRECT_KEY);
+}
+
 // 使用Supabase获取当前用户
 export async function getCurrentUserSupabase(options = {}) {
   const force = options.force === true;
@@ -139,13 +175,14 @@ export async function getCurrentUserSupabase(options = {}) {
     return cachedSupabaseUser;
   }
   try {
+    // 先看本地有没有登录会话：访客没有会话，直接当作未登录（不发请求、不报错）。
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      cachedSupabaseUser = null;
+      supabaseCheckedAt = Date.now();
+      return cachedSupabaseUser;
+    }
     if (ensureSession) {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        cachedSupabaseUser = null;
-        supabaseCheckedAt = Date.now();
-        return cachedSupabaseUser;
-      }
       const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
       if (expiresAt && expiresAt - Date.now() < 60 * 1000) {
         await supabase.auth.refreshSession();

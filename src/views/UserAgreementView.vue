@@ -136,7 +136,7 @@ const handleBack = () => {
     router.back();
     return;
   }
-  router.replace("/login");
+  router.replace("/feed");
 };
 </script>
 
