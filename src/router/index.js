@@ -26,7 +26,12 @@ import AdminStocksList from "../views/admin/AdminStocksList.vue";
 import AdminStockDetail from "../views/admin/AdminStockDetail.vue";
 import AdminSystemPermissions from "../views/admin/AdminSystemPermissions.vue";
 import AdminSystemAuditLogs from "../views/admin/AdminSystemAuditLogs.vue";
-import { getCurrentUserSupabase, getProfileCompletionSupabase } from "../services/auth.js";
+import {
+  consumeLoginRedirect,
+  getCurrentUserSupabase,
+  getProfileCompletionSupabase,
+  rememberLoginRedirect,
+} from "../services/auth.js";
 import { getProfileSupabase } from "../services/profile.js";
 import { applyLanguagePreference, getLanguagePreference } from "../services/preferences.js";
 import { trackPageView } from "../services/analytics.js";
@@ -35,17 +40,17 @@ const routes = [
   { path: "/", component: LoginView },
   { path: "/login", component: LoginView },
   { path: "/auth/callback", component: AuthCallbackView },
-  { path: "/feed", component: FeedView },
-  { path: "/feed/:id", component: FeedCardView },
+  { path: "/feed", component: FeedView, meta: { public: true } },
+  { path: "/feed/:id", component: FeedCardView, meta: { public: true } },
   { path: "/create-feed", component: CreateFeedView },
-  { path: "/stock/:symbol", component: StockFeedView },
-  { path: "/sector/:id", component: SectorFeedView },
-  { path: "/search", component: SearchView },
-  { path: "/news", component: NewsView },
+  { path: "/stock/:symbol", component: StockFeedView, meta: { public: true } },
+  { path: "/sector/:id", component: SectorFeedView, meta: { public: true } },
+  { path: "/search", component: SearchView, meta: { public: true } },
+  { path: "/news", component: NewsView, meta: { public: true } },
   { path: "/notifications", component: NotificationsView },
   { path: "/personal-setting", component: PersonalSettingView },
-  { path: "/user/:id", component: PersonalViewerView },
-  { path: "/u/:code", component: PersonalViewerView },
+  { path: "/user/:id", component: PersonalViewerView, meta: { public: true } },
+  { path: "/u/:code", component: PersonalViewerView, meta: { public: true } },
   { path: "/profile", component: ProfileView },
   { path: "/settings", component: SettingsView },
   { path: "/broker-selection", component: BrokerSelectionView },
@@ -105,7 +110,7 @@ const routes = [
       { path: "", redirect: "/admin/backend/dashboard" },
     ],
   },
-  { path: "/:pathMatch(.*)*", redirect: "/login" },
+  { path: "/:pathMatch(.*)*", redirect: "/feed" },
 ];
 
 const router = createRouter({
@@ -138,7 +143,10 @@ const ensureProfileLanguage = async (supabaseUser) => {
   languageApplied = true;
 };
 
-router.beforeEach(async (to) => {
+// 公开浏览：带 meta.public 的只读页面（观点、个股、板块、搜索、新闻、个人主页）无需登录；
+// 发观点、通知、个人资料、设置、券商设置与后台仍需登录。
+router.beforeEach(async (to, from) => {
+  const isPublicRoute = to.matched.some((record) => record.meta?.public);
   const isLoginRoute =
     to.path === "/" || to.path === "/login" || to.path === "/auth/callback";
   const isAgreementRoute =
@@ -171,17 +179,25 @@ router.beforeEach(async (to) => {
 
   if (isLoginRoute) {
     if (!supabaseUser) {
+      // 从公开页面点了需要登录的操作（点赞、关注、发观点等）时，登录后回到原页面。
+      if (to.path === "/login" && from.matched.length && from.matched.some((record) => record.meta?.public)) {
+        rememberLoginRedirect(from.fullPath);
+      }
       return true;
     }
     const completed = await getProfileCompletionSupabase(supabaseUser.id);
-    return completed ? "/feed" : "/personal-setting";
+    return completed ? consumeLoginRedirect() || "/feed" : "/personal-setting";
   }
 
-  if (isAgreementRoute) {
+  if (isAgreementRoute || isPublicRoute) {
     return true;
   }
 
-  return supabaseUser ? true : "/login";
+  if (supabaseUser) {
+    return true;
+  }
+  rememberLoginRedirect(to.fullPath);
+  return "/login";
 });
 
 router.afterEach((to) => {

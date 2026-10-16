@@ -130,6 +130,89 @@ export async function signInWithGoogleSupabase() {
   }
 }
 
+// ───── 邮箱验证码登录 ─────
+// Supabase 按邮箱识别用户：原 Google 用户填同一个邮箱会进入原账户（用户 ID 不变）；
+// 新邮箱会自动注册，随后走「个人设置」补全资料。
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isValidEmail(email) {
+  return EMAIL_PATTERN.test(String(email || "").trim());
+}
+
+export async function sendEmailLoginCode(email) {
+  const address = String(email || "").trim().toLowerCase();
+  if (!isValidEmail(address)) {
+    throw new Error(t("请输入有效的邮箱地址"));
+  }
+  const { error } = await supabase.auth.signInWithOtp({
+    email: address,
+    options: {
+      shouldCreateUser: true,
+      emailRedirectTo: `${window.location.origin}/auth/callback`,
+    },
+  });
+  if (error) {
+    throw new Error(describeEmailAuthError(error));
+  }
+  return address;
+}
+
+export async function verifyEmailLoginCode(email, code) {
+  const token = String(code || "").replace(/\s+/g, "");
+  if (!/^\d{6,10}$/.test(token)) {
+    throw new Error(t("请输入邮件中的数字验证码"));
+  }
+  const { data, error } = await supabase.auth.verifyOtp({
+    email: String(email || "").trim().toLowerCase(),
+    token,
+    type: "email",
+  });
+  if (error) {
+    throw new Error(describeEmailAuthError(error));
+  }
+  clearAuthCache();
+  return data?.user || data?.session?.user || null;
+}
+
+function describeEmailAuthError(error) {
+  const message = String(error?.message || error || "");
+  if (error?.status === 429 || /rate limit|too many|security purposes/i.test(message)) {
+    return t("发送太频繁，请稍后再试");
+  }
+  if (/expired|invalid|otp/i.test(message)) {
+    return t("验证码错误或已过期，请重新获取");
+  }
+  if (/signups? not allowed|disabled/i.test(message)) {
+    return t("邮箱登录暂未开放");
+  }
+  return message || t("登录失败，请稍后重试");
+}
+
+// ───── 登录后返回原页面 ─────
+// 未登录访问需要登录的页面或操作时，记住来源页面；登录完成后跳回去。
+// 用 localStorage（带过期时间），因为邮件里的登录链接可能在新标签页打开。
+const LOGIN_REDIRECT_KEY = "twsvp_login_redirect";
+const LOGIN_REDIRECT_TTL_MS = 30 * 60 * 1000;
+
+export function rememberLoginRedirect(path) {
+  if (typeof localStorage === "undefined") return;
+  const value = String(path || "");
+  if (!value.startsWith("/") || value.startsWith("//") || /^\/(login|auth\/callback)?(\?|$)/.test(value)) return;
+  localStorage.setItem(LOGIN_REDIRECT_KEY, JSON.stringify({ path: value, at: Date.now() }));
+}
+
+export function consumeLoginRedirect() {
+  if (typeof localStorage === "undefined") return null;
+  const raw = localStorage.getItem(LOGIN_REDIRECT_KEY);
+  localStorage.removeItem(LOGIN_REDIRECT_KEY);
+  try {
+    const { path, at } = JSON.parse(raw || "null") || {};
+    return path && Date.now() - at < LOGIN_REDIRECT_TTL_MS ? path : null;
+  } catch {
+    return null;
+  }
+}
+
 // 使用Supabase获取当前用户
 export async function getCurrentUserSupabase(options = {}) {
   const force = options.force === true;
@@ -184,6 +267,16 @@ export async function ensureProfileSupabase(user) {
   };
 
   try {
+    // 只在首次登录时建档：已有资料（用户改过的昵称、头像）不再被登录方式的默认值覆盖。
+    const { data: existing, error: existingError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!existingError && existing) {
+      return existing;
+    }
+
     const { data, error } = await supabase
       .from("users")
       .upsert(payload, { onConflict: "user_id" })

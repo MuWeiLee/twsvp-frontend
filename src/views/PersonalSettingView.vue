@@ -86,7 +86,12 @@
 <script setup>
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { clearAuthCache, getCurrentUserSupabase, signOutSupabase } from "../services/auth.js";
+import {
+  clearAuthCache,
+  consumeLoginRedirect,
+  getCurrentUserSupabase,
+  signOutSupabase,
+} from "../services/auth.js";
 import {
   applyLanguagePreference,
   getLanguagePreference,
@@ -206,7 +211,7 @@ const handleSave = async () => {
 
     if (profile && savedGroups) {
       clearAuthCache();
-      router.replace("/feed");
+      router.replace(consumeLoginRedirect() || "/feed");
       return;
     }
     error.value = t("保存失败，请稍后重试。");
